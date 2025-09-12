@@ -259,7 +259,7 @@ export default function InventoryPage() {
                           <FormItem>
                             <FormLabel>Batch Number</FormLabel>
                             <FormControl>
-                              <Input placeholder="BT-2024-001" {...field} data-testid="input-batch-number" />
+                              <Input placeholder="BT-2024-001" {...field} value={field.value || ''} data-testid="input-batch-number" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -289,7 +289,7 @@ export default function InventoryPage() {
                           <FormItem>
                             <FormLabel>Manufacture Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} data-testid="input-manufacture-date" />
+                              <Input type="date" {...field} value={field.value || ''} data-testid="input-manufacture-date" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -303,7 +303,7 @@ export default function InventoryPage() {
                           <FormItem>
                             <FormLabel>Expiry Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} data-testid="input-expiry-date" />
+                              <Input type="date" {...field} value={field.value || ''} data-testid="input-expiry-date" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -318,7 +318,7 @@ export default function InventoryPage() {
                         <FormItem>
                           <FormLabel>Cost Per Unit</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-cost-per-unit" />
+                            <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-cost-per-unit" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -477,7 +477,7 @@ export default function InventoryPage() {
                       )}
 
                       <div className="flex justify-between items-center pt-2 border-t text-xs text-muted-foreground">
-                        <span>Added {format(new Date(item.createdAt), 'MMM dd')}</span>
+                        <span>Added {item.createdAt ? format(new Date(item.createdAt), 'MMM dd') : 'N/A'}</span>
                         <Button size="sm" variant="outline" data-testid={`button-manage-${item.id}`}>
                           Manage
                         </Button>

@@ -191,7 +191,7 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <Input placeholder="customer@example.com" {...field} data-testid="input-customer-email" />
+                              <Input placeholder="customer@example.com" {...field} value={field.value || ''} data-testid="input-customer-email" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -207,7 +207,7 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Phone</FormLabel>
                             <FormControl>
-                              <Input placeholder="+1 (555) 123-4567" {...field} data-testid="input-customer-phone" />
+                              <Input placeholder="+1 (555) 123-4567" {...field} value={field.value || ''} data-testid="input-customer-phone" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -221,7 +221,7 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Tax ID</FormLabel>
                             <FormControl>
-                              <Input placeholder="Tax identification number" {...field} data-testid="input-customer-tax-id" />
+                              <Input placeholder="Tax identification number" {...field} value={field.value || ''} data-testid="input-customer-tax-id" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -236,7 +236,7 @@ export default function Customers() {
                         <FormItem>
                           <FormLabel>Address</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Full address" {...field} data-testid="textarea-customer-address" />
+                            <Textarea placeholder="Full address" {...field} value={field.value || ''} data-testid="textarea-customer-address" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -251,7 +251,7 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Credit Limit</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="0.00" {...field} data-testid="input-credit-limit" />
+                              <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-credit-limit" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -265,7 +265,7 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Payment Terms (Days)</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="30" {...field} data-testid="input-payment-terms" />
+                              <Input type="number" placeholder="30" {...field} value={field.value ?? 30} data-testid="input-payment-terms" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -378,7 +378,7 @@ export default function Customers() {
 
                     <div className="flex justify-between items-center pt-3 border-t">
                       <span className="text-xs text-muted-foreground">
-                        Created {new Date(customer.createdAt).toLocaleDateString()}
+                        Created {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}
                       </span>
                       <div className="flex space-x-2">
                         <Button size="sm" variant="outline" data-testid={`button-edit-${customer.id}`}>

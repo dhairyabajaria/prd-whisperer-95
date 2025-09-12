@@ -291,7 +291,7 @@ export default function Purchases() {
                           <FormItem>
                             <FormLabel>Expected Delivery Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} data-testid="input-delivery-date" />
+                              <Input type="date" {...field} value={field.value || ''} data-testid="input-delivery-date" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -307,7 +307,7 @@ export default function Purchases() {
                           <FormItem>
                             <FormLabel>Subtotal</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-subtotal" />
+                              <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-subtotal" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -321,7 +321,7 @@ export default function Purchases() {
                           <FormItem>
                             <FormLabel>Tax Amount</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-tax-amount" />
+                              <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-tax-amount" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -335,7 +335,7 @@ export default function Purchases() {
                           <FormItem>
                             <FormLabel>Total Amount</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-total-amount" />
+                              <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-total-amount" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -350,7 +350,7 @@ export default function Purchases() {
                         <FormItem>
                           <FormLabel>Notes</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Additional notes or requirements..." {...field} data-testid="textarea-notes" />
+                            <Textarea placeholder="Additional notes or requirements..." {...field} value={field.value || ''} data-testid="textarea-notes" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

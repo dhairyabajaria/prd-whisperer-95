@@ -434,7 +434,7 @@ export class DatabaseStorage implements IStorage {
         createdAt: salesOrders.createdAt,
         updatedAt: salesOrders.updatedAt,
         customer: customers,
-        salesRep: users as User | undefined,
+        salesRep: users,
       })
       .from(salesOrders)
       .innerJoin(customers, eq(salesOrders.customerId, customers.id))
@@ -668,7 +668,7 @@ export class DatabaseStorage implements IStorage {
         createdAt: stockMovements.createdAt,
         product: products,
         warehouse: warehouses,
-        user: users as User | undefined,
+        user: users,
       })
       .from(stockMovements)
       .innerJoin(products, eq(stockMovements.productId, products.id))

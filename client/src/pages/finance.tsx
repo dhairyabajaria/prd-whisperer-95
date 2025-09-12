@@ -472,7 +472,7 @@ export default function Finance() {
                               <FormItem>
                                 <FormLabel>Subtotal</FormLabel>
                                 <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-invoice-subtotal" />
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-invoice-subtotal" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -486,7 +486,7 @@ export default function Finance() {
                               <FormItem>
                                 <FormLabel>Tax Amount</FormLabel>
                                 <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-invoice-tax-amount" />
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-invoice-tax-amount" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -500,7 +500,7 @@ export default function Finance() {
                               <FormItem>
                                 <FormLabel>Total Amount</FormLabel>
                                 <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-invoice-total-amount" />
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-invoice-total-amount" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -515,7 +515,7 @@ export default function Finance() {
                             <FormItem>
                               <FormLabel>Notes</FormLabel>
                               <FormControl>
-                                <Textarea placeholder="Additional notes or terms..." {...field} data-testid="textarea-invoice-notes" />
+                                <Textarea placeholder="Additional notes or terms..." {...field} value={field.value || ''} data-testid="textarea-invoice-notes" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
