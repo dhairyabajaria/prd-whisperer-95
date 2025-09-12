@@ -1,0 +1,163 @@
+Master PRD – AI-Powered ERP & CRM for Pharmaceutical Distribution
+
+System Overview
+This platform is a web-based ERP & CRM system designed for pharmaceutical distributors, with a focus on operations in Angola, but adaptable for India, UAE, and international expansion. It combines Sales, Purchases, Inventory, Finance, HR, POS, Marketing, AI automation, and Reporting into a single role-based platform. Language: English + Portuguese (default), extendable to more languages.
+
+Core Functional Modules (Detailed)
+
+1. Sales & CRM
+Objective: Manage customers, quotations, invoices, and track receivables efficiently.
+Functions:
+* Customer Master: Store details (Name, Contact, Address, Tax ID, Payment Terms, Credit Limit, Assigned Sales Rep).
+* Credit Control: Block invoicing if outstanding exceeds credit limit, with override option (admin approval required).
+* Quotation Management: Create quotations → convert to sales orders → invoices. Editable templates with branding/logo.
+* Invoicing:
+    * Cash or Credit invoices.
+    * Multi-currency support.
+    * Auto-calculation of taxes & discounts.
+* Receipts: Log payments (cash, bank, cheque, mobile money). Link directly to invoice.
+* Commission Tracking: Each invoice calculates commission based on rules (percentage, tiered, fixed). Linked to HR module.
+* Customer Sentiment Analysis (AI): Analyze email/WhatsApp/chat logs to tag customer as happy / neutral / dissatisfied.
+* Lead Scoring (AI): Rank prospects based on interaction history + payment behavior.
+* Export/Import: Customizable by date, customer, product, sales rep, payment status → Excel/PDF.
+* Dashboard (Sales Role):
+    * Daily sales target vs achieved.
+    * Outstanding payments by customer.
+    * Pipeline view (Leads → Quotes → Orders → Invoices).
+    * Commission summary.
+
+2. Purchases
+Objective: Streamline vendor management, purchase orders, and supplier payments.
+Functions:
+* Supplier Master: Store details (Name, Contact, Address, Country, Credit Days, Incoterms, Currency).
+* Purchase Requests (PR): Employees can raise PR → Approval Workflow → Convert to PO.
+* Purchase Orders (PO):
+    * Create directly or from PR.
+    * Add Incoterms, Delivery Dates, Payment Terms.
+    * Status tracking (Draft, Sent, Confirmed, Received, Closed).
+* Vendor Bills: Upload invoices, OCR extracts data.
+* Three-Way Match: PO ↔ Invoice ↔ Receipt to prevent mismatches.
+* Multi-Currency: Auto FX rate updates.
+* Competitor Price Tracking (AI): Compare supplier prices with competitors. Highlight cheaper vendors.
+* Export/Import: Customizable by date, supplier, product, currency → Excel/PDF.
+* Dashboard (Purchase Role):
+    * Pending approvals.
+    * Top suppliers by spend.
+    * Open POs.
+    * Upcoming payments.
+
+3. Inventory & Warehouse
+Objective: Manage stock with pharmaceutical compliance (batch, expiry).
+Functions:
+* Multi-Warehouse: Central warehouse + branches + cold storage support.
+* Stock Moves: Goods Receipt, Transfer, Delivery, Scrap.
+* Batch Tracking: Every product linked to Batch Number, Mfg Date, Expiry Date.
+* Expiry Alerts: Notify X days before expiry (default: 90 days, editable).
+* Inventory Valuation: Choose FIFO, LIFO, Weighted Average.
+* FEFO (First Expired, First Out): Default for pharma products.
+* Barcode/QR: Scan to check batch, expiry, and stock levels.
+* Smart Replenishment (AI): Suggest reorder based on sales trend, lead time.
+* Scrap/Returns: Mark expired/damaged products. Auto adjust accounting.
+* Export/Import: By product, warehouse, expiry, location.
+* Dashboard (Inventory Role):
+    * Stock by warehouse.
+    * Expiry alerts.
+    * Valuation summary.
+    * AI “Reorder Now” suggestions.
+
+4. Accounting & Finance
+Objective: Automate financials across countries.
+Functions:
+* Chart of Accounts: Preloaded for Angola, India, UAE; editable.
+* Double Entry: Every transaction (Sale, Purchase, Expense, Payment) posts automatically.
+* Reports:
+    * P&L, Balance Sheet, Cash Flow (daily/weekly/monthly/quarterly).
+    * Aged Receivables & Payables.
+* Taxes: Multi-country VAT, GST.
+* Bank Reconciliation (AI): Auto-match payments with invoices. Flag mismatches.
+* Payments: Record bank transfers, cheques, mobile money. Multi-currency support.
+* Export/Import: Trial Balance, Ledger, Reports → Excel/PDF.
+* Dashboard (Finance Role):
+    * Cash on hand.
+    * Debtors/Creditors aging.
+    * Daily P&L snapshot.
+    * AI cash flow prediction.
+
+5. Human Resources (HR)
+Objective: Manage employees, payroll, leave, and commissions.
+Functions:
+* Employee Master: Name, Role, Salary, Bank Details, Passport, Visa Expiry.
+* Leave Management: Apply, Approve/Reject.
+* Payroll: Auto-calculate salary + allowances + deductions.
+* Commissions: Import from sales invoices.
+* Expenses: Upload bills (OCR extracts). Approvals required.
+* Export/Import: Payroll sheets, attendance logs.
+* Dashboard (HR Role):
+    * Headcount.
+    * Payroll due.
+    * Leave balance.
+    * Pending approvals.
+
+6. POS (Point of Sale)
+Objective: Enable retail/branch sales.
+Functions:
+* Offline Mode: Works without internet, syncs later.
+* Multi-Payment: Cash, card, mobile money.
+* Bill Splitting: Split payment between methods.
+* Discounts/Loyalty: Configurable per customer.
+* Franchise Ready: Track multiple locations.
+* Export/Import: Daily sales reports.
+* Dashboard (POS Role):
+    * Sales by cashier.
+    * Top products.
+    * Refunds.
+    * AI fraud detection.
+
+7. Marketing & Communication
+Objective: Enhance engagement via campaigns.
+Functions:
+* Customer Segmentation: By spend, location, payment behavior.
+* Email Campaigns: Templates with merge fields.
+* WhatsApp Campaigns: Auto-send invoices, reminders, offers.
+* AI Generated Campaigns: Suggest subject lines, messages, timings.
+* Auto-Translation: English ↔ Portuguese.
+* Export/Import: Campaign lists.
+* Dashboard (Marketing Role):
+    * Campaign ROI.
+    * Open rates.
+    * AI suggestions for next campaign.
+
+8. AI-Powered Features
+* AI Assistant (Chat UI): Type natural queries → system runs (e.g., “Show sales by supplier last 90 days”).
+* Risk-Based Approvals: AI checks customer payment history before allowing large orders.
+* Competitor Price Tracking: AI scrapes competitor websites for product pricing.
+* Predictive Analytics: Forecast sales, demand, cash flow.
+* Summaries: Auto-generate summaries of P&L, sales, and customer feedback.
+* OCR: Read invoices, receipts, supplier bills.
+
+9. Reporting & Exports
+* Scheduled Reports: Daily, Weekly, Monthly, Quarterly.
+* Delivery: Auto-send to pre-defined email & WhatsApp.
+* Custom Filters: By date, warehouse, customer, supplier.
+* Formats: Excel, PDF, AI-generated summary text.
+* On-Demand Download: Available anytime from dashboard.
+
+10. Role-Based Access
+* Admin: Create/manage everything.
+* Sales: See leads, invoices, commissions.
+* Finance: See P&L, balance sheet.
+* HR: Manage employees, payroll.
+* Inventory: Manage stock & warehouses.
+* POS: Limited to sales screens.
+* Custom Roles: Admin can create new ones.
+* Audit Trail: Logs of all actions.
+
+11. Settings & Administration
+General: Company info, logo, language, time zone. Users & Roles: Add/edit/delete users, assign roles. AI & Integrations: Add API keys (OpenAI, Google, WhatsApp). Toggle features. Finance: Tax rules, chart of accounts, currency. Sales & Purchases: Commission %, templates. Inventory: Valuation method, expiry alerts, min stock levels. HR: Payroll frequency, leave policy. Reports: Schedule auto-reports. Backup/Restore: Auto-backup (daily/weekly/monthly), restore with one click. Security: 2FA, IP restrictions, encryption. Customization: Theme, colors, custom fields, branding.
+
+ Benefits
+* AI-driven automation reduces manual work.
+* Fully customizable exports and workflows.
+* Compliant with pharma regulations (batch/expiry tracking).
+* Scales across multiple countries.
+* Easy admin control via Settings module.
