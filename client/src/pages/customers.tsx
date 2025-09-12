@@ -86,7 +86,16 @@ export default function Customers() {
   });
 
   const onSubmit = (data: InsertCustomer) => {
-    createCustomerMutation.mutate(data);
+    // Clean up empty values - convert empty strings to null for optional FK fields
+    const cleanedData = {
+      ...data,
+      assignedSalesRep: data.assignedSalesRep || null,
+      email: data.email || null,
+      phone: data.phone || null,
+      address: data.address || null,
+      taxId: data.taxId || null,
+    };
+    createCustomerMutation.mutate(cleanedData);
   };
 
   const filteredCustomers = customers?.filter(customer =>
@@ -251,7 +260,16 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Credit Limit</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-credit-limit" />
+                              <Input 
+                                type="number" 
+                                step="0.01"
+                                placeholder="0.00" 
+                                value={field.value ?? '0'}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                data-testid="input-credit-limit" 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -265,7 +283,15 @@ export default function Customers() {
                           <FormItem>
                             <FormLabel>Payment Terms (Days)</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="30" {...field} value={field.value ?? 30} data-testid="input-payment-terms" />
+                              <Input 
+                                type="number" 
+                                placeholder="30" 
+                                value={field.value ?? 30}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value, 10) : 30)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                data-testid="input-payment-terms" 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
