@@ -38,6 +38,95 @@ export const userRoleEnum = pgEnum('user_role', [
   'marketing'
 ]);
 
+// Additional enums for new modules
+export const employmentStatusEnum = pgEnum('employment_status', [
+  'active',
+  'inactive',
+  'terminated',
+  'suspended',
+  'probation'
+]);
+
+export const timeEntryTypeEnum = pgEnum('time_entry_type', [
+  'regular',
+  'overtime',
+  'sick_leave',
+  'vacation',
+  'personal_leave',
+  'training'
+]);
+
+export const paymentMethodEnum = pgEnum('payment_method', [
+  'cash',
+  'card',
+  'mobile_money',
+  'bank_transfer',
+  'check',
+  'credit'
+]);
+
+export const campaignTypeEnum = pgEnum('campaign_type', [
+  'email',
+  'sms',
+  'promotional',
+  'educational',
+  'seasonal',
+  'loyalty'
+]);
+
+export const leadStatusEnum = pgEnum('lead_status', [
+  'new',
+  'contacted',
+  'qualified',
+  'converted',
+  'lost',
+  'nurturing'
+]);
+
+export const communicationTypeEnum = pgEnum('communication_type', [
+  'email',
+  'phone',
+  'sms',
+  'meeting',
+  'letter',
+  'visit'
+]);
+
+export const reportStatusEnum = pgEnum('report_status', [
+  'draft',
+  'generating',
+  'completed',
+  'failed',
+  'expired'
+]);
+
+export const licenseStatusEnum = pgEnum('license_status', [
+  'active',
+  'expired',
+  'pending_renewal',
+  'suspended',
+  'revoked'
+]);
+
+export const auditActionEnum = pgEnum('audit_action', [
+  'create',
+  'update',
+  'delete',
+  'login',
+  'logout',
+  'export',
+  'import',
+  'approve',
+  'reject'
+]);
+
+export const recallStatusEnum = pgEnum('recall_status', [
+  'initiated',
+  'in_progress',
+  'completed',
+  'cancelled'
+]);
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -213,11 +302,469 @@ export const stockMovements = pgTable("stock_movements", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// HR Module Tables
+
+// Employees table
+export const employees = pgTable("employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  employeeNumber: varchar("employee_number").notNull().unique(),
+  department: varchar("department").notNull(),
+  position: varchar("position").notNull(),
+  hireDate: date("hire_date").notNull(),
+  baseSalary: decimal("base_salary", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  employmentStatus: employmentStatusEnum("employment_status").default('active'),
+  managerId: varchar("manager_id").references(() => users.id),
+  workSchedule: varchar("work_schedule").default('full_time'), // full_time, part_time, contract
+  emergencyContactName: varchar("emergency_contact_name"),
+  emergencyContactPhone: varchar("emergency_contact_phone"),
+  bankAccountNumber: varchar("bank_account_number"),
+  taxIdNumber: varchar("tax_id_number"),
+  socialSecurityNumber: varchar("social_security_number"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Time entries table
+export const timeEntries = pgTable("time_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  date: date("date").notNull(),
+  clockIn: timestamp("clock_in"),
+  clockOut: timestamp("clock_out"),
+  totalHours: decimal("total_hours", { precision: 4, scale: 2 }),
+  overtimeHours: decimal("overtime_hours", { precision: 4, scale: 2 }).default('0'),
+  entryType: timeEntryTypeEnum("entry_type").default('regular'),
+  notes: text("notes"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payroll runs table
+export const payrollRuns = pgTable("payroll_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payrollPeriod: varchar("payroll_period").notNull(), // e.g., "2024-01"
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  status: varchar("status").default('draft'), // draft, processing, completed, cancelled
+  totalGrossPay: decimal("total_gross_pay", { precision: 15, scale: 2 }).default('0'),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default('0'),
+  totalNetPay: decimal("total_net_pay", { precision: 15, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  processedBy: varchar("processed_by").references(() => users.id),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payroll items table
+export const payrollItems = pgTable("payroll_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payrollRunId: varchar("payroll_run_id").references(() => payrollRuns.id).notNull(),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  basePay: decimal("base_pay", { precision: 12, scale: 2 }).default('0'),
+  overtimePay: decimal("overtime_pay", { precision: 12, scale: 2 }).default('0'),
+  bonuses: decimal("bonuses", { precision: 12, scale: 2 }).default('0'),
+  grossPay: decimal("gross_pay", { precision: 12, scale: 2 }).default('0'),
+  taxDeductions: decimal("tax_deductions", { precision: 12, scale: 2 }).default('0'),
+  socialSecurityDeductions: decimal("social_security_deductions", { precision: 12, scale: 2 }).default('0'),
+  otherDeductions: decimal("other_deductions", { precision: 12, scale: 2 }).default('0'),
+  totalDeductions: decimal("total_deductions", { precision: 12, scale: 2 }).default('0'),
+  netPay: decimal("net_pay", { precision: 12, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  regularHours: decimal("regular_hours", { precision: 5, scale: 2 }).default('0'),
+  overtimeHours: decimal("overtime_hours", { precision: 5, scale: 2 }).default('0'),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Performance reviews table
+export const performanceReviews = pgTable("performance_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  reviewerId: varchar("reviewer_id").references(() => users.id).notNull(),
+  reviewPeriod: varchar("review_period").notNull(), // e.g., "2024-Q1", "2024-Annual"
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  overallRating: integer("overall_rating"), // 1-5 scale
+  goals: text("goals"),
+  achievements: text("achievements"),
+  areasForImprovement: text("areas_for_improvement"),
+  reviewerComments: text("reviewer_comments"),
+  employeeComments: text("employee_comments"),
+  status: varchar("status").default('draft'), // draft, in_review, completed, archived
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// POS Module Tables
+
+// POS terminals table
+export const posTerminals = pgTable("pos_terminals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  terminalNumber: varchar("terminal_number").notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  location: varchar("location").notNull(),
+  warehouseId: varchar("warehouse_id").references(() => warehouses.id).notNull(),
+  ipAddress: varchar("ip_address"),
+  macAddress: varchar("mac_address"),
+  deviceSerial: varchar("device_serial"),
+  softwareVersion: varchar("software_version"),
+  lastHeartbeat: timestamp("last_heartbeat"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// POS sessions table
+export const posSessions = pgTable("pos_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  terminalId: varchar("terminal_id").references(() => posTerminals.id).notNull(),
+  cashierId: varchar("cashier_id").references(() => users.id).notNull(),
+  sessionNumber: varchar("session_number").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  startingCash: decimal("starting_cash", { precision: 12, scale: 2 }).default('0'),
+  expectedCash: decimal("expected_cash", { precision: 12, scale: 2 }).default('0'),
+  actualCash: decimal("actual_cash", { precision: 12, scale: 2 }).default('0'),
+  cashVariance: decimal("cash_variance", { precision: 12, scale: 2 }).default('0'),
+  totalSales: decimal("total_sales", { precision: 12, scale: 2 }).default('0'),
+  totalTransactions: integer("total_transactions").default(0),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  status: varchar("status").default('open'), // open, closed, suspended
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// POS receipts table
+export const posReceipts = pgTable("pos_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptNumber: varchar("receipt_number").notNull().unique(),
+  sessionId: varchar("session_id").references(() => posSessions.id).notNull(),
+  salesOrderId: varchar("sales_order_id").references(() => salesOrders.id),
+  customerId: varchar("customer_id").references(() => customers.id),
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0'),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0'),
+  discountAmount: decimal("discount_amount", { precision: 12, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  receiptData: jsonb("receipt_data"), // full receipt JSON for reprints
+  status: varchar("status").default('completed'), // completed, voided, refunded
+  voidedBy: varchar("voided_by").references(() => users.id),
+  voidedAt: timestamp("voided_at"),
+  voidReason: text("void_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// POS payments table
+export const posPayments = pgTable("pos_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptId: varchar("receipt_id").references(() => posReceipts.id).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  cardTransactionId: varchar("card_transaction_id"), // for card payments
+  cardLast4: varchar("card_last_4"), // for card payments
+  cardType: varchar("card_type"), // visa, mastercard, etc.
+  mobileMoneyNumber: varchar("mobile_money_number"), // for mobile money
+  mobileMoneyProvider: varchar("mobile_money_provider"), // unitel, movicel, etc.
+  checkNumber: varchar("check_number"), // for check payments
+  bankName: varchar("bank_name"), // for check/transfer payments
+  referenceNumber: varchar("reference_number"),
+  status: varchar("status").default('completed'), // pending, completed, failed, refunded
+  processedAt: timestamp("processed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Cash movements table
+export const cashMovements = pgTable("cash_movements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => posSessions.id).notNull(),
+  movementType: varchar("movement_type").notNull(), // sale, refund, payout, cash_drop, starting_cash
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  reference: varchar("reference"), // receipt number, payout reference, etc.
+  description: text("description"),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Marketing Module Tables
+
+// Campaigns table
+export const campaigns = pgTable("campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  campaignType: campaignTypeEnum("campaign_type").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  budget: decimal("budget", { precision: 12, scale: 2 }).default('0'),
+  actualSpend: decimal("actual_spend", { precision: 12, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  targetAudience: text("target_audience"),
+  objectives: text("objectives"),
+  status: varchar("status").default('draft'), // draft, active, paused, completed, cancelled
+  managerId: varchar("manager_id").references(() => users.id).notNull(),
+  metrics: jsonb("metrics"), // campaign performance metrics
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Campaign members table
+export const campaignMembers = pgTable("campaign_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").references(() => campaigns.id).notNull(),
+  customerId: varchar("customer_id").references(() => customers.id).notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  status: varchar("status").default('active'), // active, opted_out, bounced
+  responseData: jsonb("response_data"), // tracking campaign engagement
+  lastContactedAt: timestamp("last_contacted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Leads table
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  company: varchar("company"),
+  position: varchar("position"),
+  address: text("address"),
+  source: varchar("source"), // website, referral, campaign, trade_show, etc.
+  campaignId: varchar("campaign_id").references(() => campaigns.id),
+  leadStatus: leadStatusEnum("lead_status").default('new'),
+  leadScore: integer("lead_score").default(0), // 0-100 scoring system
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  notes: text("notes"),
+  estimatedValue: decimal("estimated_value", { precision: 12, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  lastContactedAt: timestamp("last_contacted_at"),
+  convertedAt: timestamp("converted_at"),
+  convertedToCustomerId: varchar("converted_to_customer_id").references(() => customers.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Communications table
+export const communications = pgTable("communications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").references(() => customers.id),
+  leadId: varchar("lead_id").references(() => leads.id),
+  campaignId: varchar("campaign_id").references(() => campaigns.id),
+  communicationType: communicationTypeEnum("communication_type").notNull(),
+  subject: varchar("subject"),
+  content: text("content"),
+  direction: varchar("direction").notNull(), // inbound, outbound
+  status: varchar("status").default('sent'), // draft, sent, delivered, opened, clicked, replied, failed
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  openedAt: timestamp("opened_at"),
+  metadata: jsonb("metadata"), // email tracking, sms delivery receipts, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Advanced Reporting Module Tables
+
+// Report definitions table
+export const reportDefinitions = pgTable("report_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(), // sales, inventory, finance, hr, compliance
+  reportType: varchar("report_type").notNull(), // tabular, chart, dashboard, export
+  queryDefinition: jsonb("query_definition").notNull(), // SQL query or data source config
+  parameters: jsonb("parameters"), // configurable report parameters
+  layout: jsonb("layout"), // report layout and formatting options
+  isPublic: boolean("is_public").default(false), // accessible to all users vs private
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  permissions: jsonb("permissions"), // role-based access permissions
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Saved reports table
+export const savedReports = pgTable("saved_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportDefinitionId: varchar("report_definition_id").references(() => reportDefinitions.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  parameters: jsonb("parameters"), // saved parameter values
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  isScheduled: boolean("is_scheduled").default(false),
+  scheduleConfig: jsonb("schedule_config"), // cron expression, email recipients, etc.
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Report exports table
+export const reportExports = pgTable("report_exports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportDefinitionId: varchar("report_definition_id").references(() => reportDefinitions.id),
+  savedReportId: varchar("saved_report_id").references(() => savedReports.id),
+  fileName: varchar("file_name").notNull(),
+  fileFormat: varchar("file_format").notNull(), // pdf, excel, csv, json
+  fileSize: integer("file_size"), // in bytes
+  filePath: varchar("file_path"), // storage path or URL
+  parameters: jsonb("parameters"), // parameters used for this export
+  status: reportStatusEnum("status").default('generating'),
+  generatedBy: varchar("generated_by").references(() => users.id).notNull(),
+  generatedAt: timestamp("generated_at"),
+  expiresAt: timestamp("expires_at"), // auto-cleanup after expiration
+  downloadCount: integer("download_count").default(0),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"), // additional export metadata
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Regulatory Compliance Module Tables
+
+// Licenses table
+export const licenses = pgTable("licenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  licenseNumber: varchar("license_number").notNull().unique(),
+  licenseType: varchar("license_type").notNull(), // pharmacy_license, import_permit, wholesale_license, etc.
+  licenseName: varchar("license_name", { length: 255 }).notNull(),
+  issuingAuthority: varchar("issuing_authority").notNull(),
+  issuedDate: date("issued_date").notNull(),
+  expiryDate: date("expiry_date").notNull(),
+  renewalDate: date("renewal_date"),
+  status: licenseStatusEnum("status").default('active'),
+  documentPath: varchar("document_path"), // file storage path
+  conditions: text("conditions"), // special conditions or restrictions
+  annualFee: decimal("annual_fee", { precision: 12, scale: 2 }),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  contactPerson: varchar("contact_person"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  reminderDays: integer("reminder_days").default(30), // days before expiry to remind
+  managedBy: varchar("managed_by").references(() => users.id).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Regulatory reports table
+export const regulatoryReports = pgTable("regulatory_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportType: varchar("report_type").notNull(), // monthly_sales, inventory_summary, adverse_events, etc.
+  reportPeriod: varchar("report_period").notNull(), // 2024-01, 2024-Q1, 2024-Annual
+  submittedTo: varchar("submitted_to").notNull(), // regulatory authority name
+  dueDate: date("due_date").notNull(),
+  submittedDate: date("submitted_date"),
+  reportData: jsonb("report_data").notNull(), // structured report data
+  documentPath: varchar("document_path"), // generated report file path
+  status: varchar("status").default('draft'), // draft, submitted, accepted, rejected
+  submissionReference: varchar("submission_reference"), // authority reference number
+  preparadBy: varchar("prepared_by").references(() => users.id).notNull(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  rejectionReason: text("rejection_reason"),
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpDate: date("follow_up_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Audit logs table
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tableName: varchar("table_name").notNull(), // affected table
+  recordId: varchar("record_id").notNull(), // affected record ID
+  action: auditActionEnum("action").notNull(),
+  oldValues: jsonb("old_values"), // previous values for updates
+  newValues: jsonb("new_values"), // new values for creates/updates
+  userId: varchar("user_id").references(() => users.id),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  module: varchar("module"), // which module/feature was used
+  description: text("description"), // human-readable description
+  metadata: jsonb("metadata"), // additional context data
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+// Recall notices table
+export const recallNotices = pgTable("recall_notices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recallNumber: varchar("recall_number").notNull().unique(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  batchNumbers: text("batch_numbers").array(), // array of affected batch numbers
+  recallType: varchar("recall_type").notNull(), // voluntary, mandated, precautionary
+  severity: varchar("severity").notNull(), // low, medium, high, critical
+  reason: text("reason").notNull(), // reason for recall
+  description: text("description"),
+  announcementDate: date("announcement_date").notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  completionDate: date("completion_date"),
+  status: recallStatusEnum("status").default('initiated'),
+  issuingAuthority: varchar("issuing_authority"),
+  distributionArea: text("distribution_area"), // geographic scope
+  quantityDistributed: integer("quantity_distributed"),
+  quantityRecovered: integer("quantity_recovered").default(0),
+  recoveryPercentage: decimal("recovery_percentage", { precision: 5, scale: 2 }).default('0'),
+  customerNotificationMethod: varchar("customer_notification_method"), // email, phone, letter, public_notice
+  mediaNotification: boolean("media_notification").default(false),
+  publicNotification: boolean("public_notification").default(false),
+  managedBy: varchar("managed_by").references(() => users.id).notNull(),
+  communicationLog: jsonb("communication_log"), // log of all communications
+  correctiveActions: text("corrective_actions"),
+  preventiveActions: text("preventive_actions"),
+  costs: decimal("costs", { precision: 12, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  // Existing relations
   customers: many(customers),
   salesOrders: many(salesOrders),
   stockMovements: many(stockMovements),
+  // HR relations
+  employee: one(employees, {
+    fields: [users.id],
+    references: [employees.userId],
+  }),
+  managedEmployees: many(employees, { relationName: "manager" }),
+  timeEntries: many(timeEntries, { relationName: "approver" }),
+  payrollRuns: many(payrollRuns, { relationName: "processor" }),
+  performanceReviewsAsReviewer: many(performanceReviews, { relationName: "reviewer" }),
+  // POS relations
+  posSessions: many(posSessions, { relationName: "cashier" }),
+  posReceiptsVoided: many(posReceipts, { relationName: "voider" }),
+  posPayments: many(posPayments, { relationName: "processor" }),
+  cashMovements: many(cashMovements, { relationName: "user" }),
+  // Marketing relations
+  managedCampaigns: many(campaigns, { relationName: "manager" }),
+  assignedLeads: many(leads, { relationName: "assignee" }),
+  communications: many(communications, { relationName: "sender" }),
+  // Reporting relations
+  ownedReports: many(reportDefinitions, { relationName: "owner" }),
+  savedReports: many(savedReports, { relationName: "user" }),
+  reportExports: many(reportExports, { relationName: "generator" }),
+  // Compliance relations
+  managedLicenses: many(licenses, { relationName: "manager" }),
+  preparedReports: many(regulatoryReports, { relationName: "preparer" }),
+  reviewedReports: many(regulatoryReports, { relationName: "reviewer" }),
+  approvedReports: many(regulatoryReports, { relationName: "approver" }),
+  auditLogs: many(auditLogs, { relationName: "user" }),
+  managedRecalls: many(recallNotices, { relationName: "manager" }),
 }));
 
 export const customersRelations = relations(customers, ({ one, many }) => ({
@@ -335,6 +882,276 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   }),
 }));
 
+// HR Module Relations
+export const employeesRelations = relations(employees, ({ one, many }) => ({
+  user: one(users, {
+    fields: [employees.userId],
+    references: [users.id],
+  }),
+  manager: one(users, {
+    fields: [employees.managerId],
+    references: [users.id],
+    relationName: "manager",
+  }),
+  timeEntries: many(timeEntries),
+  payrollItems: many(payrollItems),
+  performanceReviews: many(performanceReviews),
+}));
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  employee: one(employees, {
+    fields: [timeEntries.employeeId],
+    references: [employees.id],
+  }),
+  approver: one(users, {
+    fields: [timeEntries.approvedBy],
+    references: [users.id],
+    relationName: "approver",
+  }),
+}));
+
+export const payrollRunsRelations = relations(payrollRuns, ({ one, many }) => ({
+  processor: one(users, {
+    fields: [payrollRuns.processedBy],
+    references: [users.id],
+    relationName: "processor",
+  }),
+  payrollItems: many(payrollItems),
+}));
+
+export const payrollItemsRelations = relations(payrollItems, ({ one }) => ({
+  payrollRun: one(payrollRuns, {
+    fields: [payrollItems.payrollRunId],
+    references: [payrollRuns.id],
+  }),
+  employee: one(employees, {
+    fields: [payrollItems.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const performanceReviewsRelations = relations(performanceReviews, ({ one }) => ({
+  employee: one(employees, {
+    fields: [performanceReviews.employeeId],
+    references: [employees.id],
+  }),
+  reviewer: one(users, {
+    fields: [performanceReviews.reviewerId],
+    references: [users.id],
+    relationName: "reviewer",
+  }),
+}));
+
+// POS Module Relations
+export const posTerminalsRelations = relations(posTerminals, ({ one, many }) => ({
+  warehouse: one(warehouses, {
+    fields: [posTerminals.warehouseId],
+    references: [warehouses.id],
+  }),
+  posSessions: many(posSessions),
+}));
+
+export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
+  terminal: one(posTerminals, {
+    fields: [posSessions.terminalId],
+    references: [posTerminals.id],
+  }),
+  cashier: one(users, {
+    fields: [posSessions.cashierId],
+    references: [users.id],
+    relationName: "cashier",
+  }),
+  posReceipts: many(posReceipts),
+  cashMovements: many(cashMovements),
+}));
+
+export const posReceiptsRelations = relations(posReceipts, ({ one, many }) => ({
+  session: one(posSessions, {
+    fields: [posReceipts.sessionId],
+    references: [posSessions.id],
+  }),
+  salesOrder: one(salesOrders, {
+    fields: [posReceipts.salesOrderId],
+    references: [salesOrders.id],
+  }),
+  customer: one(customers, {
+    fields: [posReceipts.customerId],
+    references: [customers.id],
+  }),
+  voidedBy: one(users, {
+    fields: [posReceipts.voidedBy],
+    references: [users.id],
+    relationName: "voider",
+  }),
+  posPayments: many(posPayments),
+}));
+
+export const posPaymentsRelations = relations(posPayments, ({ one }) => ({
+  receipt: one(posReceipts, {
+    fields: [posPayments.receiptId],
+    references: [posReceipts.id],
+  }),
+}));
+
+export const cashMovementsRelations = relations(cashMovements, ({ one }) => ({
+  session: one(posSessions, {
+    fields: [cashMovements.sessionId],
+    references: [posSessions.id],
+  }),
+  user: one(users, {
+    fields: [cashMovements.userId],
+    references: [users.id],
+    relationName: "user",
+  }),
+}));
+
+// Marketing Module Relations
+export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
+  manager: one(users, {
+    fields: [campaigns.managerId],
+    references: [users.id],
+    relationName: "manager",
+  }),
+  campaignMembers: many(campaignMembers),
+  leads: many(leads),
+  communications: many(communications),
+}));
+
+export const campaignMembersRelations = relations(campaignMembers, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [campaignMembers.campaignId],
+    references: [campaigns.id],
+  }),
+  customer: one(customers, {
+    fields: [campaignMembers.customerId],
+    references: [customers.id],
+  }),
+}));
+
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+  campaign: one(campaigns, {
+    fields: [leads.campaignId],
+    references: [campaigns.id],
+  }),
+  assignee: one(users, {
+    fields: [leads.assignedTo],
+    references: [users.id],
+    relationName: "assignee",
+  }),
+  convertedCustomer: one(customers, {
+    fields: [leads.convertedToCustomerId],
+    references: [customers.id],
+  }),
+  communications: many(communications),
+}));
+
+export const communicationsRelations = relations(communications, ({ one }) => ({
+  customer: one(customers, {
+    fields: [communications.customerId],
+    references: [customers.id],
+  }),
+  lead: one(leads, {
+    fields: [communications.leadId],
+    references: [leads.id],
+  }),
+  campaign: one(campaigns, {
+    fields: [communications.campaignId],
+    references: [campaigns.id],
+  }),
+  user: one(users, {
+    fields: [communications.userId],
+    references: [users.id],
+    relationName: "sender",
+  }),
+}));
+
+// Reporting Module Relations
+export const reportDefinitionsRelations = relations(reportDefinitions, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [reportDefinitions.ownerId],
+    references: [users.id],
+    relationName: "owner",
+  }),
+  savedReports: many(savedReports),
+  reportExports: many(reportExports),
+}));
+
+export const savedReportsRelations = relations(savedReports, ({ one, many }) => ({
+  reportDefinition: one(reportDefinitions, {
+    fields: [savedReports.reportDefinitionId],
+    references: [reportDefinitions.id],
+  }),
+  user: one(users, {
+    fields: [savedReports.userId],
+    references: [users.id],
+    relationName: "user",
+  }),
+  reportExports: many(reportExports),
+}));
+
+export const reportExportsRelations = relations(reportExports, ({ one }) => ({
+  reportDefinition: one(reportDefinitions, {
+    fields: [reportExports.reportDefinitionId],
+    references: [reportDefinitions.id],
+  }),
+  savedReport: one(savedReports, {
+    fields: [reportExports.savedReportId],
+    references: [savedReports.id],
+  }),
+  generator: one(users, {
+    fields: [reportExports.generatedBy],
+    references: [users.id],
+    relationName: "generator",
+  }),
+}));
+
+// Compliance Module Relations
+export const licensesRelations = relations(licenses, ({ one }) => ({
+  manager: one(users, {
+    fields: [licenses.managedBy],
+    references: [users.id],
+    relationName: "manager",
+  }),
+}));
+
+export const regulatoryReportsRelations = relations(regulatoryReports, ({ one }) => ({
+  preparer: one(users, {
+    fields: [regulatoryReports.preparadBy],
+    references: [users.id],
+    relationName: "preparer",
+  }),
+  reviewer: one(users, {
+    fields: [regulatoryReports.reviewedBy],
+    references: [users.id],
+    relationName: "reviewer",
+  }),
+  approver: one(users, {
+    fields: [regulatoryReports.approvedBy],
+    references: [users.id],
+    relationName: "approver",
+  }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+    relationName: "user",
+  }),
+}));
+
+export const recallNoticesRelations = relations(recallNotices, ({ one }) => ({
+  product: one(products, {
+    fields: [recallNotices.productId],
+    references: [products.id],
+  }),
+  manager: one(users, {
+    fields: [recallNotices.managedBy],
+    references: [users.id],
+    relationName: "manager",
+  }),
+}));
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
@@ -398,6 +1215,125 @@ export const insertStockMovementSchema = createInsertSchema(stockMovements).omit
   createdAt: true,
 });
 
+// HR Module Insert Schemas
+export const insertEmployeeSchema = createInsertSchema(employees).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPayrollRunSchema = createInsertSchema(payrollRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPayrollItemSchema = createInsertSchema(payrollItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPerformanceReviewSchema = createInsertSchema(performanceReviews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// POS Module Insert Schemas
+export const insertPosTerminalSchema = createInsertSchema(posTerminals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPosSessionSchema = createInsertSchema(posSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPosReceiptSchema = createInsertSchema(posReceipts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPosPaymentSchema = createInsertSchema(posPayments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCashMovementSchema = createInsertSchema(cashMovements).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Marketing Module Insert Schemas
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCampaignMemberSchema = createInsertSchema(campaignMembers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCommunicationSchema = createInsertSchema(communications).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Advanced Reporting Insert Schemas
+export const insertReportDefinitionSchema = createInsertSchema(reportDefinitions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSavedReportSchema = createInsertSchema(savedReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReportExportSchema = createInsertSchema(reportExports).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Regulatory Compliance Insert Schemas
+export const insertLicenseSchema = createInsertSchema(licenses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRegulatoryReportSchema = createInsertSchema(regulatoryReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+});
+
+export const insertRecallNoticeSchema = createInsertSchema(recallNotices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -423,3 +1359,55 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
 export type StockMovement = typeof stockMovements.$inferSelect;
+
+// HR Module Types
+export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+export type Employee = typeof employees.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertPayrollRun = z.infer<typeof insertPayrollRunSchema>;
+export type PayrollRun = typeof payrollRuns.$inferSelect;
+export type InsertPayrollItem = z.infer<typeof insertPayrollItemSchema>;
+export type PayrollItem = typeof payrollItems.$inferSelect;
+export type InsertPerformanceReview = z.infer<typeof insertPerformanceReviewSchema>;
+export type PerformanceReview = typeof performanceReviews.$inferSelect;
+
+// POS Module Types
+export type InsertPosTerminal = z.infer<typeof insertPosTerminalSchema>;
+export type PosTerminal = typeof posTerminals.$inferSelect;
+export type InsertPosSession = z.infer<typeof insertPosSessionSchema>;
+export type PosSession = typeof posSessions.$inferSelect;
+export type InsertPosReceipt = z.infer<typeof insertPosReceiptSchema>;
+export type PosReceipt = typeof posReceipts.$inferSelect;
+export type InsertPosPayment = z.infer<typeof insertPosPaymentSchema>;
+export type PosPayment = typeof posPayments.$inferSelect;
+export type InsertCashMovement = z.infer<typeof insertCashMovementSchema>;
+export type CashMovement = typeof cashMovements.$inferSelect;
+
+// Marketing Module Types
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type Campaign = typeof campaigns.$inferSelect;
+export type InsertCampaignMember = z.infer<typeof insertCampaignMemberSchema>;
+export type CampaignMember = typeof campaignMembers.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type Lead = typeof leads.$inferSelect;
+export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
+export type Communication = typeof communications.$inferSelect;
+
+// Advanced Reporting Types
+export type InsertReportDefinition = z.infer<typeof insertReportDefinitionSchema>;
+export type ReportDefinition = typeof reportDefinitions.$inferSelect;
+export type InsertSavedReport = z.infer<typeof insertSavedReportSchema>;
+export type SavedReport = typeof savedReports.$inferSelect;
+export type InsertReportExport = z.infer<typeof insertReportExportSchema>;
+export type ReportExport = typeof reportExports.$inferSelect;
+
+// Regulatory Compliance Types
+export type InsertLicense = z.infer<typeof insertLicenseSchema>;
+export type License = typeof licenses.$inferSelect;
+export type InsertRegulatoryReport = z.infer<typeof insertRegulatoryReportSchema>;
+export type RegulatoryReport = typeof regulatoryReports.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertRecallNotice = z.infer<typeof insertRecallNoticeSchema>;
+export type RecallNotice = typeof recallNotices.$inferSelect;
