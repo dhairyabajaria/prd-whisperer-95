@@ -36,7 +36,7 @@ import {
   type StockMovement,
   type InsertStockMovement,
 } from "@shared/schema";
-import { db } from "./db";
+import { getDb } from "./db";
 import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
 
 // Interface for storage operations
@@ -130,11 +130,13 @@ export class DatabaseStorage implements IStorage {
   // User operations
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   async getUser(id: string): Promise<User | undefined> {
+    const db = await getDb();
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    const db = await getDb();
     const [user] = await db
       .insert(users)
       .values(userData)
@@ -151,6 +153,7 @@ export class DatabaseStorage implements IStorage {
 
   // Customer operations
   async getCustomers(limit = 100): Promise<Customer[]> {
+    const db = await getDb();
     return await db
       .select()
       .from(customers)
@@ -160,6 +163,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
+    const db = await getDb();
     const [customer] = await db
       .select()
       .from(customers)
@@ -168,6 +172,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const db = await getDb();
     const [newCustomer] = await db
       .insert(customers)
       .values(customer)
@@ -176,6 +181,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer> {
+    const db = await getDb();
     const [updatedCustomer] = await db
       .update(customers)
       .set({ ...customer, updatedAt: new Date() })
@@ -185,6 +191,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCustomer(id: string): Promise<void> {
+    const db = await getDb();
     await db
       .update(customers)
       .set({ isActive: false, updatedAt: new Date() })
@@ -193,6 +200,7 @@ export class DatabaseStorage implements IStorage {
 
   // Supplier operations
   async getSuppliers(limit = 100): Promise<Supplier[]> {
+    const db = await getDb();
     return await db
       .select()
       .from(suppliers)
@@ -202,6 +210,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSupplier(id: string): Promise<Supplier | undefined> {
+    const db = await getDb();
     const [supplier] = await db
       .select()
       .from(suppliers)
@@ -210,6 +219,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const db = await getDb();
     const [newSupplier] = await db
       .insert(suppliers)
       .values(supplier)
@@ -218,6 +228,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier> {
+    const db = await getDb();
     const [updatedSupplier] = await db
       .update(suppliers)
       .set({ ...supplier, updatedAt: new Date() })
@@ -227,6 +238,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSupplier(id: string): Promise<void> {
+    const db = await getDb();
     await db
       .update(suppliers)
       .set({ isActive: false, updatedAt: new Date() })
@@ -235,6 +247,7 @@ export class DatabaseStorage implements IStorage {
 
   // Warehouse operations
   async getWarehouses(): Promise<Warehouse[]> {
+    const db = await getDb();
     return await db
       .select()
       .from(warehouses)
@@ -243,6 +256,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWarehouse(id: string): Promise<Warehouse | undefined> {
+    const db = await getDb();
     const [warehouse] = await db
       .select()
       .from(warehouses)
@@ -251,6 +265,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWarehouse(warehouse: InsertWarehouse): Promise<Warehouse> {
+    const db = await getDb();
     const [newWarehouse] = await db
       .insert(warehouses)
       .values(warehouse)
@@ -259,6 +274,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateWarehouse(id: string, warehouse: Partial<InsertWarehouse>): Promise<Warehouse> {
+    const db = await getDb();
     const [updatedWarehouse] = await db
       .update(warehouses)
       .set(warehouse)
@@ -268,6 +284,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteWarehouse(id: string): Promise<void> {
+    const db = await getDb();
     await db
       .update(warehouses)
       .set({ isActive: false })
@@ -276,6 +293,7 @@ export class DatabaseStorage implements IStorage {
 
   // Product operations
   async getProducts(limit = 100): Promise<Product[]> {
+    const db = await getDb();
     return await db
       .select()
       .from(products)
@@ -285,6 +303,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
+    const db = await getDb();
     const [product] = await db
       .select()
       .from(products)
@@ -293,6 +312,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
+    const db = await getDb();
     const [newProduct] = await db
       .insert(products)
       .values(product)
@@ -301,6 +321,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product> {
+    const db = await getDb();
     const [updatedProduct] = await db
       .update(products)
       .set({ ...product, updatedAt: new Date() })
@@ -310,6 +331,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: string): Promise<void> {
+    const db = await getDb();
     await db
       .update(products)
       .set({ isActive: false, updatedAt: new Date() })
@@ -318,6 +340,7 @@ export class DatabaseStorage implements IStorage {
 
   // Inventory operations
   async getInventory(warehouseId?: string): Promise<(Inventory & { product: Product })[]> {
+    const db = await getDb();
     const query = db
       .select({
         id: inventory.id,
@@ -360,6 +383,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInventoryByProduct(productId: string): Promise<Inventory[]> {
+    const db = await getDb();
     return await db
       .select()
       .from(inventory)
@@ -368,6 +392,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInventory(inventoryData: InsertInventory): Promise<Inventory> {
+    const db = await getDb();
     const [newInventory] = await db
       .insert(inventory)
       .values(inventoryData)
@@ -376,6 +401,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateInventory(id: string, inventoryData: Partial<InsertInventory>): Promise<Inventory> {
+    const db = await getDb();
     const [updatedInventory] = await db
       .update(inventory)
       .set({ ...inventoryData, updatedAt: new Date() })
@@ -385,6 +411,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExpiringProducts(daysAhead: number): Promise<(Inventory & { product: Product; warehouse: Warehouse })[]> {
+    const db = await getDb();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
 
@@ -418,6 +445,7 @@ export class DatabaseStorage implements IStorage {
 
   // Sales operations
   async getSalesOrders(limit = 50): Promise<(SalesOrder & { customer: Customer; salesRep?: User })[]> {
+    const db = await getDb();
     return await db
       .select({
         id: salesOrders.id,
@@ -440,10 +468,15 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(customers, eq(salesOrders.customerId, customers.id))
       .leftJoin(users, eq(salesOrders.salesRepId, users.id))
       .limit(limit)
-      .orderBy(desc(salesOrders.createdAt));
+      .orderBy(desc(salesOrders.createdAt))
+      .then(results => results.map(r => ({
+        ...r,
+        salesRep: r.salesRep || undefined
+      })));
   }
 
   async getSalesOrder(id: string): Promise<(SalesOrder & { customer: Customer; items: (SalesOrderItem & { product: Product })[] }) | undefined> {
+    const db = await getDb();
     const [order] = await db
       .select({
         id: salesOrders.id,
@@ -487,6 +520,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSalesOrder(order: InsertSalesOrder): Promise<SalesOrder> {
+    const db = await getDb();
     const [newOrder] = await db
       .insert(salesOrders)
       .values(order)
@@ -495,6 +529,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSalesOrder(id: string, order: Partial<InsertSalesOrder>): Promise<SalesOrder> {
+    const db = await getDb();
     const [updatedOrder] = await db
       .update(salesOrders)
       .set({ ...order, updatedAt: new Date() })
@@ -504,6 +539,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSalesOrderItem(item: InsertSalesOrderItem): Promise<SalesOrderItem> {
+    const db = await getDb();
     const [newItem] = await db
       .insert(salesOrderItems)
       .values(item)
@@ -513,6 +549,7 @@ export class DatabaseStorage implements IStorage {
 
   // Purchase operations
   async getPurchaseOrders(limit = 50): Promise<(PurchaseOrder & { supplier: Supplier })[]> {
+    const db = await getDb();
     return await db
       .select({
         id: purchaseOrders.id,
@@ -536,6 +573,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseOrder(id: string): Promise<(PurchaseOrder & { supplier: Supplier; items: (PurchaseOrderItem & { product: Product })[] }) | undefined> {
+    const db = await getDb();
     const [order] = await db
       .select({
         id: purchaseOrders.id,
@@ -577,6 +615,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    const db = await getDb();
     const [newOrder] = await db
       .insert(purchaseOrders)
       .values(order)
@@ -585,6 +624,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePurchaseOrder(id: string, order: Partial<InsertPurchaseOrder>): Promise<PurchaseOrder> {
+    const db = await getDb();
     const [updatedOrder] = await db
       .update(purchaseOrders)
       .set({ ...order, updatedAt: new Date() })
@@ -594,6 +634,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const db = await getDb();
     const [newItem] = await db
       .insert(purchaseOrderItems)
       .values(item)
@@ -603,6 +644,7 @@ export class DatabaseStorage implements IStorage {
 
   // Invoice operations
   async getInvoices(limit = 50): Promise<(Invoice & { customer: Customer })[]> {
+    const db = await getDb();
     return await db
       .select({
         id: invoices.id,
@@ -628,6 +670,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
+    const db = await getDb();
     const [invoice] = await db
       .select()
       .from(invoices)
@@ -636,6 +679,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const db = await getDb();
     const [newInvoice] = await db
       .insert(invoices)
       .values(invoice)
@@ -644,6 +688,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice> {
+    const db = await getDb();
     const [updatedInvoice] = await db
       .update(invoices)
       .set({ ...invoice, updatedAt: new Date() })
@@ -654,6 +699,7 @@ export class DatabaseStorage implements IStorage {
 
   // Stock movement operations
   async getStockMovements(limit = 100): Promise<(StockMovement & { product: Product; warehouse: Warehouse; user?: User })[]> {
+    const db = await getDb();
     return await db
       .select({
         id: stockMovements.id,
@@ -675,10 +721,15 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(warehouses, eq(stockMovements.warehouseId, warehouses.id))
       .leftJoin(users, eq(stockMovements.userId, users.id))
       .limit(limit)
-      .orderBy(desc(stockMovements.createdAt));
+      .orderBy(desc(stockMovements.createdAt))
+      .then(results => results.map(r => ({
+        ...r,
+        user: r.user || undefined
+      })));
   }
 
   async createStockMovement(movement: InsertStockMovement): Promise<StockMovement> {
+    const db = await getDb();
     const [newMovement] = await db
       .insert(stockMovements)
       .values(movement)
@@ -694,6 +745,7 @@ export class DatabaseStorage implements IStorage {
     outstandingAmount: number;
     expiringProductsCount: number;
   }> {
+    const db = await getDb();
     // Total revenue from paid invoices
     const [revenueResult] = await db
       .select({
@@ -760,6 +812,7 @@ export class DatabaseStorage implements IStorage {
     status: string;
     reference: string;
   }>> {
+    const db = await getDb();
     // Get recent sales
     const recentSales = await db
       .select({

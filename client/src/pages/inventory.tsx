@@ -375,7 +375,7 @@ export default function InventoryPage() {
               filteredInventory.map((item) => {
                 const daysLeft = getDaysUntilExpiry(item.expiryDate);
                 const expiryStatus = getExpiryStatus(daysLeft);
-                const stockStatus = getStockStatus(item.quantity, item.product.minStockLevel);
+                const stockStatus = getStockStatus(item.quantity, item.product.minStockLevel ?? 10);
                 
                 return (
                   <Card key={item.id} className="hover:shadow-md transition-shadow" data-testid={`card-inventory-${item.id}`}>
