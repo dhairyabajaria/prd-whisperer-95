@@ -8,6 +8,7 @@ import {
   ShoppingCart, 
   Calculator,
   CreditCard,
+  UserCheck,
   Bot,
   TrendingUp,
   Settings,
@@ -60,6 +61,12 @@ const navigation = [
     href: "/pos",
     icon: CreditCard,
     roles: ['admin', 'pos', 'sales']
+  },
+  {
+    name: "HR",
+    href: "/hr",
+    icon: UserCheck,
+    roles: ['admin', 'hr']
   }
 ];
 
