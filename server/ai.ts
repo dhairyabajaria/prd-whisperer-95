@@ -321,6 +321,328 @@ export class AIService {
       return [];
     }
   }
+
+  // Enhanced Purchase Module AI Capabilities
+
+  async processVendorBillOCR(
+    ocrRawText: string,
+    billImageBase64?: string
+  ): Promise<{
+    success: boolean;
+    extractedData?: {
+      billNumber?: string;
+      supplierName?: string;
+      billDate?: string;
+      dueDate?: string;
+      totalAmount?: number;
+      currency?: string;
+      items?: Array<{
+        description: string;
+        quantity?: number;
+        unitPrice?: number;
+        lineTotal?: number;
+      }>;
+      taxAmount?: number;
+      paymentTerms?: string;
+    };
+    confidence?: number;
+    error?: string;
+  }> {
+    try {
+      let prompt = `
+        Extract structured data from this vendor bill/invoice text for pharmaceutical ERP system.
+        
+        OCR Text:
+        ${ocrRawText}
+        
+        Extract the following information with high accuracy:
+        1. Bill/Invoice number
+        2. Supplier/Vendor name
+        3. Bill date and due date
+        4. Total amount and currency
+        5. Line items (description, quantity, unit price, line total)
+        6. Tax amounts
+        7. Payment terms
+        
+        Return data in JSON format with fields:
+        - billNumber: string
+        - supplierName: string
+        - billDate: string (YYYY-MM-DD format)
+        - dueDate: string (YYYY-MM-DD format)
+        - totalAmount: number
+        - currency: string (ISO code)
+        - items: array of {description, quantity, unitPrice, lineTotal}
+        - taxAmount: number
+        - paymentTerms: string
+        - confidence: number (0-100)
+        
+        If any field cannot be determined, leave it null.
+      `;
+
+      const messages: any[] = [
+        {
+          role: "system",
+          content: "You are an expert OCR processor for pharmaceutical vendor bills and invoices. Extract data with high accuracy and indicate confidence levels."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ];
+
+      // If image is provided, include it in the prompt
+      if (billImageBase64) {
+        messages[1].content = [
+          {
+            type: "text",
+            text: prompt
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${billImageBase64}`
+            }
+          }
+        ];
+      }
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages,
+        response_format: { type: "json_object" },
+        temperature: 0.3, // Low temperature for accuracy
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      
+      return {
+        success: true,
+        extractedData: result,
+        confidence: result.confidence || 70
+      };
+    } catch (error) {
+      console.error('Error processing vendor bill OCR:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'OCR processing failed'
+      };
+    }
+  }
+
+  async analyzeCompetitorPriceTrends(
+    competitorPriceData: Array<{
+      productId: string;
+      productName: string;
+      ourCurrentPrice: number;
+      ourCurrency: string;
+      competitorPrices: Array<{
+        competitor: string;
+        price: number;
+        currency: string;
+        collectedAt: Date;
+      }>;
+      salesVolume: number;
+      marginPercentage: number;
+    }>
+  ): Promise<Array<{
+    productId: string;
+    productName: string;
+    pricePosition: 'competitive' | 'premium' | 'budget';
+    recommendedAction: 'maintain' | 'increase' | 'decrease' | 'monitor';
+    suggestedPriceRange: { min: number; max: number; optimal: number };
+    marketAnalysis: string;
+    urgency: 'low' | 'medium' | 'high';
+    potentialImpact: {
+      revenueChange: number;
+      marginChange: number;
+      competitiveAdvantage: string;
+    };
+  }>> {
+    try {
+      const prompt = `
+        Analyze competitor pricing data for pharmaceutical products and provide strategic pricing recommendations.
+        
+        Pricing Data:
+        ${JSON.stringify(competitorPriceData, null, 2)}
+        
+        Analyze:
+        1. Current market position vs competitors
+        2. Price elasticity and volume sensitivity
+        3. Margin optimization opportunities
+        4. Market trends and competitive dynamics
+        5. Strategic positioning implications
+        
+        Provide analysis in JSON format with fields:
+        - productId: string
+        - productName: string
+        - pricePosition: "competitive" | "premium" | "budget"
+        - recommendedAction: "maintain" | "increase" | "decrease" | "monitor"
+        - suggestedPriceRange: {min: number, max: number, optimal: number}
+        - marketAnalysis: string summary
+        - urgency: "low" | "medium" | "high"
+        - potentialImpact: {revenueChange: number, marginChange: number, competitiveAdvantage: string}
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: "You are a pharmaceutical pricing strategist with deep market analysis expertise. Provide data-driven pricing recommendations that balance competitiveness with profitability."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.6,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{"analyses": []}');
+      return result.analyses || [];
+    } catch (error) {
+      console.error('Error analyzing competitor price trends:', error);
+      return [];
+    }
+  }
+
+  async generatePurchaseInsights(
+    purchaseData: {
+      totalPurchaseValue: number;
+      openPurchaseOrders: number;
+      pendingApprovals: number;
+      topSuppliers: Array<{
+        supplierName: string;
+        totalValue: number;
+        orderCount: number;
+        averageLeadTime: number;
+        reliabilityScore: number;
+      }>;
+      currencyExposure: Array<{
+        currency: string;
+        amount: number;
+        exposureType: 'payables' | 'orders';
+      }>;
+      matchingExceptions: number;
+      averageProcessingTime: number;
+    }
+  ): Promise<AIInsight[]> {
+    try {
+      const prompt = `
+        Analyze purchasing data for a pharmaceutical distribution company and generate actionable insights.
+        
+        Purchase Data:
+        ${JSON.stringify(purchaseData, null, 2)}
+        
+        Generate insights for:
+        1. Supplier relationship optimization
+        2. Currency risk management
+        3. Process efficiency improvements
+        4. Approval workflow optimization
+        5. Cost reduction opportunities
+        6. Risk mitigation strategies
+        
+        Return insights in JSON format with fields:
+        - type: "supplier_optimization" | "currency_risk" | "process_efficiency" | "cost_reduction" | "risk_mitigation"
+        - title: string
+        - description: string
+        - actionText: string
+        - urgency: "low" | "medium" | "high"
+        - data: relevant metrics and recommendations
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: "You are a pharmaceutical procurement specialist AI. Analyze purchasing data to identify optimization opportunities and provide strategic recommendations."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{"insights": []}');
+      return result.insights || [];
+    } catch (error) {
+      console.error('Error generating purchase insights:', error);
+      return [];
+    }
+  }
+
+  async analyzePurchaseRiskFactors(
+    purchaseOrderData: Array<{
+      orderId: string;
+      supplierName: string;
+      totalAmount: number;
+      currency: string;
+      deliveryDate: string;
+      paymentTerms: string;
+      supplierReliabilityScore: number;
+      countryRisk: string;
+      paymentHistory: string;
+    }>
+  ): Promise<Array<{
+    orderId: string;
+    riskLevel: 'low' | 'medium' | 'high';
+    riskFactors: string[];
+    mitigation: string[];
+    recommendedActions: string[];
+    priorityScore: number;
+  }>> {
+    try {
+      const prompt = `
+        Analyze purchase order risk factors for pharmaceutical distribution operations.
+        
+        Purchase Order Data:
+        ${JSON.stringify(purchaseOrderData, null, 2)}
+        
+        Evaluate risks including:
+        1. Supplier reliability and payment history
+        2. Currency and country risk exposure
+        3. Delivery timeline risks
+        4. Payment terms and cash flow impact
+        5. Regulatory compliance risks
+        6. Supply chain disruption potential
+        
+        Return risk analysis in JSON format with fields:
+        - orderId: string
+        - riskLevel: "low" | "medium" | "high"
+        - riskFactors: string[] list of identified risks
+        - mitigation: string[] suggested mitigation strategies
+        - recommendedActions: string[] immediate actions to take
+        - priorityScore: number (0-100)
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: "You are a pharmaceutical supply chain risk analyst. Identify and assess risks in purchase orders and provide practical mitigation strategies."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.5,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{"analyses": []}');
+      return result.analyses || [];
+    } catch (error) {
+      console.error('Error analyzing purchase risk factors:', error);
+      return [];
+    }
+  }
 }
 
 export const aiService = new AIService();

@@ -28,6 +28,17 @@ import {
   payrollRuns,
   payrollItems,
   performanceReviews,
+  // New purchase-related tables
+  purchaseRequests,
+  purchaseRequestItems,
+  approvals,
+  goodsReceipts,
+  goodsReceiptItems,
+  vendorBills,
+  vendorBillItems,
+  fxRates,
+  competitorPrices,
+  matchResults,
   type User,
   type UpsertUser,
   type Customer,
@@ -86,6 +97,27 @@ import {
   type InsertPayrollItem,
   type PerformanceReview,
   type InsertPerformanceReview,
+  // New purchase-related types
+  type PurchaseRequest,
+  type InsertPurchaseRequest,
+  type PurchaseRequestItem,
+  type InsertPurchaseRequestItem,
+  type Approval,
+  type InsertApproval,
+  type GoodsReceipt,
+  type InsertGoodsReceipt,
+  type GoodsReceiptItem,
+  type InsertGoodsReceiptItem,
+  type VendorBill,
+  type InsertVendorBill,
+  type VendorBillItem,
+  type InsertVendorBillItem,
+  type FxRate,
+  type InsertFxRate,
+  type CompetitorPrice,
+  type InsertCompetitorPrice,
+  type MatchResult,
+  type InsertMatchResult,
 } from "@shared/schema";
 import { getDb } from "./db";
 import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
@@ -372,6 +404,95 @@ export interface IStorage {
     totalCommissions: number;
     outstandingReceipts: number;
     creditOverridesPending: number;
+  }>;
+
+  // Enhanced Purchase Module Operations
+  
+  // Purchase Request operations
+  getPurchaseRequests(limit?: number, status?: string, requesterId?: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] })[]>;
+  getPurchaseRequest(id: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] }) | undefined>;
+  createPurchaseRequest(pr: InsertPurchaseRequest): Promise<PurchaseRequest>;
+  updatePurchaseRequest(id: string, pr: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest>;
+  deletePurchaseRequest(id: string): Promise<void>;
+  createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem>;
+  submitPurchaseRequest(id: string): Promise<PurchaseRequest>;
+  approvePurchaseRequest(id: string, approverId: string): Promise<PurchaseRequest>;
+  rejectPurchaseRequest(id: string, approverId: string, comment: string): Promise<PurchaseRequest>;
+  convertPRtoPO(prId: string, poData: Partial<InsertPurchaseOrder>): Promise<{ pr: PurchaseRequest; po: PurchaseOrder }>;
+
+  // Approval workflow operations
+  getApprovals(entityType?: string, entityId?: string, approverId?: string): Promise<(Approval & { approver: User })[]>;
+  createApproval(approval: InsertApproval): Promise<Approval>;
+  processApproval(id: string, status: 'approved' | 'rejected', comment?: string): Promise<Approval>;
+
+  // Goods Receipt operations
+  getGoodsReceipts(limit?: number, poId?: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]>;
+  getGoodsReceipt(id: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined>;
+  createGoodsReceipt(receipt: InsertGoodsReceipt, items: InsertGoodsReceiptItem[]): Promise<GoodsReceipt>;
+  updateGoodsReceipt(id: string, receipt: Partial<InsertGoodsReceipt>): Promise<GoodsReceipt>;
+  postGoodsReceipt(id: string): Promise<GoodsReceipt>; // posts to inventory
+
+  // Vendor Bill operations
+  getVendorBills(limit?: number, supplierId?: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] })[]>;
+  getVendorBill(id: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined>;
+  createVendorBill(bill: InsertVendorBill, items: InsertVendorBillItem[]): Promise<VendorBill>;
+  updateVendorBill(id: string, bill: Partial<InsertVendorBill>): Promise<VendorBill>;
+  postVendorBill(id: string): Promise<VendorBill>; // finalizes the bill
+  processOCRBill(billId: string, ocrRaw: string, ocrExtract: any): Promise<VendorBill>;
+
+  // Three-Way Matching operations
+  getMatchResults(poId?: string, status?: string): Promise<(MatchResult & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; goodsReceipt?: GoodsReceipt; vendorBill?: VendorBill; resolvedBy?: User })[]>;
+  performThreeWayMatch(poId: string): Promise<MatchResult>;
+  resolveMatchException(matchId: string, resolvedBy: string, notes: string): Promise<MatchResult>;
+
+  // FX Rate operations
+  getFxRates(baseCurrency?: string, quoteCurrency?: string): Promise<FxRate[]>;
+  getFxRateLatest(baseCurrency: string, quoteCurrency: string): Promise<FxRate | undefined>;
+  upsertFxRate(rate: InsertFxRate): Promise<FxRate>;
+  refreshFxRates(): Promise<FxRate[]>; // updates from external API
+
+  // Competitor Price operations
+  getCompetitorPrices(productId?: string, competitor?: string): Promise<(CompetitorPrice & { product: Product })[]>;
+  upsertCompetitorPrice(price: InsertCompetitorPrice): Promise<CompetitorPrice>;
+  getCompetitorAnalysis(productId?: string): Promise<Array<{
+    productId: string;
+    productName: string;
+    ourPrice: number;
+    avgCompetitorPrice: number;
+    minCompetitorPrice: number;
+    maxCompetitorPrice: number;
+    priceAdvantage: number; // percentage
+    competitorCount: number;
+  }>>;
+
+  // Purchase Dashboard metrics
+  getPurchaseDashboardMetrics(): Promise<{
+    totalPurchaseOrders: number;
+    pendingApprovals: number;
+    openPurchaseOrders: number;
+    totalPurchaseValue: number;
+    averageOrderValue: number;
+    topSuppliers: Array<{
+      supplierId: string;
+      supplierName: string;
+      orderCount: number;
+      totalValue: number;
+    }>;
+    upcomingPayments: Array<{
+      billId: string;
+      billNumber: string;
+      supplierName: string;
+      amount: number;
+      currency: string;
+      dueDate: string;
+      daysUntilDue: number;
+    }>;
+    matchingExceptions: number;
+    currencyExposure: Array<{
+      currency: string;
+      amount: number;
+      exposureType: 'payables' | 'orders';
+    }>;
   }>;
 }
 
@@ -3213,6 +3334,912 @@ export class DatabaseStorage implements IStorage {
       totalCommissions: parseFloat(commissionMetrics?.totalCommissions?.toString() || '0'),
       outstandingReceipts: parseFloat(receiptMetrics?.outstandingReceipts?.toString() || '0'),
       creditOverridesPending: creditMetrics?.creditOverridesPending || 0,
+    };
+  }
+
+  // Enhanced Purchase Module Operations Implementation
+  
+  // Purchase Request operations
+  async getPurchaseRequests(limit = 50, status?: string, requesterId?: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] })[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (status) conditions.push(eq(purchaseRequests.status, status as any));
+    if (requesterId) conditions.push(eq(purchaseRequests.requesterId, requesterId));
+    
+    const prs = await db
+      .select({
+        ...purchaseRequests,
+        requester: users,
+        supplier: suppliers,
+      })
+      .from(purchaseRequests)
+      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
+      .leftJoin(suppliers, eq(purchaseRequests.supplierId, suppliers.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(purchaseRequests.createdAt));
+
+    // Get items for each PR
+    const results = [];
+    for (const pr of prs) {
+      const items = await db
+        .select({
+          ...purchaseRequestItems,
+          product: products,
+        })
+        .from(purchaseRequestItems)
+        .innerJoin(products, eq(purchaseRequestItems.productId, products.id))
+        .where(eq(purchaseRequestItems.prId, pr.id));
+      
+      results.push({ ...pr, items });
+    }
+    
+    return results as any;
+  }
+
+  async getPurchaseRequest(id: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] }) | undefined> {
+    const db = await getDb();
+    
+    const [pr] = await db
+      .select({
+        ...purchaseRequests,
+        requester: users,
+        supplier: suppliers,
+      })
+      .from(purchaseRequests)
+      .leftJoin(users, eq(purchaseRequests.requesterId, users.id))
+      .leftJoin(suppliers, eq(purchaseRequests.supplierId, suppliers.id))
+      .where(eq(purchaseRequests.id, id));
+
+    if (!pr) return undefined;
+
+    const items = await db
+      .select({
+        ...purchaseRequestItems,
+        product: products,
+      })
+      .from(purchaseRequestItems)
+      .innerJoin(products, eq(purchaseRequestItems.productId, products.id))
+      .where(eq(purchaseRequestItems.prId, id));
+
+    return { ...pr, items } as any;
+  }
+
+  async createPurchaseRequest(prData: InsertPurchaseRequest): Promise<PurchaseRequest> {
+    const db = await getDb();
+    const [pr] = await db
+      .insert(purchaseRequests)
+      .values(prData)
+      .returning();
+    return pr;
+  }
+
+  async updatePurchaseRequest(id: string, prData: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest> {
+    const db = await getDb();
+    const [pr] = await db
+      .update(purchaseRequests)
+      .set({ ...prData, updatedAt: new Date() })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    return pr;
+  }
+
+  async deletePurchaseRequest(id: string): Promise<void> {
+    const db = await getDb();
+    // Delete items first
+    await db.delete(purchaseRequestItems).where(eq(purchaseRequestItems.prId, id));
+    // Then delete the PR
+    await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
+  }
+
+  async createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem> {
+    const db = await getDb();
+    const [prItem] = await db
+      .insert(purchaseRequestItems)
+      .values(item)
+      .returning();
+    return prItem;
+  }
+
+  async submitPurchaseRequest(id: string): Promise<PurchaseRequest> {
+    const db = await getDb();
+    const [pr] = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'submitted',
+        submittedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    return pr;
+  }
+
+  async approvePurchaseRequest(id: string, approverId: string): Promise<PurchaseRequest> {
+    const db = await getDb();
+    const [pr] = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'approved',
+        approvedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    
+    // Create approval record
+    await this.createApproval({
+      entityType: 'purchase_request',
+      entityId: id,
+      step: 1,
+      approverId,
+      status: 'approved',
+      decidedAt: new Date(),
+    });
+    
+    return pr;
+  }
+
+  async rejectPurchaseRequest(id: string, approverId: string, comment: string): Promise<PurchaseRequest> {
+    const db = await getDb();
+    const [pr] = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'rejected',
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    
+    // Create approval record
+    await this.createApproval({
+      entityType: 'purchase_request',
+      entityId: id,
+      step: 1,
+      approverId,
+      status: 'rejected',
+      decidedAt: new Date(),
+      comment,
+    });
+    
+    return pr;
+  }
+
+  async convertPRtoPO(prId: string, poData: Partial<InsertPurchaseOrder>): Promise<{ pr: PurchaseRequest; po: PurchaseOrder }> {
+    const db = await getDb();
+    
+    const pr = await this.getPurchaseRequest(prId);
+    if (!pr) throw new Error('Purchase request not found');
+    
+    // Create PO with default data from PR
+    const poNumber = `PO-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    const [po] = await db
+      .insert(purchaseOrders)
+      .values({
+        orderNumber: poNumber,
+        prId: prId,
+        supplierId: pr.supplierId!,
+        orderDate: new Date().toISOString().split('T')[0],
+        totalAmount: pr.totalAmount,
+        currency: pr.currency,
+        status: 'draft',
+        createdBy: poData.createdBy!,
+        ...poData,
+      })
+      .returning();
+    
+    // Create PO items from PR items
+    for (const prItem of pr.items) {
+      await db
+        .insert(purchaseOrderItems)
+        .values({
+          orderId: po.id,
+          productId: prItem.productId,
+          quantity: prItem.quantity,
+          unitPrice: prItem.unitPrice || '0',
+          totalPrice: prItem.lineTotal || '0',
+        });
+    }
+    
+    // Update PR status
+    const [updatedPr] = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'converted',
+        convertedToPo: po.id,
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, prId))
+      .returning();
+    
+    return { pr: updatedPr, po };
+  }
+
+  // Approval workflow operations
+  async getApprovals(entityType?: string, entityId?: string, approverId?: string): Promise<(Approval & { approver: User })[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (entityType) conditions.push(eq(approvals.entityType, entityType));
+    if (entityId) conditions.push(eq(approvals.entityId, entityId));
+    if (approverId) conditions.push(eq(approvals.approverId, approverId));
+    
+    return await db
+      .select({
+        ...approvals,
+        approver: users,
+      })
+      .from(approvals)
+      .innerJoin(users, eq(approvals.approverId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(approvals.createdAt)) as any;
+  }
+
+  async createApproval(approval: InsertApproval): Promise<Approval> {
+    const db = await getDb();
+    const [newApproval] = await db
+      .insert(approvals)
+      .values(approval)
+      .returning();
+    return newApproval;
+  }
+
+  async processApproval(id: string, status: 'approved' | 'rejected', comment?: string): Promise<Approval> {
+    const db = await getDb();
+    const [approval] = await db
+      .update(approvals)
+      .set({ 
+        status,
+        decidedAt: new Date(),
+        comment
+      })
+      .where(eq(approvals.id, id))
+      .returning();
+    return approval;
+  }
+
+  // Goods Receipt operations
+  async getGoodsReceipts(limit = 50, poId?: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (poId) conditions.push(eq(goodsReceipts.poId, poId));
+    
+    const grs = await db
+      .select({
+        ...goodsReceipts,
+        purchaseOrder: purchaseOrders,
+        supplier: suppliers,
+        warehouse: warehouses,
+        receivedBy: users,
+      })
+      .from(goodsReceipts)
+      .innerJoin(purchaseOrders, eq(goodsReceipts.poId, purchaseOrders.id))
+      .innerJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .innerJoin(warehouses, eq(goodsReceipts.warehouseId, warehouses.id))
+      .innerJoin(users, eq(goodsReceipts.receivedBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(goodsReceipts.createdAt));
+
+    // Get items for each GR
+    const results = [];
+    for (const gr of grs) {
+      const items = await db
+        .select({
+          ...goodsReceiptItems,
+          product: products,
+        })
+        .from(goodsReceiptItems)
+        .innerJoin(products, eq(goodsReceiptItems.productId, products.id))
+        .where(eq(goodsReceiptItems.grId, gr.id));
+      
+      results.push({ 
+        ...gr, 
+        purchaseOrder: { ...gr.purchaseOrder, supplier: gr.supplier },
+        items 
+      });
+    }
+    
+    return results as any;
+  }
+
+  async getGoodsReceipt(id: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined> {
+    const db = await getDb();
+    
+    const [gr] = await db
+      .select({
+        ...goodsReceipts,
+        purchaseOrder: purchaseOrders,
+        supplier: suppliers,
+        warehouse: warehouses,
+        receivedBy: users,
+      })
+      .from(goodsReceipts)
+      .innerJoin(purchaseOrders, eq(goodsReceipts.poId, purchaseOrders.id))
+      .innerJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .innerJoin(warehouses, eq(goodsReceipts.warehouseId, warehouses.id))
+      .innerJoin(users, eq(goodsReceipts.receivedBy, users.id))
+      .where(eq(goodsReceipts.id, id));
+
+    if (!gr) return undefined;
+
+    const items = await db
+      .select({
+        ...goodsReceiptItems,
+        product: products,
+      })
+      .from(goodsReceiptItems)
+      .innerJoin(products, eq(goodsReceiptItems.productId, products.id))
+      .where(eq(goodsReceiptItems.grId, id));
+
+    return { 
+      ...gr, 
+      purchaseOrder: { ...gr.purchaseOrder, supplier: gr.supplier },
+      items 
+    } as any;
+  }
+
+  async createGoodsReceipt(receiptData: InsertGoodsReceipt, items: InsertGoodsReceiptItem[]): Promise<GoodsReceipt> {
+    const db = await getDb();
+    
+    // Generate GR number
+    const grNumber = `GR-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    
+    const [gr] = await db
+      .insert(goodsReceipts)
+      .values({
+        ...receiptData,
+        grNumber,
+      })
+      .returning();
+
+    // Create GR items
+    for (const item of items) {
+      await db
+        .insert(goodsReceiptItems)
+        .values({
+          ...item,
+          grId: gr.id,
+        });
+    }
+
+    return gr;
+  }
+
+  async updateGoodsReceipt(id: string, receiptData: Partial<InsertGoodsReceipt>): Promise<GoodsReceipt> {
+    const db = await getDb();
+    const [gr] = await db
+      .update(goodsReceipts)
+      .set(receiptData)
+      .where(eq(goodsReceipts.id, id))
+      .returning();
+    return gr;
+  }
+
+  async postGoodsReceipt(id: string): Promise<GoodsReceipt> {
+    const db = await getDb();
+    
+    // Update GR status
+    const [gr] = await db
+      .update(goodsReceipts)
+      .set({ status: 'posted' })
+      .where(eq(goodsReceipts.id, id))
+      .returning();
+
+    // Get GR items to create inventory and stock movements
+    const grItems = await db
+      .select()
+      .from(goodsReceiptItems)
+      .where(eq(goodsReceiptItems.grId, id));
+
+    const grDetail = await this.getGoodsReceipt(id);
+    if (!grDetail) throw new Error('Goods receipt not found');
+
+    // Create/update inventory and stock movements
+    for (const item of grItems) {
+      // Create inventory entry
+      await db
+        .insert(inventory)
+        .values({
+          productId: item.productId,
+          warehouseId: grDetail.warehouseId,
+          batchNumber: item.batchNumber || 'BATCH-' + Date.now(),
+          quantity: item.quantity,
+          expiryDate: item.expiryDate,
+          costPerUnit: '0', // Will be updated from PO
+        });
+
+      // Create stock movement
+      await db
+        .insert(stockMovements)
+        .values({
+          productId: item.productId,
+          warehouseId: grDetail.warehouseId,
+          movementType: 'in',
+          quantity: item.quantity,
+          reference: grDetail.grNumber,
+          notes: `Goods receipt: ${grDetail.grNumber}`,
+          userId: grDetail.receivedBy,
+        });
+    }
+
+    return gr;
+  }
+
+  // Vendor Bill operations
+  async getVendorBills(limit = 50, supplierId?: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] })[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (supplierId) conditions.push(eq(vendorBills.supplierId, supplierId));
+    
+    const bills = await db
+      .select({
+        ...vendorBills,
+        supplier: suppliers,
+        purchaseOrder: purchaseOrders,
+        createdBy: users,
+      })
+      .from(vendorBills)
+      .innerJoin(suppliers, eq(vendorBills.supplierId, suppliers.id))
+      .leftJoin(purchaseOrders, eq(vendorBills.poId, purchaseOrders.id))
+      .innerJoin(users, eq(vendorBills.createdBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(vendorBills.createdAt));
+
+    // Get items for each bill
+    const results = [];
+    for (const bill of bills) {
+      const items = await db
+        .select({
+          ...vendorBillItems,
+          product: products,
+        })
+        .from(vendorBillItems)
+        .leftJoin(products, eq(vendorBillItems.productId, products.id))
+        .where(eq(vendorBillItems.billId, bill.id));
+      
+      results.push({ ...bill, items });
+    }
+    
+    return results as any;
+  }
+
+  async getVendorBill(id: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined> {
+    const db = await getDb();
+    
+    const [bill] = await db
+      .select({
+        ...vendorBills,
+        supplier: suppliers,
+        purchaseOrder: purchaseOrders,
+        createdBy: users,
+      })
+      .from(vendorBills)
+      .innerJoin(suppliers, eq(vendorBills.supplierId, suppliers.id))
+      .leftJoin(purchaseOrders, eq(vendorBills.poId, purchaseOrders.id))
+      .innerJoin(users, eq(vendorBills.createdBy, users.id))
+      .where(eq(vendorBills.id, id));
+
+    if (!bill) return undefined;
+
+    const items = await db
+      .select({
+        ...vendorBillItems,
+        product: products,
+      })
+      .from(vendorBillItems)
+      .leftJoin(products, eq(vendorBillItems.productId, products.id))
+      .where(eq(vendorBillItems.billId, id));
+
+    return { ...bill, items } as any;
+  }
+
+  async createVendorBill(billData: InsertVendorBill, items: InsertVendorBillItem[]): Promise<VendorBill> {
+    const db = await getDb();
+    
+    const [bill] = await db
+      .insert(vendorBills)
+      .values(billData)
+      .returning();
+
+    // Create bill items
+    for (const item of items) {
+      await db
+        .insert(vendorBillItems)
+        .values({
+          ...item,
+          billId: bill.id,
+        });
+    }
+
+    return bill;
+  }
+
+  async updateVendorBill(id: string, billData: Partial<InsertVendorBill>): Promise<VendorBill> {
+    const db = await getDb();
+    const [bill] = await db
+      .update(vendorBills)
+      .set({ ...billData, updatedAt: new Date() })
+      .where(eq(vendorBills.id, id))
+      .returning();
+    return bill;
+  }
+
+  async postVendorBill(id: string): Promise<VendorBill> {
+    const db = await getDb();
+    const [bill] = await db
+      .update(vendorBills)
+      .set({ status: 'posted' })
+      .where(eq(vendorBills.id, id))
+      .returning();
+    return bill;
+  }
+
+  async processOCRBill(billId: string, ocrRaw: string, ocrExtract: any): Promise<VendorBill> {
+    const db = await getDb();
+    const [bill] = await db
+      .update(vendorBills)
+      .set({ 
+        ocrRaw,
+        ocrExtract,
+        updatedAt: new Date()
+      })
+      .where(eq(vendorBills.id, billId))
+      .returning();
+    return bill;
+  }
+
+  // Three-Way Matching operations
+  async getMatchResults(poId?: string, status?: string): Promise<(MatchResult & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; goodsReceipt?: GoodsReceipt; vendorBill?: VendorBill; resolvedBy?: User })[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (poId) conditions.push(eq(matchResults.poId, poId));
+    if (status) conditions.push(eq(matchResults.status, status as any));
+    
+    return await db
+      .select({
+        ...matchResults,
+        purchaseOrder: purchaseOrders,
+        supplier: suppliers,
+        goodsReceipt: goodsReceipts,
+        vendorBill: vendorBills,
+        resolvedBy: users,
+      })
+      .from(matchResults)
+      .innerJoin(purchaseOrders, eq(matchResults.poId, purchaseOrders.id))
+      .innerJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .leftJoin(goodsReceipts, eq(matchResults.grId, goodsReceipts.id))
+      .leftJoin(vendorBills, eq(matchResults.billId, vendorBills.id))
+      .leftJoin(users, eq(matchResults.resolvedBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(matchResults.createdAt)) as any;
+  }
+
+  async performThreeWayMatch(poId: string): Promise<MatchResult> {
+    const db = await getDb();
+    
+    // Get PO, GR, and Bill for the PO
+    const po = await this.getPurchaseOrder(poId);
+    if (!po) throw new Error('Purchase order not found');
+
+    const [gr] = await db
+      .select()
+      .from(goodsReceipts)
+      .where(eq(goodsReceipts.poId, poId))
+      .limit(1);
+
+    const [bill] = await db
+      .select()
+      .from(vendorBills)
+      .where(eq(vendorBills.poId, poId))
+      .limit(1);
+
+    let matchStatus: 'matched' | 'quantity_mismatch' | 'price_mismatch' | 'missing_receipt' | 'missing_bill' | 'pending' = 'pending';
+    let quantityVariance = '0';
+    let priceVariance = '0';
+    const matchDetails: any = {
+      po: { id: po.id, amount: po.totalAmount },
+      gr: gr ? { id: gr.id, received: true } : null,
+      bill: bill ? { id: bill.id, amount: bill.totalAmount } : null,
+    };
+
+    if (!gr && !bill) {
+      matchStatus = 'pending';
+    } else if (!gr) {
+      matchStatus = 'missing_receipt';
+    } else if (!bill) {
+      matchStatus = 'missing_bill';
+    } else {
+      // Perform detailed matching
+      const poAmount = parseFloat(po.totalAmount || '0');
+      const billAmount = parseFloat(bill.totalAmount || '0');
+      const priceDiff = Math.abs(poAmount - billAmount);
+      
+      priceVariance = priceDiff.toString();
+      
+      if (priceDiff > 0.01) { // Allow 1 cent tolerance
+        matchStatus = 'price_mismatch';
+      } else {
+        matchStatus = 'matched';
+      }
+    }
+
+    const [matchResult] = await db
+      .insert(matchResults)
+      .values({
+        poId,
+        grId: gr?.id,
+        billId: bill?.id,
+        status: matchStatus,
+        quantityVariance,
+        priceVariance,
+        matchDetails,
+      })
+      .returning();
+
+    return matchResult;
+  }
+
+  async resolveMatchException(matchId: string, resolvedBy: string, notes: string): Promise<MatchResult> {
+    const db = await getDb();
+    const [matchResult] = await db
+      .update(matchResults)
+      .set({ 
+        status: 'matched',
+        resolvedBy,
+        resolvedAt: new Date(),
+        notes
+      })
+      .where(eq(matchResults.id, matchId))
+      .returning();
+    return matchResult;
+  }
+
+  // FX Rate operations
+  async getFxRates(baseCurrency?: string, quoteCurrency?: string): Promise<FxRate[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (baseCurrency) conditions.push(eq(fxRates.baseCurrency, baseCurrency));
+    if (quoteCurrency) conditions.push(eq(fxRates.quoteCurrency, quoteCurrency));
+    
+    return await db
+      .select()
+      .from(fxRates)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(fxRates.asOfDate), desc(fxRates.createdAt));
+  }
+
+  async getFxRateLatest(baseCurrency: string, quoteCurrency: string): Promise<FxRate | undefined> {
+    const db = await getDb();
+    const [rate] = await db
+      .select()
+      .from(fxRates)
+      .where(and(
+        eq(fxRates.baseCurrency, baseCurrency),
+        eq(fxRates.quoteCurrency, quoteCurrency)
+      ))
+      .orderBy(desc(fxRates.asOfDate), desc(fxRates.createdAt))
+      .limit(1);
+    return rate;
+  }
+
+  async upsertFxRate(rateData: InsertFxRate): Promise<FxRate> {
+    const db = await getDb();
+    const [rate] = await db
+      .insert(fxRates)
+      .values(rateData)
+      .onConflictDoUpdate({
+        target: [fxRates.baseCurrency, fxRates.quoteCurrency, fxRates.asOfDate],
+        set: {
+          rate: rateData.rate,
+          source: rateData.source,
+          createdAt: new Date(),
+        },
+      })
+      .returning();
+    return rate;
+  }
+
+  async refreshFxRates(): Promise<FxRate[]> {
+    try {
+      const { externalIntegrationsService } = await import("./external-integrations");
+      
+      // Get latest rates from external service
+      const fxData = await externalIntegrationsService.getFxRatesWithFallbacks('USD');
+      
+      if (!fxData.success) {
+        console.warn('Failed to fetch FX rates from external services');
+        return [];
+      }
+
+      const db = await getDb();
+      const updatedRates: FxRate[] = [];
+      const currentDate = new Date().toISOString().split('T')[0];
+
+      // Update rates in database
+      for (const [quoteCurrency, rate] of Object.entries(fxData.rates)) {
+        const [updatedRate] = await db
+          .insert(fxRates)
+          .values({
+            baseCurrency: 'USD',
+            quoteCurrency,
+            rate: rate.toString(),
+            asOfDate: currentDate,
+            source: fxData.source,
+          })
+          .onConflictDoUpdate({
+            target: [fxRates.baseCurrency, fxRates.quoteCurrency, fxRates.asOfDate],
+            set: {
+              rate: rate.toString(),
+              source: fxData.source,
+              createdAt: new Date(),
+            },
+          })
+          .returning();
+        
+        updatedRates.push(updatedRate);
+      }
+
+      console.log(`Updated ${updatedRates.length} FX rates from ${fxData.source}`);
+      return updatedRates;
+    } catch (error) {
+      console.error('Error refreshing FX rates:', error);
+      return [];
+    }
+  }
+
+  // Competitor Price operations
+  async getCompetitorPrices(productId?: string, competitor?: string): Promise<(CompetitorPrice & { product: Product })[]> {
+    const db = await getDb();
+    
+    let conditions = [eq(competitorPrices.isActive, true)];
+    if (productId) conditions.push(eq(competitorPrices.productId, productId));
+    if (competitor) conditions.push(eq(competitorPrices.competitor, competitor));
+    
+    return await db
+      .select({
+        ...competitorPrices,
+        product: products,
+      })
+      .from(competitorPrices)
+      .innerJoin(products, eq(competitorPrices.productId, products.id))
+      .where(and(...conditions))
+      .orderBy(desc(competitorPrices.collectedAt)) as any;
+  }
+
+  async upsertCompetitorPrice(priceData: InsertCompetitorPrice): Promise<CompetitorPrice> {
+    const db = await getDb();
+    const [price] = await db
+      .insert(competitorPrices)
+      .values(priceData)
+      .onConflictDoUpdate({
+        target: [competitorPrices.productId, competitorPrices.competitor],
+        set: {
+          price: priceData.price,
+          currency: priceData.currency,
+          sourceUrl: priceData.sourceUrl,
+          collectedAt: new Date(),
+        },
+      })
+      .returning();
+    return price;
+  }
+
+  async getCompetitorAnalysis(productId?: string): Promise<Array<{
+    productId: string;
+    productName: string;
+    ourPrice: number;
+    avgCompetitorPrice: number;
+    minCompetitorPrice: number;
+    maxCompetitorPrice: number;
+    priceAdvantage: number;
+    competitorCount: number;
+  }>> {
+    const db = await getDb();
+    
+    let conditions = [eq(competitorPrices.isActive, true)];
+    if (productId) conditions.push(eq(competitorPrices.productId, productId));
+    
+    const analysis = await db
+      .select({
+        productId: products.id,
+        productName: products.name,
+        ourPrice: products.unitPrice,
+        avgCompetitorPrice: sql<number>`AVG(${competitorPrices.price})`.as('avgCompetitorPrice'),
+        minCompetitorPrice: sql<number>`MIN(${competitorPrices.price})`.as('minCompetitorPrice'),
+        maxCompetitorPrice: sql<number>`MAX(${competitorPrices.price})`.as('maxCompetitorPrice'),
+        competitorCount: sql<number>`COUNT(DISTINCT ${competitorPrices.competitor})`.as('competitorCount'),
+      })
+      .from(competitorPrices)
+      .innerJoin(products, eq(competitorPrices.productId, products.id))
+      .where(and(...conditions))
+      .groupBy(products.id, products.name, products.unitPrice);
+
+    return analysis.map(item => ({
+      ...item,
+      ourPrice: parseFloat(item.ourPrice?.toString() || '0'),
+      avgCompetitorPrice: parseFloat(item.avgCompetitorPrice?.toString() || '0'),
+      minCompetitorPrice: parseFloat(item.minCompetitorPrice?.toString() || '0'),
+      maxCompetitorPrice: parseFloat(item.maxCompetitorPrice?.toString() || '0'),
+      priceAdvantage: item.ourPrice && item.avgCompetitorPrice 
+        ? ((parseFloat(item.avgCompetitorPrice.toString()) - parseFloat(item.ourPrice.toString())) / parseFloat(item.avgCompetitorPrice.toString())) * 100
+        : 0,
+    }));
+  }
+
+  // Purchase Dashboard metrics
+  async getPurchaseDashboardMetrics(): Promise<{
+    totalPurchaseOrders: number;
+    pendingApprovals: number;
+    openPurchaseOrders: number;
+    totalPurchaseValue: number;
+    averageOrderValue: number;
+    topSuppliers: Array<{
+      supplierId: string;
+      supplierName: string;
+      orderCount: number;
+      totalValue: number;
+    }>;
+    upcomingPayments: Array<{
+      billId: string;
+      billNumber: string;
+      supplierName: string;
+      amount: number;
+      currency: string;
+      dueDate: string;
+      daysUntilDue: number;
+    }>;
+    matchingExceptions: number;
+    currencyExposure: Array<{
+      currency: string;
+      amount: number;
+      exposureType: 'payables' | 'orders';
+    }>;
+  }> {
+    const db = await getDb();
+    
+    // Get basic PO metrics
+    const [poMetrics] = await db
+      .select({
+        totalPurchaseOrders: sql<number>`COUNT(*)`.as('totalPurchaseOrders'),
+        openPurchaseOrders: sql<number>`COUNT(*) FILTER (WHERE ${purchaseOrders.status} IN ('draft', 'sent', 'confirmed'))`.as('openPurchaseOrders'),
+        totalPurchaseValue: sql<number>`COALESCE(SUM(${purchaseOrders.totalAmount}), 0)`.as('totalPurchaseValue'),
+        averageOrderValue: sql<number>`COALESCE(AVG(${purchaseOrders.totalAmount}), 0)`.as('averageOrderValue'),
+      })
+      .from(purchaseOrders);
+
+    // Get pending approvals
+    const [approvalMetrics] = await db
+      .select({
+        pendingApprovals: sql<number>`COUNT(*)`.as('pendingApprovals'),
+      })
+      .from(approvals)
+      .where(eq(approvals.status, 'pending'));
+
+    // Get matching exceptions
+    const [matchMetrics] = await db
+      .select({
+        matchingExceptions: sql<number>`COUNT(*)`.as('matchingExceptions'),
+      })
+      .from(matchResults)
+      .where(sql`${matchResults.status} != 'matched'`);
+
+    return {
+      totalPurchaseOrders: poMetrics?.totalPurchaseOrders || 0,
+      pendingApprovals: approvalMetrics?.pendingApprovals || 0,
+      openPurchaseOrders: poMetrics?.openPurchaseOrders || 0,
+      totalPurchaseValue: parseFloat(poMetrics?.totalPurchaseValue?.toString() || '0'),
+      averageOrderValue: parseFloat(poMetrics?.averageOrderValue?.toString() || '0'),
+      topSuppliers: [], // Would implement with complex query
+      upcomingPayments: [], // Would implement with complex query
+      matchingExceptions: matchMetrics?.matchingExceptions || 0,
+      currencyExposure: [], // Would implement with complex query
     };
   }
 }

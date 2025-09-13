@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
 import AIChatModal from "@/components/ai-chat-modal";
@@ -9,170 +8,786 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Search, Plus, DollarSign, Calendar, Building, Eye, Edit, Package, Truck, CheckCircle } from "lucide-react";
+import { 
+  ShoppingCart, 
+  Search, 
+  Plus, 
+  DollarSign, 
+  Calendar, 
+  Building, 
+  Eye, 
+  Edit, 
+  Package, 
+  Truck, 
+  CheckCircle, 
+  FileText,
+  Receipt,
+  BarChart3,
+  TrendingUp,
+  AlertTriangle,
+  Upload,
+  Download,
+  RefreshCw,
+  Check,
+  X,
+  Settings
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPurchaseOrderSchema, type PurchaseOrder, type Supplier, type InsertPurchaseOrder } from "@shared/schema";
+import { 
+  insertPurchaseRequestSchema, 
+  insertPurchaseOrderSchema,
+  insertGoodsReceiptSchema,
+  insertVendorBillSchema,
+  insertCompetitorPriceSchema,
+  type PurchaseRequest,
+  type PurchaseOrder, 
+  type GoodsReceipt,
+  type VendorBill,
+  type FxRate,
+  type CompetitorPrice,
+  type Supplier, 
+  type Product,
+  type Warehouse,
+  type User,
+  type InsertPurchaseRequest,
+  type InsertPurchaseOrder,
+  type InsertGoodsReceipt,
+  type InsertVendorBill,
+  type InsertCompetitorPrice
+} from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { format } from "date-fns";
 
-interface PurchaseOrderWithSupplier extends PurchaseOrder {
+// Extended types for frontend
+interface PurchaseRequestWithDetails extends PurchaseRequest {
+  requester: User;
+  supplier?: Supplier;
+  items: Array<{
+    id: string;
+    productId: string;
+    product: Product;
+    quantity: number;
+    unitPrice?: string;
+    lineTotal?: string;
+    notes?: string;
+  }>;
+}
+
+interface PurchaseOrderWithDetails extends PurchaseOrder {
   supplier: Supplier;
+  items: Array<{
+    id: string;
+    productId: string;
+    product: Product;
+    quantity: number;
+    unitPrice: string;
+    totalPrice: string;
+  }>;
+}
+
+interface GoodsReceiptWithDetails extends GoodsReceipt {
+  purchaseOrder: PurchaseOrder & { supplier: Supplier };
+  warehouse: Warehouse;
+  receivedBy: User;
+  items: Array<{
+    id: string;
+    productId: string;
+    product: Product;
+    quantity: number;
+    batchNumber?: string;
+    expiryDate?: string;
+    notes?: string;
+  }>;
+}
+
+interface VendorBillWithDetails extends VendorBill {
+  supplier: Supplier;
+  purchaseOrder?: PurchaseOrder;
+  createdBy: User;
+  items: Array<{
+    id: string;
+    productId?: string;
+    product?: Product;
+    quantity: number;
+    unitPrice: string;
+    lineTotal: string;
+    description?: string;
+  }>;
+}
+
+interface CompetitorPriceWithDetails extends CompetitorPrice {
+  product: Product;
+}
+
+interface PurchaseDashboardMetrics {
+  totalPurchaseOrders: number;
+  pendingApprovals: number;
+  openPurchaseOrders: number;
+  totalPurchaseValue: number;
+  averageOrderValue: number;
+  topSuppliers: Array<{
+    supplierId: string;
+    supplierName: string;
+    orderCount: number;
+    totalValue: number;
+  }>;
+  upcomingPayments: Array<{
+    billId: string;
+    billNumber: string;
+    supplierName: string;
+    amount: number;
+    currency: string;
+    dueDate: string;
+    daysUntilDue: number;
+  }>;
+  matchingExceptions: number;
+  currencyExposure: Array<{
+    currency: string;
+    amount: number;
+    exposureType: 'payables' | 'orders';
+  }>;
 }
 
 export default function Purchases() {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreatePRModalOpen, setIsCreatePRModalOpen] = useState(false);
+  const [isCreatePOModalOpen, setIsCreatePOModalOpen] = useState(false);
+  const [isCreateGRModalOpen, setIsCreateGRModalOpen] = useState(false);
+  const [isCreateBillModalOpen, setIsCreateBillModalOpen] = useState(false);
+  const [isCreateCompPriceModalOpen, setIsCreateCompPriceModalOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: purchaseOrders, isLoading, error } = useQuery<PurchaseOrderWithSupplier[]>({
-    queryKey: ["/api/purchase-orders"],
+  // Queries
+  const { data: dashboardMetrics, isLoading: isDashboardLoading } = useQuery<PurchaseDashboardMetrics>({
+    queryKey: ["/api/purchases/dashboard"],
+  });
+
+  const { data: purchaseRequests, isLoading: isPRLoading } = useQuery<PurchaseRequestWithDetails[]>({
+    queryKey: ["/api/purchases/requests"],
+  });
+
+  const { data: purchaseOrders, isLoading: isPOLoading } = useQuery<PurchaseOrderWithDetails[]>({
+    queryKey: ["/api/purchases/orders"],
+  });
+
+  const { data: goodsReceipts, isLoading: isGRLoading } = useQuery<GoodsReceiptWithDetails[]>({
+    queryKey: ["/api/purchases/receipts"],
+  });
+
+  const { data: vendorBills, isLoading: isBillsLoading } = useQuery<VendorBillWithDetails[]>({
+    queryKey: ["/api/purchases/bills"],
+  });
+
+  const { data: competitorPrices, isLoading: isCompPricesLoading } = useQuery<CompetitorPriceWithDetails[]>({
+    queryKey: ["/api/purchases/competitor-prices"],
   });
 
   const { data: suppliers } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
   });
 
-  const form = useForm<InsertPurchaseOrder>({
-    resolver: zodResolver(insertPurchaseOrderSchema),
+  const { data: products } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const { data: warehouses } = useQuery<Warehouse[]>({
+    queryKey: ["/api/warehouses"],
+  });
+
+  const { data: fxRates } = useQuery<FxRate[]>({
+    queryKey: ["/api/fx/rates"],
+  });
+
+  // Forms
+  const prForm = useForm<InsertPurchaseRequest>({
+    resolver: zodResolver(insertPurchaseRequestSchema),
     defaultValues: {
-      orderNumber: `PO-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-      supplierId: "",
-      orderDate: new Date().toISOString().split('T')[0],
-      expectedDeliveryDate: "",
-      status: "draft",
-      subtotal: "0",
-      taxAmount: "0",
+      prNumber: `PR-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
       totalAmount: "0",
+      currency: "USD",
+      status: "draft",
       notes: "",
     },
   });
 
-  const createPurchaseOrderMutation = useMutation({
-    mutationFn: async (data: InsertPurchaseOrder) => {
-      const response = await apiRequest("POST", "/api/purchase-orders", data);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      setIsCreateModalOpen(false);
-      form.reset({
-        orderNumber: `PO-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-        supplierId: "",
-        orderDate: new Date().toISOString().split('T')[0],
-        expectedDeliveryDate: "",
-        status: "draft",
-        subtotal: "0",
-        taxAmount: "0",
-        totalAmount: "0",
-        notes: "",
-      });
-      toast({
-        title: "Success",
-        description: "Purchase order created successfully",
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to create purchase order",
-        variant: "destructive",
-      });
+  const poForm = useForm<InsertPurchaseOrder>({
+    resolver: zodResolver(insertPurchaseOrderSchema),
+    defaultValues: {
+      orderNumber: `PO-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      orderDate: new Date().toISOString().split('T')[0],
+      status: "draft",
+      subtotal: "0",
+      taxAmount: "0",
+      totalAmount: "0",
+      currency: "USD",
     },
   });
 
-  const onSubmit = (data: InsertPurchaseOrder) => {
-    createPurchaseOrderMutation.mutate(data);
-  };
+  const grForm = useForm<InsertGoodsReceipt>({
+    resolver: zodResolver(insertGoodsReceiptSchema),
+    defaultValues: {
+      status: "draft",
+      notes: "",
+    },
+  });
 
-  const filteredOrders = purchaseOrders?.filter(order => {
-    const matchesSearch = 
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.supplier.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  }) || [];
+  const billForm = useForm<InsertVendorBill>({
+    resolver: zodResolver(insertVendorBillSchema),
+    defaultValues: {
+      billDate: new Date().toISOString().split('T')[0],
+      totalAmount: "0",
+      currency: "USD",
+      status: "draft",
+    },
+  });
 
-  const formatCurrency = (amount: string | number) => {
+  const compPriceForm = useForm<InsertCompetitorPrice>({
+    resolver: zodResolver(insertCompetitorPriceSchema),
+    defaultValues: {
+      price: "0",
+      currency: "USD",
+      collectedAt: new Date(),
+      isActive: true,
+    },
+  });
+
+  // Mutations
+  const createPRMutation = useMutation({
+    mutationFn: async (data: InsertPurchaseRequest) => {
+      const response = await apiRequest("POST", "/api/purchases/requests", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      setIsCreatePRModalOpen(false);
+      prForm.reset();
+      toast({ title: "Success", description: "Purchase request created successfully" });
+    },
+    onError: handleMutationError,
+  });
+
+  const createPOMutation = useMutation({
+    mutationFn: async (data: InsertPurchaseOrder) => {
+      const response = await apiRequest("POST", "/api/purchases/orders", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      setIsCreatePOModalOpen(false);
+      poForm.reset();
+      toast({ title: "Success", description: "Purchase order created successfully" });
+    },
+    onError: handleMutationError,
+  });
+
+  const approvePRMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/purchases/requests/${id}/approve`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      toast({ title: "Success", description: "Purchase request approved successfully" });
+    },
+    onError: handleMutationError,
+  });
+
+  const rejectPRMutation = useMutation({
+    mutationFn: async ({ id, comment }: { id: string; comment: string }) => {
+      const response = await apiRequest("POST", `/api/purchases/requests/${id}/reject`, { comment });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      toast({ title: "Success", description: "Purchase request rejected" });
+    },
+    onError: handleMutationError,
+  });
+
+  const performMatchingMutation = useMutation({
+    mutationFn: async (poId: string) => {
+      const response = await apiRequest("POST", `/api/purchases/match/${poId}`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/match"] });
+      toast({ title: "Success", description: "Three-way matching completed" });
+    },
+    onError: handleMutationError,
+  });
+
+  const refreshFxRatesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/fx/refresh", {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fx/rates"] });
+      toast({ title: "Success", description: "FX rates refreshed successfully" });
+    },
+    onError: handleMutationError,
+  });
+
+  function handleMutationError(error: any) {
+    if (isUnauthorizedError(error as Error)) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+    toast({
+      title: "Error",
+      description: "Operation failed. Please try again.",
+      variant: "destructive",
+    });
+  }
+
+  // Utility functions
+  const formatCurrency = (amount: string | number, currency = "USD") => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: currency || 'USD'
     }).format(num);
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'submitted': 
       case 'sent': return 'bg-blue-100 text-blue-800';
+      case 'approved':
       case 'confirmed': return 'bg-green-100 text-green-800';
-      case 'received': return 'bg-purple-100 text-purple-800';
-      case 'closed': return 'bg-slate-100 text-slate-800';
+      case 'received':
+      case 'posted': return 'bg-purple-100 text-purple-800';
+      case 'rejected':
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'matched': return 'bg-green-100 text-green-800';
+      case 'quantity_mismatch':
+      case 'price_mismatch': return 'bg-yellow-100 text-yellow-800';
+      case 'missing_receipt':
+      case 'missing_bill': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusText = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
+    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'draft': return Package;
-      case 'sent': return Truck;
-      case 'confirmed': return CheckCircle;
-      case 'received': return Building;
-      case 'closed': return CheckCircle;
-      default: return Package;
-    }
-  };
+  // Dashboard Tab Component
+  const DashboardTab = () => (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm">Total Purchase Orders</p>
+                <h3 className="text-2xl font-bold" data-testid="text-total-purchase-orders">
+                  {dashboardMetrics?.totalPurchaseOrders || 0}
+                </h3>
+              </div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <ShoppingCart className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-  if (error) {
-    return (
-      <div className="flex h-screen bg-background">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar 
-            title="Purchases"
-            subtitle="Manage purchase orders and supplier relationships"
-            onOpenAIChat={() => setIsChatOpen(true)}
-          />
-          <main className="flex-1 flex items-center justify-center">
-            <Card className="w-full max-w-md mx-4">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <ShoppingCart className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load purchase orders</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
-                </div>
-              </CardContent>
-            </Card>
-          </main>
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm">Pending Approvals</p>
+                <h3 className="text-2xl font-bold" data-testid="text-pending-approvals">
+                  {dashboardMetrics?.pendingApprovals || 0}
+                </h3>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm">Total Purchase Value</p>
+                <h3 className="text-2xl font-bold" data-testid="text-total-purchase-value">
+                  {formatCurrency(dashboardMetrics?.totalPurchaseValue || 0)}
+                </h3>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm">Matching Exceptions</p>
+                <h3 className="text-2xl font-bold" data-testid="text-matching-exceptions">
+                  {dashboardMetrics?.matchingExceptions || 0}
+                </h3>
+              </div>
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    );
-  }
+
+      {/* Charts and Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Suppliers by Value</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {isDashboardLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))
+              ) : dashboardMetrics?.topSuppliers.length ? (
+                dashboardMetrics.topSuppliers.slice(0, 5).map((supplier) => (
+                  <div key={supplier.supplierId} className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{supplier.supplierName}</div>
+                      <div className="text-sm text-muted-foreground">{supplier.orderCount} orders</div>
+                    </div>
+                    <div className="font-bold">{formatCurrency(supplier.totalValue)}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No supplier data available</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Payments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {isDashboardLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))
+              ) : dashboardMetrics?.upcomingPayments.length ? (
+                dashboardMetrics.upcomingPayments.slice(0, 5).map((payment) => (
+                  <div key={payment.billId} className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{payment.billNumber}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {payment.supplierName} • Due in {payment.daysUntilDue} days
+                      </div>
+                    </div>
+                    <div className="font-bold">{formatCurrency(payment.amount, payment.currency)}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No upcoming payments</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  // Purchase Requests Tab Component
+  const PurchaseRequestsTab = () => (
+    <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search purchase requests..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-80"
+              data-testid="input-search-requests"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-48" data-testid="select-status-filter-pr">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="converted">Converted</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <Dialog open={isCreatePRModalOpen} onOpenChange={setIsCreatePRModalOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-purchase-request">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Purchase Request
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Purchase Request</DialogTitle>
+            </DialogHeader>
+            <Form {...prForm}>
+              <form onSubmit={prForm.handleSubmit((data) => createPRMutation.mutate(data))} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={prForm.control}
+                    name="prNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PR Number *</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-pr-number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={prForm.control}
+                    name="supplierId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-supplier-pr">
+                              <SelectValue placeholder="Select supplier (optional)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {suppliers?.map((supplier) => (
+                              <SelectItem key={supplier.id} value={supplier.id}>
+                                {supplier.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={prForm.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Amount</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} data-testid="input-pr-total" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={prForm.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Currency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-currency-pr">
+                              <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="AOA">AOA</SelectItem>
+                            <SelectItem value="BRL">BRL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={prForm.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} value={field.value || ""} data-testid="textarea-pr-notes" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-3">
+                  <Button type="button" variant="outline" onClick={() => setIsCreatePRModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createPRMutation.isPending} data-testid="button-submit-pr">
+                    {createPRMutation.isPending ? "Creating..." : "Create Purchase Request"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Purchase Requests Table */}
+      <Card data-testid="card-purchase-requests">
+        <CardHeader>
+          <CardTitle>Purchase Requests</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr className="text-left">
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">PR Number</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Requester</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Supplier</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {isPRLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-8 w-16" /></td>
+                    </tr>
+                  ))
+                ) : purchaseRequests && purchaseRequests.length > 0 ? (
+                  purchaseRequests
+                    .filter(pr => {
+                      const matchesSearch = pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        pr.requester.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (pr.supplier?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+                      const matchesStatus = statusFilter === "all" || pr.status === statusFilter;
+                      return matchesSearch && matchesStatus;
+                    })
+                    .map((pr) => (
+                      <tr key={pr.id} data-testid={`row-purchase-request-${pr.id}`}>
+                        <td className="px-6 py-4">
+                          <div className="font-mono text-sm">{pr.prNumber}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{pr.requester.name}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>{pr.supplier?.name || 'TBD'}</div>
+                        </td>
+                        <td className="px-6 py-4 font-medium">
+                          {formatCurrency(pr.totalAmount || 0, pr.currency)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge className={getStatusColor(pr.status || 'draft')}>
+                            {getStatusText(pr.status || 'draft')}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            {pr.status === 'submitted' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => approvePRMutation.mutate(pr.id)}
+                                  disabled={approvePRMutation.isPending}
+                                  data-testid={`button-approve-pr-${pr.id}`}
+                                >
+                                  <Check className="w-4 h-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => rejectPRMutation.mutate({ id: pr.id, comment: "Rejected from list" })}
+                                  disabled={rejectPRMutation.isPending}
+                                  data-testid={`button-reject-pr-${pr.id}`}
+                                >
+                                  <X className="w-4 h-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            <Button size="sm" variant="outline" data-testid={`button-view-pr-${pr.id}`}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                      No purchase requests found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-background">
@@ -181,402 +796,88 @@ export default function Purchases() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar 
           title="Purchases"
-          subtitle="Manage purchase orders and supplier relationships"
+          subtitle="Comprehensive purchase management system"
           onOpenAIChat={() => setIsChatOpen(true)}
         />
         
         <main className="flex-1 overflow-y-auto p-6" data-testid="main-purchases">
-          {/* Header Actions */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  placeholder="Search purchase orders or suppliers..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-80"
-                  data-testid="input-search-purchases"
-                />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-7">
+              <TabsTrigger value="dashboard" data-testid="tab-dashboard">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="requests" data-testid="tab-requests">
+                <FileText className="w-4 h-4 mr-2" />
+                Requests
+              </TabsTrigger>
+              <TabsTrigger value="orders" data-testid="tab-orders">
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Orders
+              </TabsTrigger>
+              <TabsTrigger value="receipts" data-testid="tab-receipts">
+                <Receipt className="w-4 h-4 mr-2" />
+                Receipts
+              </TabsTrigger>
+              <TabsTrigger value="bills" data-testid="tab-bills">
+                <FileText className="w-4 h-4 mr-2" />
+                Bills
+              </TabsTrigger>
+              <TabsTrigger value="matching" data-testid="tab-matching">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Matching
+              </TabsTrigger>
+              <TabsTrigger value="prices" data-testid="tab-prices">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Prices
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="mt-6">
+              <DashboardTab />
+            </TabsContent>
+
+            <TabsContent value="requests" className="mt-6">
+              <PurchaseRequestsTab />
+            </TabsContent>
+
+            <TabsContent value="orders" className="mt-6">
+              <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground">Purchase Orders tab - Coming soon</p>
               </div>
-              
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48" data-testid="select-status-filter">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="received">Received</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground" data-testid="button-create-purchase-order">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Purchase Order
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Purchase Order</DialogTitle>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="orderNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Order Number *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="PO-2024-0001" {...field} data-testid="input-order-number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="supplierId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Supplier *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-supplier">
-                                  <SelectValue placeholder="Select supplier" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {suppliers?.map((supplier) => (
-                                  <SelectItem key={supplier.id} value={supplier.id}>
-                                    {supplier.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+            </TabsContent>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="orderDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Order Date *</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} data-testid="input-order-date" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="expectedDeliveryDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Expected Delivery Date</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} value={field.value || ''} data-testid="input-delivery-date" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="subtotal"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Subtotal</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-subtotal" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="taxAmount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tax Amount</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-tax-amount" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="totalAmount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Total Amount</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} data-testid="input-total-amount" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="notes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Notes</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Additional notes or requirements..." {...field} value={field.value || ''} data-testid="textarea-notes" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="flex justify-end space-x-3">
-                      <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={createPurchaseOrderMutation.isPending}
-                        data-testid="button-submit-purchase-order"
-                      >
-                        {createPurchaseOrderMutation.isPending ? "Creating..." : "Create Purchase Order"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Purchase Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Total Orders</p>
-                    <h3 className="text-2xl font-bold text-foreground" data-testid="text-total-purchase-orders">
-                      {filteredOrders.length}
-                    </h3>
-                  </div>
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <ShoppingCart className="w-6 h-6 text-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Total Value</p>
-                    <h3 className="text-2xl font-bold text-foreground" data-testid="text-total-purchase-value">
-                      {formatCurrency(
-                        filteredOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount || "0"), 0)
-                      )}
-                    </h3>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Pending Orders</p>
-                    <h3 className="text-2xl font-bold text-foreground" data-testid="text-pending-purchase-orders">
-                      {filteredOrders.filter(order => order.status === 'sent' || order.status === 'draft').length}
-                    </h3>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Truck className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Received Orders</p>
-                    <h3 className="text-2xl font-bold text-foreground" data-testid="text-received-purchase-orders">
-                      {filteredOrders.filter(order => order.status === 'received' || order.status === 'closed').length}
-                    </h3>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Purchase Orders Table */}
-          <Card data-testid="card-purchase-orders">
-            <CardHeader>
-              <CardTitle>Purchase Orders</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/50">
-                    <tr className="text-left">
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Order #</th>
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Supplier</th>
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Order Date</th>
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Delivery Date</th>
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {isLoading ? (
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <tr key={index}>
-                          <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
-                          <td className="px-6 py-4">
-                            <div>
-                              <Skeleton className="h-4 w-32 mb-1" />
-                              <Skeleton className="h-3 w-24" />
-                            </div>
-                          </td>
-                          <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                          <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                          <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                          <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
-                          <td className="px-6 py-4"><Skeleton className="h-8 w-16" /></td>
-                        </tr>
-                      ))
-                    ) : filteredOrders.length > 0 ? (
-                      filteredOrders.map((order) => {
-                        const StatusIcon = getStatusIcon(order.status || 'draft');
-                        
-                        return (
-                          <tr key={order.id} className="table-row" data-testid={`row-purchase-order-${order.id}`}>
-                            <td className="px-6 py-4">
-                              <div className="font-mono text-sm" data-testid={`text-order-number-${order.id}`}>
-                                {order.orderNumber}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div>
-                                <div className="font-medium text-foreground" data-testid={`text-supplier-name-${order.id}`}>
-                                  {order.supplier.name}
-                                </div>
-                                {order.supplier.country && (
-                                  <div className="text-muted-foreground text-sm" data-testid={`text-supplier-country-${order.id}`}>
-                                    {order.supplier.country}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm" data-testid={`text-order-date-${order.id}`}>
-                              {format(new Date(order.orderDate), 'MMM dd, yyyy')}
-                            </td>
-                            <td className="px-6 py-4 text-sm" data-testid={`text-delivery-date-${order.id}`}>
-                              {order.expectedDeliveryDate ? format(new Date(order.expectedDeliveryDate), 'MMM dd, yyyy') : 'Not set'}
-                            </td>
-                            <td className="px-6 py-4 font-medium" data-testid={`text-order-amount-${order.id}`}>
-                              {formatCurrency(order.totalAmount || 0)}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center space-x-2">
-                                <StatusIcon className="w-4 h-4" />
-                                <Badge className={getStatusColor(order.status || 'draft')} data-testid={`badge-status-${order.id}`}>
-                                  {getStatusText(order.status || 'draft')}
-                                </Badge>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center space-x-2">
-                                <Link href={`/purchases/${order.id}`}>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    data-testid={`button-view-${order.id}`}
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </Button>
-                                </Link>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  data-testid={`button-edit-${order.id}`}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center justify-center">
-                            <ShoppingCart className="w-12 h-12 text-muted-foreground/40 mb-4" />
-                            <h3 className="text-lg font-medium mb-2">
-                              {searchTerm || statusFilter !== "all" ? "No purchase orders found" : "No purchase orders yet"}
-                            </h3>
-                            <p className="text-muted-foreground mb-4">
-                              {searchTerm || statusFilter !== "all"
-                                ? "No orders match your current filters. Try adjusting your search."
-                                : "Get started by creating your first purchase order."
-                              }
-                            </p>
-                            {!searchTerm && statusFilter === "all" && (
-                              <Button onClick={() => setIsCreateModalOpen(true)} data-testid="button-create-first-purchase-order">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Create Purchase Order
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            <TabsContent value="receipts" className="mt-6">
+              <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground">Goods Receipts tab - Coming soon</p>
               </div>
-            </CardContent>
-          </Card>
+            </TabsContent>
+
+            <TabsContent value="bills" className="mt-6">
+              <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground">Vendor Bills tab - Coming soon</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="matching" className="mt-6">
+              <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground">Three-Way Matching tab - Coming soon</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="prices" className="mt-6">
+              <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground">Competitor Prices tab - Coming soon</p>
+              </div>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
 
-      <AIChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <AIChatModal
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
     </div>
   );
 }

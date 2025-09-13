@@ -149,6 +149,66 @@ export const commissionStatusEnum = pgEnum('commission_status', [
   'cancelled'
 ]);
 
+// Purchase-specific enums
+export const incotermEnum = pgEnum('incoterm', [
+  'EXW', // Ex Works
+  'FCA', // Free Carrier
+  'CPT', // Carriage Paid To
+  'CIP', // Carriage and Insurance Paid To
+  'DAP', // Delivered at Place
+  'DPU', // Delivered at Place Unloaded
+  'DDP', // Delivered Duty Paid
+  'FAS', // Free Alongside Ship
+  'FOB', // Free on Board
+  'CFR', // Cost and Freight
+  'CIF'  // Cost, Insurance, and Freight
+]);
+
+export const prStatusEnum = pgEnum('pr_status', [
+  'draft',
+  'submitted',
+  'approved',
+  'rejected',
+  'converted',
+  'cancelled'
+]);
+
+export const poStatusEnum = pgEnum('po_status', [
+  'draft',
+  'sent',
+  'confirmed',
+  'received',
+  'closed',
+  'cancelled'
+]);
+
+export const billStatusEnum = pgEnum('bill_status', [
+  'draft',
+  'posted',
+  'paid',
+  'cancelled'
+]);
+
+export const receiptStatusEnum2 = pgEnum('gr_receipt_status', [
+  'draft',
+  'posted'
+]);
+
+export const approvalStatusEnum = pgEnum('approval_status', [
+  'pending',
+  'approved',
+  'rejected'
+]);
+
+export const matchStatusEnum = pgEnum('match_status', [
+  'matched',
+  'quantity_mismatch',
+  'price_mismatch',
+  'missing_receipt',
+  'missing_bill',
+  'pending'
+]);
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -265,18 +325,25 @@ export const salesOrderItems = pgTable("sales_order_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Purchase orders table
+// Purchase orders table (enhanced)
 export const purchaseOrders = pgTable("purchase_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderNumber: varchar("order_number").notNull().unique(),
+  prId: varchar("pr_id"), // Reference to purchase request (optional)
   supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
   orderDate: date("order_date").notNull(),
   expectedDeliveryDate: date("expected_delivery_date"),
-  status: varchar("status").default('draft'), // draft, sent, confirmed, received, closed
+  deliveryDate: date("delivery_date"), // actual delivery date
+  status: poStatusEnum("status").default('draft'),
+  incoterm: incotermEnum("incoterm"),
+  paymentTerms: integer("payment_terms").default(30), // days
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  fxRate: decimal("fx_rate", { precision: 10, scale: 6 }).default('1'),
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0'),
   taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
   notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -289,6 +356,143 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   quantity: integer("quantity").notNull(),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase requests table
+export const purchaseRequests = pgTable("purchase_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  prNumber: varchar("pr_number").notNull().unique(),
+  requesterId: varchar("requester_id").references(() => users.id).notNull(),
+  supplierId: varchar("supplier_id").references(() => suppliers.id),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  status: prStatusEnum("status").default('draft'),
+  notes: text("notes"),
+  submittedAt: timestamp("submitted_at"),
+  approvedAt: timestamp("approved_at"),
+  convertedToPo: varchar("converted_to_po").references(() => purchaseOrders.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Purchase request items table
+export const purchaseRequestItems = pgTable("purchase_request_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  prId: varchar("pr_id").references(() => purchaseRequests.id).notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Approvals table for workflow management
+export const approvals = pgTable("approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: varchar("entity_type").notNull(), // 'purchase_request', 'purchase_order', etc.
+  entityId: varchar("entity_id").notNull(),
+  step: integer("step").notNull(), // approval level/step
+  approverId: varchar("approver_id").references(() => users.id).notNull(),
+  status: approvalStatusEnum("status").default('pending'),
+  decidedAt: timestamp("decided_at"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Goods receipts table
+export const goodsReceipts = pgTable("goods_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  grNumber: varchar("gr_number").notNull().unique(),
+  poId: varchar("po_id").references(() => purchaseOrders.id).notNull(),
+  warehouseId: varchar("warehouse_id").references(() => warehouses.id).notNull(),
+  status: receiptStatusEnum2("status").default('draft'),
+  receivedBy: varchar("received_by").references(() => users.id).notNull(),
+  receivedAt: timestamp("received_at").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Goods receipt items table
+export const goodsReceiptItems = pgTable("goods_receipt_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  grId: varchar("gr_id").references(() => goodsReceipts.id).notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").notNull(),
+  batchNumber: varchar("batch_number"),
+  expiryDate: date("expiry_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Vendor bills table
+export const vendorBills = pgTable("vendor_bills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  billNumber: varchar("bill_number").notNull().unique(),
+  supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
+  poId: varchar("po_id").references(() => purchaseOrders.id),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  fxRate: decimal("fx_rate", { precision: 10, scale: 6 }).default('1'),
+  status: billStatusEnum("status").default('draft'),
+  billDate: date("bill_date").notNull(),
+  dueDate: date("due_date"),
+  ocrRaw: text("ocr_raw"), // raw OCR text
+  ocrExtract: jsonb("ocr_extract"), // structured OCR data
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Vendor bill items table
+export const vendorBillItems = pgTable("vendor_bill_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  billId: varchar("bill_id").references(() => vendorBills.id).notNull(),
+  productId: varchar("product_id").references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  description: text("description"), // fallback if product not matched
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Foreign exchange rates table
+export const fxRates = pgTable("fx_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  baseCurrency: varchar("base_currency", { length: 3 }).notNull(),
+  quoteCurrency: varchar("quote_currency", { length: 3 }).notNull(),
+  rate: decimal("rate", { precision: 12, scale: 6 }).notNull(),
+  asOfDate: date("as_of_date").notNull(),
+  source: varchar("source").notNull(), // API source or manual
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Competitor prices table
+export const competitorPrices = pgTable("competitor_prices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  competitor: varchar("competitor").notNull(),
+  price: decimal("price", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  sourceUrl: text("source_url"),
+  collectedAt: timestamp("collected_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+// Three-way matching results table
+export const matchResults = pgTable("match_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  poId: varchar("po_id").references(() => purchaseOrders.id).notNull(),
+  grId: varchar("gr_id").references(() => goodsReceipts.id),
+  billId: varchar("bill_id").references(() => vendorBills.id),
+  status: matchStatusEnum("status").notNull(),
+  quantityVariance: decimal("quantity_variance", { precision: 10, scale: 2 }).default('0'),
+  priceVariance: decimal("price_variance", { precision: 12, scale: 2 }).default('0'),
+  matchDetails: jsonb("match_details"), // detailed line-by-line match results
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1566,6 +1770,59 @@ export const insertRecallNoticeSchema = createInsertSchema(recallNotices).omit({
   updatedAt: true,
 });
 
+// Purchase Module Insert Schemas
+export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseRequestItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertApprovalSchema = createInsertSchema(approvals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertGoodsReceiptSchema = createInsertSchema(goodsReceipts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertGoodsReceiptItemSchema = createInsertSchema(goodsReceiptItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVendorBillSchema = createInsertSchema(vendorBills).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVendorBillItemSchema = createInsertSchema(vendorBillItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFxRateSchema = createInsertSchema(fxRates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCompetitorPriceSchema = createInsertSchema(competitorPrices).omit({
+  id: true,
+  collectedAt: true,
+});
+
+export const insertMatchResultSchema = createInsertSchema(matchResults).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -1655,6 +1912,28 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertRecallNotice = z.infer<typeof insertRecallNoticeSchema>;
 export type RecallNotice = typeof recallNotices.$inferSelect;
+
+// Purchase Module Types
+export type InsertPurchaseRequest = z.infer<typeof insertPurchaseRequestSchema>;
+export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
+export type InsertPurchaseRequestItem = z.infer<typeof insertPurchaseRequestItemSchema>;
+export type PurchaseRequestItem = typeof purchaseRequestItems.$inferSelect;
+export type InsertApproval = z.infer<typeof insertApprovalSchema>;
+export type Approval = typeof approvals.$inferSelect;
+export type InsertGoodsReceipt = z.infer<typeof insertGoodsReceiptSchema>;
+export type GoodsReceipt = typeof goodsReceipts.$inferSelect;
+export type InsertGoodsReceiptItem = z.infer<typeof insertGoodsReceiptItemSchema>;
+export type GoodsReceiptItem = typeof goodsReceiptItems.$inferSelect;
+export type InsertVendorBill = z.infer<typeof insertVendorBillSchema>;
+export type VendorBill = typeof vendorBills.$inferSelect;
+export type InsertVendorBillItem = z.infer<typeof insertVendorBillItemSchema>;
+export type VendorBillItem = typeof vendorBillItems.$inferSelect;
+export type InsertFxRate = z.infer<typeof insertFxRateSchema>;
+export type FxRate = typeof fxRates.$inferSelect;
+export type InsertCompetitorPrice = z.infer<typeof insertCompetitorPriceSchema>;
+export type CompetitorPrice = typeof competitorPrices.$inferSelect;
+export type InsertMatchResult = z.infer<typeof insertMatchResultSchema>;
+export type MatchResult = typeof matchResults.$inferSelect;
 
 // POS Request Schemas - for API endpoints
 export const openSessionRequestSchema = z.object({

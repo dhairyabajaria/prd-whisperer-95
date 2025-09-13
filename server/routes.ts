@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { aiService } from "./ai";
+import { externalIntegrationsService } from "./external-integrations";
 import { 
   insertCustomerSchema,
   insertSupplierSchema,
@@ -13,6 +14,16 @@ import {
   insertSalesOrderItemSchema,
   insertPurchaseOrderSchema,
   insertPurchaseOrderItemSchema,
+  insertPurchaseRequestSchema,
+  insertPurchaseRequestItemSchema,
+  insertApprovalSchema,
+  insertGoodsReceiptSchema,
+  insertGoodsReceiptItemSchema,
+  insertVendorBillSchema,
+  insertVendorBillItemSchema,
+  insertFxRateSchema,
+  insertCompetitorPriceSchema,
+  insertMatchResultSchema,
   insertInvoiceSchema,
   insertStockMovementSchema,
   insertQuotationSchema,
@@ -76,6 +87,12 @@ const requireSalesAccess = requireRole(['admin', 'sales']);
 
 // Finance access middleware (admin, finance roles only)
 const requireFinanceAccess = requireRole(['admin', 'finance']);
+
+// Purchase access middleware (admin, finance, inventory roles only)
+const requirePurchaseAccess = requireRole(['admin', 'finance', 'inventory']);
+
+// Purchase approval middleware (admin, finance roles with management level)
+const requirePurchaseApproval = requireRole(['admin', 'finance']);
 
 // Time tracking access middleware - allows employees to manage their own entries
 const requireTimeTrackingAccess: RequestHandler = async (req, res, next) => {
@@ -385,8 +402,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Purchase order routes
-  app.get("/api/purchase-orders", isAuthenticated, async (req, res) => {
+  // Comprehensive Purchases Module API Endpoints
+  
+  // Purchase Request routes
+  app.get("/api/purchases/requests", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const status = req.query.status as string;
+      const requesterId = req.query.requesterId as string;
+      const requests = await storage.getPurchaseRequests(limit, status, requesterId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching purchase requests:", error);
+      res.status(500).json({ message: "Failed to fetch purchase requests" });
+    }
+  });
+
+  app.get("/api/purchases/requests/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const request = await storage.getPurchaseRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+      res.json(request);
+    } catch (error) {
+      console.error("Error fetching purchase request:", error);
+      res.status(500).json({ message: "Failed to fetch purchase request" });
+    }
+  });
+
+  app.post("/api/purchases/requests", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const requestData = insertPurchaseRequestSchema.parse({
+        ...req.body,
+        requesterId: userId,
+      });
+      const request = await storage.createPurchaseRequest(requestData);
+      res.status(201).json(request);
+    } catch (error: any) {
+      console.error("Error creating purchase request:", error);
+      res.status(400).json({ message: "Failed to create purchase request", error: error.message });
+    }
+  });
+
+  app.put("/api/purchases/requests/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const requestData = insertPurchaseRequestSchema.partial().parse(req.body);
+      const request = await storage.updatePurchaseRequest(req.params.id, requestData);
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error updating purchase request:", error);
+      res.status(400).json({ message: "Failed to update purchase request", error: error.message });
+    }
+  });
+
+  app.delete("/api/purchases/requests/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      await storage.deletePurchaseRequest(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting purchase request:", error);
+      res.status(500).json({ message: "Failed to delete purchase request" });
+    }
+  });
+
+  app.post("/api/purchases/requests/:id/items", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const itemData = insertPurchaseRequestItemSchema.parse({
+        ...req.body,
+        prId: req.params.id,
+      });
+      const item = await storage.createPurchaseRequestItem(itemData);
+      res.status(201).json(item);
+    } catch (error: any) {
+      console.error("Error creating purchase request item:", error);
+      res.status(400).json({ message: "Failed to create purchase request item", error: error.message });
+    }
+  });
+
+  app.post("/api/purchases/requests/:id/submit", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const request = await storage.submitPurchaseRequest(req.params.id);
+      res.json(request);
+    } catch (error) {
+      console.error("Error submitting purchase request:", error);
+      res.status(500).json({ message: "Failed to submit purchase request" });
+    }
+  });
+
+  app.post("/api/purchases/requests/:id/approve", isAuthenticated, requirePurchaseApproval, async (req, res) => {
+    try {
+      const approverId = (req as any).user?.claims?.sub;
+      const request = await storage.approvePurchaseRequest(req.params.id, approverId);
+      res.json(request);
+    } catch (error) {
+      console.error("Error approving purchase request:", error);
+      res.status(500).json({ message: "Failed to approve purchase request" });
+    }
+  });
+
+  app.post("/api/purchases/requests/:id/reject", isAuthenticated, requirePurchaseApproval, async (req, res) => {
+    try {
+      const approverId = (req as any).user?.claims?.sub;
+      const { comment } = req.body;
+      const request = await storage.rejectPurchaseRequest(req.params.id, approverId, comment);
+      res.json(request);
+    } catch (error) {
+      console.error("Error rejecting purchase request:", error);
+      res.status(500).json({ message: "Failed to reject purchase request" });
+    }
+  });
+
+  app.post("/api/purchases/requests/:id/convert", isAuthenticated, requirePurchaseApproval, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const poData = req.body;
+      const result = await storage.convertPRtoPO(req.params.id, { ...poData, createdBy: userId });
+      res.json(result);
+    } catch (error) {
+      console.error("Error converting purchase request to PO:", error);
+      res.status(500).json({ message: "Failed to convert purchase request to PO" });
+    }
+  });
+
+  // Enhanced Purchase Order routes
+  app.get("/api/purchases/orders", isAuthenticated, requirePurchaseAccess, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const orders = await storage.getPurchaseOrders(limit);
@@ -397,14 +538,316 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchase-orders", isAuthenticated, async (req, res) => {
+  app.get("/api/purchases/orders/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
     try {
-      const orderData = insertPurchaseOrderSchema.parse(req.body);
+      const order = await storage.getPurchaseOrder(req.params.id);
+      if (!order) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      console.error("Error fetching purchase order:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  app.post("/api/purchases/orders", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const orderData = insertPurchaseOrderSchema.parse({
+        ...req.body,
+        createdBy: userId,
+      });
       const order = await storage.createPurchaseOrder(orderData);
       res.status(201).json(order);
     } catch (error: any) {
       console.error("Error creating purchase order:", error);
       res.status(400).json({ message: "Failed to create purchase order", error: error.message });
+    }
+  });
+
+  app.put("/api/purchases/orders/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const orderData = insertPurchaseOrderSchema.partial().parse(req.body);
+      const order = await storage.updatePurchaseOrder(req.params.id, orderData);
+      res.json(order);
+    } catch (error: any) {
+      console.error("Error updating purchase order:", error);
+      res.status(400).json({ message: "Failed to update purchase order", error: error.message });
+    }
+  });
+
+  app.post("/api/purchases/orders/:id/items", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const itemData = insertPurchaseOrderItemSchema.parse({
+        ...req.body,
+        orderId: req.params.id,
+      });
+      const item = await storage.createPurchaseOrderItem(itemData);
+      res.status(201).json(item);
+    } catch (error: any) {
+      console.error("Error creating purchase order item:", error);
+      res.status(400).json({ message: "Failed to create purchase order item", error: error.message });
+    }
+  });
+
+  // Goods Receipt routes
+  app.get("/api/purchases/receipts", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const poId = req.query.poId as string;
+      const receipts = await storage.getGoodsReceipts(limit, poId);
+      res.json(receipts);
+    } catch (error) {
+      console.error("Error fetching goods receipts:", error);
+      res.status(500).json({ message: "Failed to fetch goods receipts" });
+    }
+  });
+
+  app.get("/api/purchases/receipts/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const receipt = await storage.getGoodsReceipt(req.params.id);
+      if (!receipt) {
+        return res.status(404).json({ message: "Goods receipt not found" });
+      }
+      res.json(receipt);
+    } catch (error) {
+      console.error("Error fetching goods receipt:", error);
+      res.status(500).json({ message: "Failed to fetch goods receipt" });
+    }
+  });
+
+  app.post("/api/purchases/receipts", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const { items, ...receiptData } = req.body;
+      const receipt = await storage.createGoodsReceipt({
+        ...receiptData,
+        receivedBy: userId,
+        receivedAt: new Date(),
+      }, items || []);
+      res.status(201).json(receipt);
+    } catch (error: any) {
+      console.error("Error creating goods receipt:", error);
+      res.status(400).json({ message: "Failed to create goods receipt", error: error.message });
+    }
+  });
+
+  app.post("/api/purchases/receipts/:id/post", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const receipt = await storage.postGoodsReceipt(req.params.id);
+      res.json(receipt);
+    } catch (error) {
+      console.error("Error posting goods receipt:", error);
+      res.status(500).json({ message: "Failed to post goods receipt" });
+    }
+  });
+
+  // Vendor Bill routes
+  app.get("/api/purchases/bills", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const supplierId = req.query.supplierId as string;
+      const bills = await storage.getVendorBills(limit, supplierId);
+      res.json(bills);
+    } catch (error) {
+      console.error("Error fetching vendor bills:", error);
+      res.status(500).json({ message: "Failed to fetch vendor bills" });
+    }
+  });
+
+  app.get("/api/purchases/bills/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const bill = await storage.getVendorBill(req.params.id);
+      if (!bill) {
+        return res.status(404).json({ message: "Vendor bill not found" });
+      }
+      res.json(bill);
+    } catch (error) {
+      console.error("Error fetching vendor bill:", error);
+      res.status(500).json({ message: "Failed to fetch vendor bill" });
+    }
+  });
+
+  app.post("/api/purchases/bills", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const { items, ...billData } = req.body;
+      const bill = await storage.createVendorBill({
+        ...billData,
+        createdBy: userId,
+      }, items || []);
+      res.status(201).json(bill);
+    } catch (error: any) {
+      console.error("Error creating vendor bill:", error);
+      res.status(400).json({ message: "Failed to create vendor bill", error: error.message });
+    }
+  });
+
+  app.post("/api/purchases/bills/:id/post", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const bill = await storage.postVendorBill(req.params.id);
+      res.json(bill);
+    } catch (error) {
+      console.error("Error posting vendor bill:", error);
+      res.status(500).json({ message: "Failed to post vendor bill" });
+    }
+  });
+
+  app.post("/api/purchases/bills/:id/ocr", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const { ocrRaw, ocrExtract } = req.body;
+      const bill = await storage.processOCRBill(req.params.id, ocrRaw, ocrExtract);
+      res.json(bill);
+    } catch (error) {
+      console.error("Error processing OCR for bill:", error);
+      res.status(500).json({ message: "Failed to process OCR" });
+    }
+  });
+
+  // Three-Way Matching routes
+  app.get("/api/purchases/match", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const poId = req.query.poId as string;
+      const status = req.query.status as string;
+      const matches = await storage.getMatchResults(poId, status);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching match results:", error);
+      res.status(500).json({ message: "Failed to fetch match results" });
+    }
+  });
+
+  app.post("/api/purchases/match/:poId", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const matchResult = await storage.performThreeWayMatch(req.params.poId);
+      res.json(matchResult);
+    } catch (error) {
+      console.error("Error performing three-way match:", error);
+      res.status(500).json({ message: "Failed to perform three-way match" });
+    }
+  });
+
+  app.post("/api/purchases/match/:id/resolve", isAuthenticated, requirePurchaseApproval, async (req, res) => {
+    try {
+      const resolvedBy = (req as any).user?.claims?.sub;
+      const { notes } = req.body;
+      const matchResult = await storage.resolveMatchException(req.params.id, resolvedBy, notes);
+      res.json(matchResult);
+    } catch (error) {
+      console.error("Error resolving match exception:", error);
+      res.status(500).json({ message: "Failed to resolve match exception" });
+    }
+  });
+
+  // FX Rate routes
+  app.get("/api/fx/rates", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const baseCurrency = req.query.baseCurrency as string;
+      const quoteCurrency = req.query.quoteCurrency as string;
+      const rates = await storage.getFxRates(baseCurrency, quoteCurrency);
+      res.json(rates);
+    } catch (error) {
+      console.error("Error fetching FX rates:", error);
+      res.status(500).json({ message: "Failed to fetch FX rates" });
+    }
+  });
+
+  app.get("/api/fx/latest", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const baseCurrency = req.query.baseCurrency as string;
+      const quoteCurrency = req.query.quoteCurrency as string;
+      
+      if (!baseCurrency || !quoteCurrency) {
+        return res.status(400).json({ message: "baseCurrency and quoteCurrency are required" });
+      }
+      
+      const rate = await storage.getFxRateLatest(baseCurrency, quoteCurrency);
+      res.json(rate);
+    } catch (error) {
+      console.error("Error fetching latest FX rate:", error);
+      res.status(500).json({ message: "Failed to fetch latest FX rate" });
+    }
+  });
+
+  app.post("/api/fx/refresh", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const rates = await storage.refreshFxRates();
+      res.json(rates);
+    } catch (error) {
+      console.error("Error refreshing FX rates:", error);
+      res.status(500).json({ message: "Failed to refresh FX rates" });
+    }
+  });
+
+  // Competitor Price routes
+  app.get("/api/purchases/competitor-prices", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const productId = req.query.productId as string;
+      const competitor = req.query.competitor as string;
+      const prices = await storage.getCompetitorPrices(productId, competitor);
+      res.json(prices);
+    } catch (error) {
+      console.error("Error fetching competitor prices:", error);
+      res.status(500).json({ message: "Failed to fetch competitor prices" });
+    }
+  });
+
+  app.post("/api/purchases/competitor-prices", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const priceData = insertCompetitorPriceSchema.parse(req.body);
+      const price = await storage.upsertCompetitorPrice(priceData);
+      res.status(201).json(price);
+    } catch (error: any) {
+      console.error("Error upserting competitor price:", error);
+      res.status(400).json({ message: "Failed to upsert competitor price", error: error.message });
+    }
+  });
+
+  app.get("/api/purchases/competitor-analysis", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const productId = req.query.productId as string;
+      const analysis = await storage.getCompetitorAnalysis(productId);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error fetching competitor analysis:", error);
+      res.status(500).json({ message: "Failed to fetch competitor analysis" });
+    }
+  });
+
+  // Purchase Dashboard routes
+  app.get("/api/purchases/dashboard", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const metrics = await storage.getPurchaseDashboardMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching purchase dashboard metrics:", error);
+      res.status(500).json({ message: "Failed to fetch purchase dashboard metrics" });
+    }
+  });
+
+  // Approval workflow routes
+  app.get("/api/purchases/approvals", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const entityType = req.query.entityType as string;
+      const entityId = req.query.entityId as string;
+      const approverId = req.query.approverId as string;
+      const approvals = await storage.getApprovals(entityType, entityId, approverId);
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching approvals:", error);
+      res.status(500).json({ message: "Failed to fetch approvals" });
+    }
+  });
+
+  app.post("/api/purchases/approvals/:id/process", isAuthenticated, requirePurchaseApproval, async (req, res) => {
+    try {
+      const { status, comment } = req.body;
+      const approval = await storage.processApproval(req.params.id, status, comment);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error processing approval:", error);
+      res.status(500).json({ message: "Failed to process approval" });
     }
   });
 
