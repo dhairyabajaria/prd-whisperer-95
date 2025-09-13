@@ -39,6 +39,23 @@ import {
   fxRates,
   competitorPrices,
   matchResults,
+  // AI Module tables
+  aiChatSessions,
+  aiChatMessages,
+  aiInsights,
+  aiModelMetrics,
+  // Marketing Module tables
+  campaigns,
+  campaignMembers,
+  // Compliance tables
+  licenses,
+  regulatoryReports,
+  auditLogs,
+  recallNotices,
+  // Advanced Reporting tables
+  reportDefinitions,
+  savedReports,
+  reportExports,
   type User,
   type UpsertUser,
   type Customer,
@@ -118,9 +135,39 @@ import {
   type InsertCompetitorPrice,
   type MatchResult,
   type InsertMatchResult,
+  // AI Module types
+  type AiChatSession,
+  type InsertAiChatSession,
+  type AiChatMessage,
+  type InsertAiChatMessage,
+  type AiInsight,
+  type InsertAiInsight,
+  type AiModelMetric,
+  type InsertAiModelMetric,
+  // Marketing Module types
+  type Campaign,
+  type InsertCampaign,
+  type CampaignMember,
+  type InsertCampaignMember,
+  // Compliance types
+  type License,
+  type InsertLicense,
+  type RegulatoryReport,
+  type InsertRegulatoryReport,
+  type AuditLog,
+  type InsertAuditLog,
+  type RecallNotice,
+  type InsertRecallNotice,
+  // Advanced Reporting types
+  type ReportDefinition,
+  type InsertReportDefinition,
+  type SavedReport,
+  type InsertSavedReport,
+  type ReportExport,
+  type InsertReportExport,
 } from "@shared/schema";
 import { getDb } from "./db";
-import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -170,6 +217,13 @@ export interface IStorage {
   createSalesOrder(order: InsertSalesOrder): Promise<SalesOrder>;
   updateSalesOrder(id: string, order: Partial<InsertSalesOrder>): Promise<SalesOrder>;
   createSalesOrderItem(item: InsertSalesOrderItem): Promise<SalesOrderItem>;
+  
+  // Sales lifecycle operations
+  confirmSalesOrder(orderId: string, confirmedBy: string): Promise<{ order: SalesOrder; allocations: Array<{ inventoryId: string; qty: number }> }>;
+  fulfillSalesOrder(orderId: string, warehouseId: string, fulfilledBy: string): Promise<{ order: SalesOrder; movements: StockMovement[] }>;
+  generateInvoiceFromSalesOrder(orderId: string, invoiceData?: Partial<InsertInvoice>): Promise<Invoice>;
+  processSalesReturn(refId: string, items: Array<{ productId: string; inventoryId?: string; qty: number; reason?: string }>, warehouseId: string, processedBy: string): Promise<{ creditNote: Invoice; movements: StockMovement[] }>;
+  cancelSalesOrder(orderId: string, cancelledBy: string): Promise<SalesOrder>;
   
   // Purchase operations
   getPurchaseOrders(limit?: number): Promise<(PurchaseOrder & { supplier: Supplier })[]>;
@@ -494,6 +548,125 @@ export interface IStorage {
       exposureType: 'payables' | 'orders';
     }>;
   }>;
+
+  // AI Module Operations
+  
+  // AI Chat Session operations
+  getAiChatSessions(userId?: string, status?: string, limit?: number): Promise<AiChatSession[]>;
+  getAiChatSession(id: string): Promise<(AiChatSession & { messages: AiChatMessage[] }) | undefined>;
+  createAiChatSession(session: InsertAiChatSession): Promise<AiChatSession>;
+  updateAiChatSession(id: string, session: Partial<InsertAiChatSession>): Promise<AiChatSession>;
+  closeAiChatSession(id: string): Promise<AiChatSession>;
+  
+  // AI Chat Message operations
+  getAiChatMessages(sessionId: string, limit?: number): Promise<AiChatMessage[]>;
+  createAiChatMessage(message: InsertAiChatMessage): Promise<AiChatMessage>;
+  
+  // AI Insights operations
+  getAiInsights(type?: string, status?: string, entityType?: string, entityId?: string, limit?: number): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User })[]>;
+  getAiInsight(id: string): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User }) | undefined>;
+  createAiInsight(insight: InsertAiInsight): Promise<AiInsight>;
+  updateAiInsight(id: string, insight: Partial<InsertAiInsight>): Promise<AiInsight>;
+  reviewAiInsight(id: string, reviewerId: string, status: 'reviewed' | 'applied' | 'dismissed'): Promise<AiInsight>;
+  applyAiInsight(id: string, appliedBy: string): Promise<AiInsight>;
+  
+  // AI Model Metrics operations
+  getAiModelMetrics(modelName?: string, requestType?: string, limit?: number): Promise<AiModelMetric[]>;
+  createAiModelMetric(metric: InsertAiModelMetric): Promise<AiModelMetric>;
+  getAiModelPerformanceStats(modelName?: string, days?: number): Promise<{
+    totalRequests: number;
+    successRate: number;
+    averageResponseTime: number;
+    averageTokensUsed: number;
+    errorRate: number;
+    costEstimate: number;
+  }>;
+
+  // Marketing Module Operations
+  
+  // Campaign operations
+  getCampaigns(status?: string, type?: string, managerId?: string, limit?: number): Promise<(Campaign & { manager: User; members: CampaignMember[] })[]>;
+  getCampaign(id: string): Promise<(Campaign & { manager: User; members: (CampaignMember & { customer?: Customer; lead?: Lead })[] }) | undefined>;
+  createCampaign(campaign: InsertCampaign): Promise<Campaign>;
+  updateCampaign(id: string, campaign: Partial<InsertCampaign>): Promise<Campaign>;
+  deleteCampaign(id: string): Promise<void>;
+  launchCampaign(id: string): Promise<Campaign>;
+  pauseCampaign(id: string): Promise<Campaign>;
+  completeCampaign(id: string): Promise<Campaign>;
+  
+  // Campaign Member operations
+  getCampaignMembers(campaignId?: string, status?: string, limit?: number): Promise<(CampaignMember & { customer?: Customer; lead?: Lead })[]>;
+  addCampaignMember(member: InsertCampaignMember): Promise<CampaignMember>;
+  updateCampaignMember(id: string, member: Partial<InsertCampaignMember>): Promise<CampaignMember>;
+  removeCampaignMember(id: string): Promise<void>;
+  getCampaignAnalytics(campaignId: string): Promise<{
+    totalMembers: number;
+    activeMembers: number;
+    optedOutMembers: number;
+    bouncedMembers: number;
+    engagementRate: number;
+    conversionRate: number;
+    totalSent: number;
+    totalOpened: number;
+    totalClicked: number;
+  }>;
+
+  // Compliance Module Operations
+  
+  // License operations
+  getLicenses(status?: string, managedBy?: string, limit?: number): Promise<(License & { manager: User })[]>;
+  getLicense(id: string): Promise<(License & { manager: User }) | undefined>;
+  createLicense(license: InsertLicense): Promise<License>;
+  updateLicense(id: string, license: Partial<InsertLicense>): Promise<License>;
+  deleteLicense(id: string): Promise<void>;
+  renewLicense(id: string, newExpiryDate: string, renewalDate: string): Promise<License>;
+  getExpiringLicenses(daysAhead: number): Promise<(License & { manager: User })[]>;
+  
+  // Regulatory Report operations
+  getRegulatoryReports(status?: string, reportType?: string, preparedBy?: string, limit?: number): Promise<(RegulatoryReport & { preparer: User; reviewer?: User; approver?: User })[]>;
+  getRegulatoryReport(id: string): Promise<(RegulatoryReport & { preparer: User; reviewer?: User; approver?: User }) | undefined>;
+  createRegulatoryReport(report: InsertRegulatoryReport): Promise<RegulatoryReport>;
+  updateRegulatoryReport(id: string, report: Partial<InsertRegulatoryReport>): Promise<RegulatoryReport>;
+  submitRegulatoryReport(id: string, submissionRef: string): Promise<RegulatoryReport>;
+  reviewRegulatoryReport(id: string, reviewerId: string): Promise<RegulatoryReport>;
+  approveRegulatoryReport(id: string, approverId: string): Promise<RegulatoryReport>;
+  rejectRegulatoryReport(id: string, approverId: string, reason: string): Promise<RegulatoryReport>;
+  
+  // Audit Log operations
+  getAuditLogs(tableName?: string, recordId?: string, userId?: string, action?: string, limit?: number): Promise<(AuditLog & { user?: User })[]>;
+  createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog>;
+  
+  // Recall Notice operations
+  getRecallNotices(status?: string, productId?: string, managedBy?: string, limit?: number): Promise<(RecallNotice & { product: Product; manager: User })[]>;
+  getRecallNotice(id: string): Promise<(RecallNotice & { product: Product; manager: User }) | undefined>;
+  createRecallNotice(recall: InsertRecallNotice): Promise<RecallNotice>;
+  updateRecallNotice(id: string, recall: Partial<InsertRecallNotice>): Promise<RecallNotice>;
+  initiateRecall(id: string): Promise<RecallNotice>;
+  completeRecall(id: string, recoveryPercentage: number): Promise<RecallNotice>;
+  
+  // Advanced Reporting Operations
+  
+  // Report Definition operations
+  getReportDefinitions(category?: string, isPublic?: boolean, ownerId?: string, limit?: number): Promise<(ReportDefinition & { owner: User })[]>;
+  getReportDefinition(id: string): Promise<(ReportDefinition & { owner: User }) | undefined>;
+  createReportDefinition(reportDef: InsertReportDefinition): Promise<ReportDefinition>;
+  updateReportDefinition(id: string, reportDef: Partial<InsertReportDefinition>): Promise<ReportDefinition>;
+  deleteReportDefinition(id: string): Promise<void>;
+  
+  // Saved Report operations
+  getSavedReports(userId?: string, reportDefinitionId?: string, limit?: number): Promise<(SavedReport & { reportDefinition: ReportDefinition; user: User })[]>;
+  getSavedReport(id: string): Promise<(SavedReport & { reportDefinition: ReportDefinition; user: User }) | undefined>;
+  createSavedReport(savedReport: InsertSavedReport): Promise<SavedReport>;
+  updateSavedReport(id: string, savedReport: Partial<InsertSavedReport>): Promise<SavedReport>;
+  deleteSavedReport(id: string): Promise<void>;
+  
+  // Report Export operations
+  getReportExports(generatedBy?: string, status?: string, limit?: number): Promise<(ReportExport & { generator: User })[]>;
+  getReportExport(id: string): Promise<(ReportExport & { generator: User }) | undefined>;
+  createReportExport(reportExport: InsertReportExport): Promise<ReportExport>;
+  updateReportExport(id: string, reportExport: Partial<InsertReportExport>): Promise<ReportExport>;
+  markReportExportComplete(id: string, filePath: string, fileSize: number): Promise<ReportExport>;
+  markReportExportFailed(id: string, errorMessage: string): Promise<ReportExport>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -900,12 +1073,51 @@ export class DatabaseStorage implements IStorage {
 
   async updateSalesOrder(id: string, order: Partial<InsertSalesOrder>): Promise<SalesOrder> {
     const db = await getDb();
-    const [updatedOrder] = await db
-      .update(salesOrders)
-      .set({ ...order, updatedAt: new Date() })
-      .where(eq(salesOrders.id, id))
-      .returning();
-    return updatedOrder;
+    
+    return await db.transaction(async (tx) => {
+      // Validate current order state and prevent invalid transitions
+      const [currentOrder] = await tx
+        .select()
+        .from(salesOrders)
+        .where(eq(salesOrders.id, id));
+      
+      if (!currentOrder) {
+        throw new Error('Sales order not found');
+      }
+      
+      // State transition validation
+      if (order.status && currentOrder.status) {
+        const validTransitions = {
+          'draft': ['confirmed', 'cancelled'],
+          'confirmed': ['shipped', 'cancelled'],
+          'shipped': ['delivered'],
+          'delivered': [], // Terminal state
+          'cancelled': [] // Terminal state
+        };
+        
+        const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
+        if (!allowedStates.includes(order.status as any)) {
+          throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
+        }
+      }
+      
+      // Optimistic concurrency control
+      if (order.updatedAt && currentOrder.updatedAt) {
+        const currentUpdated = new Date(currentOrder.updatedAt).getTime();
+        const providedUpdated = new Date(order.updatedAt).getTime();
+        if (providedUpdated < currentUpdated) {
+          throw new Error('Order has been modified by another user. Please refresh and try again.');
+        }
+      }
+      
+      const [updatedOrder] = await tx
+        .update(salesOrders)
+        .set({ ...order, updatedAt: new Date() })
+        .where(eq(salesOrders.id, id))
+        .returning();
+      
+      return updatedOrder;
+    });
   }
 
   async createSalesOrderItem(item: InsertSalesOrderItem): Promise<SalesOrderItem> {
@@ -915,6 +1127,321 @@ export class DatabaseStorage implements IStorage {
       .values(item)
       .returning();
     return newItem;
+  }
+
+  // Sales Lifecycle Operations with Transactions and FEFO
+  async confirmSalesOrder(orderId: string, confirmedBy: string): Promise<{ order: SalesOrder; allocations: Array<{ inventoryId: string; qty: number }> }> {
+    const db = await getDb();
+    return await db.transaction(async (tx) => {
+      // Get order with items
+      const order = await this.getSalesOrder(orderId);
+      if (!order) throw new Error('Sales order not found');
+      
+      if (order.status !== 'draft') {
+        throw new Error('Only draft orders can be confirmed');
+      }
+
+      const allocations: Array<{ inventoryId: string; qty: number }> = [];
+
+      // Check stock availability and create allocations for all items
+      for (const item of order.items) {
+        let remainingQty = item.quantity;
+        
+        // Get available inventory batches ordered by expiry date (FEFO)
+        const batches = await tx
+          .select()
+          .from(inventory)
+          .where(and(
+            eq(inventory.productId, item.productId),
+            gte(inventory.quantity, 1)
+          ))
+          .orderBy(asc(inventory.expiryDate));
+        
+        for (const batch of batches) {
+          if (remainingQty <= 0) break;
+          
+          const allocateQty = Math.min(batch.quantity, remainingQty);
+          allocations.push({
+            inventoryId: batch.id,
+            qty: allocateQty
+          });
+          
+          remainingQty -= allocateQty;
+        }
+        
+        if (remainingQty > 0) {
+          throw new Error(`Insufficient stock for product ${item.product.name}. Missing: ${remainingQty} units`);
+        }
+      }
+
+      // Reserve stock and update order status
+      const [confirmedOrder] = await tx
+        .update(salesOrders)
+        .set({ status: 'confirmed', updatedAt: new Date() })
+        .where(eq(salesOrders.id, orderId))
+        .returning();
+
+      return { order: confirmedOrder, allocations };
+    });
+  }
+
+  async fulfillSalesOrder(orderId: string, warehouseId: string, fulfilledBy: string): Promise<{ order: SalesOrder; movements: StockMovement[] }> {
+    const db = await getDb();
+    return await db.transaction(async (tx) => {
+      const order = await this.getSalesOrder(orderId);
+      if (!order) throw new Error('Sales order not found');
+      
+      if (order.status !== 'confirmed') {
+        throw new Error('Only confirmed orders can be fulfilled');
+      }
+
+      const movements: StockMovement[] = [];
+
+      // Process each order item with FEFO (First Expired, First Out)
+      for (const item of order.items) {
+        let remainingQuantity = item.quantity;
+        
+        // Get inventory batches ordered by expiry date (FEFO)
+        const batches = await tx
+          .select()
+          .from(inventory)
+          .where(and(
+            eq(inventory.productId, item.productId),
+            eq(inventory.warehouseId, warehouseId),
+            gte(inventory.quantity, 1)
+          ))
+          .orderBy(asc(inventory.expiryDate));
+        
+        for (const batch of batches) {
+          if (remainingQuantity <= 0) break;
+          
+          const deductQuantity = Math.min(batch.quantity, remainingQuantity);
+          
+          // Update inventory
+          await tx
+            .update(inventory)
+            .set({ 
+              quantity: batch.quantity - deductQuantity,
+              updatedAt: new Date()
+            })
+            .where(eq(inventory.id, batch.id));
+          
+          // Create stock movement
+          const [movement] = await tx
+            .insert(stockMovements)
+            .values({
+              productId: item.productId,
+              warehouseId,
+              inventoryId: batch.id,
+              movementType: 'out',
+              quantity: -deductQuantity,
+              reference: order.orderNumber,
+              notes: `Sales fulfillment by ${fulfilledBy}`,
+              userId: fulfilledBy
+            })
+            .returning();
+          
+          movements.push(movement);
+          remainingQuantity -= deductQuantity;
+        }
+        
+        if (remainingQuantity > 0) {
+          throw new Error(`Insufficient stock to fulfill ${item.product.name}. Missing: ${remainingQuantity}`);
+        }
+      }
+
+      // Update order status
+      const [fulfilledOrder] = await tx
+        .update(salesOrders)
+        .set({ 
+          status: 'shipped',
+          deliveryDate: new Date().toISOString().split('T')[0],
+          updatedAt: new Date()
+        })
+        .where(eq(salesOrders.id, orderId))
+        .returning();
+
+      return { order: fulfilledOrder, movements };
+    });
+  }
+
+  async generateInvoiceFromSalesOrder(orderId: string, invoiceData?: Partial<InsertInvoice>): Promise<Invoice> {
+    const db = await getDb();
+    return await db.transaction(async (tx) => {
+      const order = await this.getSalesOrder(orderId);
+      if (!order) throw new Error('Sales order not found');
+      
+      if (order.status !== 'shipped' && order.status !== 'delivered') {
+        throw new Error('Only shipped or delivered orders can be invoiced');
+      }
+
+      // Check if invoice already exists
+      const [existingInvoice] = await tx
+        .select()
+        .from(invoices)
+        .where(eq(invoices.salesOrderId, orderId))
+        .limit(1);
+      
+      if (existingInvoice) {
+        throw new Error('Invoice already exists for this sales order');
+      }
+
+      // Generate invoice number
+      const invoiceNumber = invoiceData?.invoiceNumber || `INV-${Date.now()}`;
+      const invoiceDate = invoiceData?.invoiceDate || new Date().toISOString().split('T')[0];
+      const dueDate = invoiceData?.dueDate || new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]; // 30 days
+
+      const [invoice] = await tx
+        .insert(invoices)
+        .values({
+          invoiceNumber,
+          customerId: order.customerId,
+          salesOrderId: orderId,
+          invoiceDate,
+          dueDate,
+          status: 'sent',
+          subtotal: order.subtotal,
+          taxAmount: order.taxAmount,
+          totalAmount: order.totalAmount,
+          paidAmount: '0',
+          notes: invoiceData?.notes || `Generated from Sales Order ${order.orderNumber}`,
+          ...invoiceData
+        })
+        .returning();
+
+      // Update order status
+      await tx
+        .update(salesOrders)
+        .set({ status: 'delivered', updatedAt: new Date() })
+        .where(eq(salesOrders.id, orderId));
+
+      return invoice;
+    });
+  }
+
+  async processSalesReturn(refId: string, items: Array<{ productId: string; inventoryId?: string; qty: number; reason?: string }>, warehouseId: string, processedBy: string): Promise<{ creditNote: Invoice; movements: StockMovement[] }> {
+    const db = await getDb();
+    return await db.transaction(async (tx) => {
+      const originalOrder = await this.getSalesOrder(refId);
+      if (!originalOrder) throw new Error('Original sales order not found');
+      
+      if (originalOrder.status !== 'delivered') {
+        throw new Error('Only delivered orders can have returns processed');
+      }
+
+      const movements: StockMovement[] = [];
+      let totalCreditAmount = 0;
+      
+      // Process return items
+      for (const returnItem of items) {
+        // Find original order item
+        const originalItem = originalOrder.items.find(item => item.productId === returnItem.productId);
+        if (!originalItem) {
+          throw new Error(`Product not found in original order: ${returnItem.productId}`);
+        }
+        
+        if (returnItem.qty > originalItem.quantity) {
+          throw new Error(`Return quantity exceeds original quantity for product ${returnItem.productId}`);
+        }
+
+        // Create new inventory entry for returned goods
+        const [newInventory] = await tx
+          .insert(inventory)
+          .values({
+            productId: returnItem.productId,
+            warehouseId,
+            batchNumber: `RTN-${Date.now()}`,
+            quantity: returnItem.qty,
+            manufactureDate: new Date().toISOString().split('T')[0],
+            expiryDate: new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0], // 1 year default
+            costPerUnit: originalItem.unitPrice
+          })
+          .returning();
+
+        // Create stock movement
+        const [movement] = await tx
+          .insert(stockMovements)
+          .values({
+            productId: returnItem.productId,
+            warehouseId,
+            inventoryId: newInventory.id,
+            movementType: 'in',
+            quantity: returnItem.qty,
+            reference: originalOrder.orderNumber,
+            notes: `Return: ${returnItem.reason || 'Customer return'} - Processed by ${processedBy}`,
+            userId: processedBy
+          })
+          .returning();
+        
+        movements.push(movement);
+        totalCreditAmount += Number(originalItem.unitPrice) * returnItem.qty;
+      }
+
+      // Create credit note (negative invoice)
+      const creditNoteNumber = `CN-${Date.now()}`;
+      const [creditNote] = await tx
+        .insert(invoices)
+        .values({
+          invoiceNumber: creditNoteNumber,
+          customerId: originalOrder.customerId,
+          salesOrderId: refId,
+          invoiceDate: new Date().toISOString().split('T')[0],
+          dueDate: new Date().toISOString().split('T')[0],
+          status: 'paid',
+          subtotal: (-totalCreditAmount).toString(),
+          taxAmount: '0',
+          totalAmount: (-totalCreditAmount).toString(),
+          paidAmount: (-totalCreditAmount).toString(),
+          notes: `Credit note for returned items - Processed by ${processedBy}`
+        })
+        .returning();
+
+      return { creditNote, movements };
+    });
+  }
+
+  async cancelSalesOrder(orderId: string, cancelledBy: string): Promise<SalesOrder> {
+    const db = await getDb();
+    return await db.transaction(async (tx) => {
+      const order = await this.getSalesOrder(orderId);
+      if (!order) throw new Error('Sales order not found');
+      
+      // Only allow cancellation of draft or confirmed orders
+      if (!['draft', 'confirmed'].includes(order.status)) {
+        throw new Error(`Cannot cancel order with status: ${order.status}. Only draft or confirmed orders can be cancelled.`);
+      }
+
+      // If order was confirmed, release any stock reservations
+      if (order.status === 'confirmed') {
+        // Note: In a full implementation, you might track specific allocations
+        // For now, we just update the order status and log the cancellation
+        const [stockMovement] = await tx
+          .insert(stockMovements)
+          .values({
+            productId: order.items[0]?.productId || '', // Reference item for logging
+            warehouseId: '', // Would be tracked with allocations
+            movementType: 'adjustment',
+            quantity: 0, // No actual stock movement, just audit trail
+            reference: order.orderNumber,
+            notes: `Order cancelled - Stock reservations released by ${cancelledBy}`,
+            userId: cancelledBy
+          })
+          .returning();
+      }
+
+      // Update order status to cancelled
+      const [cancelledOrder] = await tx
+        .update(salesOrders)
+        .set({ 
+          status: 'cancelled',
+          notes: `Cancelled by ${cancelledBy} at ${new Date().toISOString()}`,
+          updatedAt: new Date()
+        })
+        .where(eq(salesOrders.id, orderId))
+        .returning();
+
+      return cancelledOrder;
+    });
   }
 
   // Purchase operations
@@ -995,12 +1522,49 @@ export class DatabaseStorage implements IStorage {
 
   async updatePurchaseOrder(id: string, order: Partial<InsertPurchaseOrder>): Promise<PurchaseOrder> {
     const db = await getDb();
-    const [updatedOrder] = await db
-      .update(purchaseOrders)
-      .set({ ...order, updatedAt: new Date() })
-      .where(eq(purchaseOrders.id, id))
-      .returning();
-    return updatedOrder;
+    
+    return await db.transaction(async (tx) => {
+      // Validate current order state and prevent invalid transitions
+      const [currentOrder] = await tx
+        .select()
+        .from(purchaseOrders)
+        .where(eq(purchaseOrders.id, id));
+      
+      if (!currentOrder) {
+        throw new Error('Purchase order not found');
+      }
+      
+      // State transition validation for purchase orders
+      if (order.status && currentOrder.status) {
+        const validTransitions = {
+          'draft': ['sent', 'cancelled'],
+          'sent': ['confirmed', 'cancelled'],
+          'confirmed': ['received', 'cancelled'],
+          'received': ['closed'],
+          'closed': [], // Terminal state
+          'cancelled': [] // Terminal state
+        };
+        
+        const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
+        if (!allowedStates.includes(order.status as any)) {
+          throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
+        }
+      }
+      
+      // Prevent modification of confirmed/received orders
+      if (['confirmed', 'received', 'closed'].includes(currentOrder.status!) && 
+          (order.supplierId || order.orderDate || order.totalAmount)) {
+        throw new Error('Cannot modify key fields of confirmed purchase orders');
+      }
+      
+      const [updatedOrder] = await tx
+        .update(purchaseOrders)
+        .set({ ...order, updatedAt: new Date() })
+        .where(eq(purchaseOrders.id, id))
+        .returning();
+      
+      return updatedOrder;
+    });
   }
 
   async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
@@ -1410,7 +1974,10 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    return results;
+    return results.map(row => ({
+      ...row,
+      items: row.items || []
+    }));
   }
 
   async getPosReceipt(id: string): Promise<(PosReceipt & { payments: PosPayment[] }) | undefined> {
@@ -1456,186 +2023,200 @@ export class DatabaseStorage implements IStorage {
     discountAmount?: number;
   }): Promise<{ receipt: PosReceipt; payments: PosPayment[] }> {
     const db = await getDb();
+    
+    return await db.transaction(async (tx) => {
+      // Calculate totals
+      const subtotal = saleData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+      const taxAmount = (saleData.taxRate || 0) * subtotal / 100;
+      const discountAmount = saleData.discountAmount || 0;
+      const totalAmount = subtotal + taxAmount - discountAmount;
 
-    // Calculate totals
-    const subtotal = saleData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const taxAmount = (saleData.taxRate || 0) * subtotal / 100;
-    const discountAmount = saleData.discountAmount || 0;
-    const totalAmount = subtotal + taxAmount - discountAmount;
+      // Generate receipt number
+      const receiptNumber = `RCP-${Date.now()}`;
 
-    // Generate receipt number
-    const receiptNumber = `RCP-${Date.now()}`;
-
-    // Create receipt
-    const [receipt] = await db
-      .insert(posReceipts)
-      .values({
-        receiptNumber,
-        sessionId: saleData.sessionId,
-        customerId: saleData.customerId,
-        subtotal: subtotal.toFixed(2),
-        taxAmount: taxAmount.toFixed(2),
-        discountAmount: discountAmount.toFixed(2),
-        totalAmount: totalAmount.toFixed(2),
-        currency: 'AOA',
-        receiptData: {
-          items: saleData.items,
-          timestamp: new Date().toISOString(),
-        },
-        status: 'completed',
-      })
-      .returning();
-
-    // Create payments
-    const payments = [];
-    for (const paymentData of saleData.payments) {
-      const [payment] = await db
-        .insert(posPayments)
+      // Create receipt
+      const [receipt] = await tx
+        .insert(posReceipts)
         .values({
-          receiptId: receipt.id,
-          paymentMethod: paymentData.method,
-          amount: paymentData.amount.toFixed(2),
+          receiptNumber,
+          sessionId: saleData.sessionId,
+          customerId: saleData.customerId,
+          subtotal: subtotal.toFixed(2),
+          taxAmount: taxAmount.toFixed(2),
+          discountAmount: discountAmount.toFixed(2),
+          totalAmount: totalAmount.toFixed(2),
           currency: 'AOA',
-          cardTransactionId: paymentData.cardTransactionId,
-          cardLast4: paymentData.cardLast4,
-          cardType: paymentData.cardType,
-          mobileMoneyNumber: paymentData.mobileMoneyNumber,
-          mobileMoneyProvider: paymentData.mobileMoneyProvider,
-          checkNumber: paymentData.checkNumber,
-          bankName: paymentData.bankName,
-          referenceNumber: paymentData.referenceNumber,
+          receiptData: {
+            items: saleData.items,
+            timestamp: new Date().toISOString(),
+          },
           status: 'completed',
         })
         .returning();
-      payments.push(payment);
-    }
 
-    // Update inventory quantities and create stock movements with pharmaceutical compliance
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of day for comparison
-    
-    for (const item of saleData.items) {
-      let selectedInventoryRecords: Inventory[] = [];
-      let remainingQuantity = item.quantity;
+      // Create payments
+      const payments = [];
+      for (const paymentData of saleData.payments) {
+        const [payment] = await tx
+          .insert(posPayments)
+          .values({
+            receiptId: receipt.id,
+            paymentMethod: paymentData.method,
+            amount: paymentData.amount.toFixed(2),
+            currency: 'AOA',
+            cardTransactionId: paymentData.cardTransactionId,
+            cardLast4: paymentData.cardLast4,
+            cardType: paymentData.cardType,
+            mobileMoneyNumber: paymentData.mobileMoneyNumber,
+            mobileMoneyProvider: paymentData.mobileMoneyProvider,
+            checkNumber: paymentData.checkNumber,
+            bankName: paymentData.bankName,
+            referenceNumber: paymentData.referenceNumber,
+            status: 'completed',
+          })
+          .returning();
+        payments.push(payment);
+      }
+
+      // Update inventory quantities and create stock movements with pharmaceutical compliance
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of day for comparison
       
-      if (item.inventoryId) {
-        // Use specific inventory batch
-        const allInventoryRecords = await this.getInventoryByProduct(item.productId);
-        const specificRecord = allInventoryRecords.find(inv => inv.id === item.inventoryId);
+      for (const item of saleData.items) {
+        let selectedInventoryRecords: Inventory[] = [];
+        let remainingQuantity = item.quantity;
         
-        if (!specificRecord) {
-          throw new Error(`Inventory batch ${item.inventoryId} not found for product ${item.productId}`);
-        }
-        
-        // Check expiry date for specific batch
-        if (specificRecord.expiryDate) {
-          const expiryDate = new Date(specificRecord.expiryDate);
-          if (expiryDate < today) {
-            throw new Error(`Cannot sell expired product. Batch ${specificRecord.batchNumber} expired on ${expiryDate.toDateString()}`);
+        if (item.inventoryId) {
+          // Use specific inventory batch
+          const allInventoryRecords = await tx
+            .select()
+            .from(inventory)
+            .where(eq(inventory.productId, item.productId));
+          const specificRecord = allInventoryRecords.find(inv => inv.id === item.inventoryId);
+          
+          if (!specificRecord) {
+            throw new Error(`Inventory batch ${item.inventoryId} not found for product ${item.productId}`);
+          }
+          
+          // Check expiry date for specific batch
+          if (specificRecord.expiryDate) {
+            const expiryDate = new Date(specificRecord.expiryDate);
+            if (expiryDate < today) {
+              throw new Error(`Cannot sell expired product. Batch ${specificRecord.batchNumber} expired on ${expiryDate.toDateString()}`);
+            }
+          }
+          
+          if (specificRecord.quantity < item.quantity) {
+            throw new Error(`Insufficient stock in batch ${specificRecord.batchNumber}. Available: ${specificRecord.quantity}, Required: ${item.quantity}`);
+          }
+          
+          selectedInventoryRecords = [specificRecord];
+        } else {
+          // Use FEFO (First Expired, First Out) with expiry validation
+          const inventoryRecords = await tx
+            .select()
+            .from(inventory)
+            .where(eq(inventory.productId, item.productId));
+          
+          // Filter out expired products
+          const validInventoryRecords = inventoryRecords.filter(inv => {
+            if (!inv.expiryDate) return true; // No expiry date means no expiry
+            const expiryDate = new Date(inv.expiryDate);
+            return expiryDate >= today;
+          });
+          
+          if (validInventoryRecords.length === 0) {
+            throw new Error(`No valid (non-expired) inventory available for product ${item.productId}`);
+          }
+          
+          // Sort by expiry date (FEFO) - earliest expiry first, then by quantity
+          validInventoryRecords.sort((a, b) => {
+            if (!a.expiryDate && !b.expiryDate) return 0;
+            if (!a.expiryDate) return 1; // No expiry goes last
+            if (!b.expiryDate) return -1;
+            
+            const dateA = new Date(a.expiryDate);
+            const dateB = new Date(b.expiryDate);
+            
+            if (dateA.getTime() === dateB.getTime()) {
+              // Same expiry date, prefer larger quantities to minimize batch splits
+              return b.quantity - a.quantity;
+            }
+            
+            return dateA.getTime() - dateB.getTime();
+          });
+          
+          // Select inventory batches using FEFO
+          for (const invRecord of validInventoryRecords) {
+            if (remainingQuantity <= 0) break;
+            
+            if (invRecord.quantity > 0) {
+              const quantityToTake = Math.min(remainingQuantity, invRecord.quantity);
+              selectedInventoryRecords.push({
+                ...invRecord,
+                quantity: quantityToTake // Override with the quantity we're taking
+              });
+              remainingQuantity -= quantityToTake;
+            }
+          }
+          
+          if (remainingQuantity > 0) {
+            const totalAvailable = validInventoryRecords.reduce((sum, inv) => sum + inv.quantity, 0);
+            throw new Error(`Insufficient stock for product ${item.productId}. Required: ${item.quantity}, Available: ${totalAvailable}`);
           }
         }
         
-        if (specificRecord.quantity < item.quantity) {
-          throw new Error(`Insufficient stock in batch ${specificRecord.batchNumber}. Available: ${specificRecord.quantity}, Required: ${item.quantity}`);
-        }
-        
-        selectedInventoryRecords = [specificRecord];
-      } else {
-        // Use FEFO (First Expired, First Out) with expiry validation
-        const inventoryRecords = await this.getInventoryByProduct(item.productId);
-        
-        // Filter out expired products
-        const validInventoryRecords = inventoryRecords.filter(inv => {
-          if (!inv.expiryDate) return true; // No expiry date means no expiry
-          const expiryDate = new Date(inv.expiryDate);
-          return expiryDate >= today;
-        });
-        
-        if (validInventoryRecords.length === 0) {
-          throw new Error(`No valid (non-expired) inventory available for product ${item.productId}`);
-        }
-        
-        // Sort by expiry date (FEFO) - earliest expiry first, then by quantity
-        validInventoryRecords.sort((a, b) => {
-          if (!a.expiryDate && !b.expiryDate) return 0;
-          if (!a.expiryDate) return 1; // No expiry goes last
-          if (!b.expiryDate) return -1;
+        // Process the selected inventory records
+        for (const inventoryRecord of selectedInventoryRecords) {
+          const quantityToDeduct = inventoryRecord.quantity;
           
-          const dateA = new Date(a.expiryDate);
-          const dateB = new Date(b.expiryDate);
-          
-          if (dateA.getTime() === dateB.getTime()) {
-            // Same expiry date, prefer larger quantities to minimize batch splits
-            return b.quantity - a.quantity;
+          // Get the actual current quantity from database (not the modified one)
+          const [currentRecord] = await tx
+            .select()
+            .from(inventory)
+            .where(eq(inventory.id, inventoryRecord.id));
+            
+          if (!currentRecord) {
+            throw new Error(`Inventory record ${inventoryRecord.id} not found`);
           }
           
-          return dateA.getTime() - dateB.getTime();
-        });
-        
-        // Select inventory batches using FEFO
-        for (const invRecord of validInventoryRecords) {
-          if (remainingQuantity <= 0) break;
-          
-          if (invRecord.quantity > 0) {
-            const quantityToTake = Math.min(remainingQuantity, invRecord.quantity);
-            selectedInventoryRecords.push({
-              ...invRecord,
-              quantity: quantityToTake // Override with the quantity we're taking
+          // Update inventory
+          await tx
+            .update(inventory)
+            .set({ 
+              quantity: currentRecord.quantity - quantityToDeduct,
+              updatedAt: new Date()
+            })
+            .where(eq(inventory.id, inventoryRecord.id));
+
+          // Create stock movement
+          await tx
+            .insert(stockMovements)
+            .values({
+              productId: item.productId,
+              warehouseId: inventoryRecord.warehouseId,
+              inventoryId: inventoryRecord.id,
+              movementType: 'out',
+              quantity: -quantityToDeduct, // negative for outbound
+              reference: receiptNumber,
+              notes: `POS sale - Receipt ${receiptNumber} - Batch: ${inventoryRecord.batchNumber || 'N/A'}`,
+              userId: saleData.customerId, // Will be set properly in API route
             });
-            remainingQuantity -= quantityToTake;
-          }
-        }
-        
-        if (remainingQuantity > 0) {
-          const totalAvailable = validInventoryRecords.reduce((sum, inv) => sum + inv.quantity, 0);
-          throw new Error(`Insufficient stock for product ${item.productId}. Required: ${item.quantity}, Available: ${totalAvailable}`);
         }
       }
-      
-      // Process the selected inventory records
-      for (const inventoryRecord of selectedInventoryRecords) {
-        const quantityToDeduct = inventoryRecord.quantity;
-        
-        // Get the actual current quantity from database (not the modified one)
-        const [currentRecord] = await (await getDb())
-          .select()
-          .from(inventory)
-          .where(eq(inventory.id, inventoryRecord.id));
-          
-        if (!currentRecord) {
-          throw new Error(`Inventory record ${inventoryRecord.id} not found`);
-        }
-        
-        // Update inventory
-        await this.updateInventory(inventoryRecord.id, {
-          quantity: currentRecord.quantity - quantityToDeduct,
-        });
 
-        // Create stock movement
-        await this.createStockMovement({
-          productId: item.productId,
-          warehouseId: inventoryRecord.warehouseId,
-          inventoryId: inventoryRecord.id,
-          movementType: 'out',
-          quantity: -quantityToDeduct, // negative for outbound
-          reference: receiptNumber,
-          notes: `POS sale - Receipt ${receiptNumber} - Batch: ${inventoryRecord.batchNumber || 'N/A'}`,
-          userId: saleData.customerId, // Will be set properly in API route
-        });
-      }
-    }
+      // Update session totals
+      await tx
+        .update(posSessions)
+        .set({
+          totalSales: sql`${posSessions.totalSales} + ${totalAmount}`,
+          totalTransactions: sql`${posSessions.totalTransactions} + 1`,
+          expectedCash: sql`${posSessions.expectedCash} + ${saleData.payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0)}`,
+        })
+        .where(eq(posSessions.id, saleData.sessionId));
 
-    // Update session totals
-    await db
-      .update(posSessions)
-      .set({
-        totalSales: sql`${posSessions.totalSales} + ${totalAmount}`,
-        totalTransactions: sql`${posSessions.totalTransactions} + 1`,
-        expectedCash: sql`${posSessions.expectedCash} + ${saleData.payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0)}`,
-      })
-      .where(eq(posSessions.id, saleData.sessionId));
-
-    return { receipt, payments };
+      return { receipt, payments };
+    });
   }
 
   // Cash movement operations
@@ -2098,34 +2679,58 @@ export class DatabaseStorage implements IStorage {
   async processPayroll(payrollRunId: string, processedBy: string): Promise<{ payrollRun: PayrollRun; payrollItems: PayrollItem[] }> {
     const db = await getDb();
 
-    // Get payroll items for totals
-    const items = await db
-      .select()
-      .from(payrollItems)
-      .where(eq(payrollItems.payrollRunId, payrollRunId));
+    return await db.transaction(async (tx) => {
+      // Validate payroll run exists and is in correct state
+      const [currentRun] = await tx
+        .select()
+        .from(payrollRuns)
+        .where(eq(payrollRuns.id, payrollRunId));
+      
+      if (!currentRun) {
+        throw new Error('Payroll run not found');
+      }
+      
+      if (currentRun.status === 'completed') {
+        throw new Error('Payroll run has already been processed');
+      }
+      
+      if (currentRun.status !== 'processing' && currentRun.status !== 'draft') {
+        throw new Error(`Cannot process payroll run in ${currentRun.status} status`);
+      }
 
-    const totals = items.reduce((acc, item) => {
-      acc.totalGrossPay += Number(item.grossPay || 0);
-      acc.totalDeductions += Number(item.totalDeductions || 0);
-      acc.totalNetPay += Number(item.netPay || 0);
-      return acc;
-    }, { totalGrossPay: 0, totalDeductions: 0, totalNetPay: 0 });
+      // Get payroll items for totals
+      const items = await tx
+        .select()
+        .from(payrollItems)
+        .where(eq(payrollItems.payrollRunId, payrollRunId));
+      
+      if (items.length === 0) {
+        throw new Error('No payroll items found for this run');
+      }
 
-    // Update payroll run status and totals
-    const [payrollRun] = await db
-      .update(payrollRuns)
-      .set({
-        status: 'completed',
-        totalGrossPay: totals.totalGrossPay.toFixed(2),
-        totalDeductions: totals.totalDeductions.toFixed(2),
-        totalNetPay: totals.totalNetPay.toFixed(2),
-        processedBy,
-        processedAt: new Date(),
-      })
-      .where(eq(payrollRuns.id, payrollRunId))
-      .returning();
+      const totals = items.reduce((acc, item) => {
+        acc.totalGrossPay += Number(item.grossPay || 0);
+        acc.totalDeductions += Number(item.totalDeductions || 0);
+        acc.totalNetPay += Number(item.netPay || 0);
+        return acc;
+      }, { totalGrossPay: 0, totalDeductions: 0, totalNetPay: 0 });
 
-    return { payrollRun, payrollItems: items };
+      // Update payroll run status and totals
+      const [payrollRun] = await tx
+        .update(payrollRuns)
+        .set({
+          status: 'completed',
+          totalGrossPay: totals.totalGrossPay.toFixed(2),
+          totalDeductions: totals.totalDeductions.toFixed(2),
+          totalNetPay: totals.totalNetPay.toFixed(2),
+          processedBy,
+          processedAt: new Date(),
+        })
+        .where(eq(payrollRuns.id, payrollRunId))
+        .returning();
+
+      return { payrollRun, payrollItems: items };
+    });
   }
 
   // HR Module - Performance Reviews
@@ -2142,7 +2747,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (status) {
-      conditions.push(eq(performanceReviews.status, status));
+      conditions.push(sql`${performanceReviews.status} = ${status}`);
     }
 
     const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
@@ -2637,7 +3242,7 @@ export class DatabaseStorage implements IStorage {
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
       .leftJoin(users, eq(quotations.salesRepId, users.id))
-      .where(status ? eq(quotations.status, status) : sql`true`)
+      .where(status ? sql`${quotations.status} = ${status}` : sql`true`)
       .limit(limit)
       .orderBy(desc(quotations.createdAt));
 
@@ -2838,28 +3443,64 @@ export class DatabaseStorage implements IStorage {
   async allocateReceiptToInvoice(receiptId: string, invoiceId: string, amount: number): Promise<{ receipt: Receipt; invoice: Invoice }> {
     const db = await getDb();
     
-    // Update receipt
-    const [receipt] = await db
-      .update(receipts)
-      .set({ 
-        invoiceId,
-        appliedAmount: String(amount),
-        status: 'cleared'
-      })
-      .where(eq(receipts.id, receiptId))
-      .returning();
+    return await db.transaction(async (tx) => {
+      // Validate receipt exists and is available for allocation
+      const [currentReceipt] = await tx
+        .select()
+        .from(receipts)
+        .where(eq(receipts.id, receiptId));
+      
+      if (!currentReceipt) {
+        throw new Error('Receipt not found');
+      }
+      
+      if (currentReceipt.status === 'cleared') {
+        throw new Error('Receipt has already been allocated');
+      }
+      
+      const remainingAmount = parseFloat(currentReceipt.amount) - parseFloat(currentReceipt.appliedAmount || '0');
+      if (amount > remainingAmount) {
+        throw new Error(`Allocation amount ${amount} exceeds remaining receipt amount ${remainingAmount}`);
+      }
+      
+      // Validate invoice exists
+      const [currentInvoice] = await tx
+        .select()
+        .from(invoices)
+        .where(eq(invoices.id, invoiceId));
+      
+      if (!currentInvoice) {
+        throw new Error('Invoice not found');
+      }
+      
+      // Update receipt
+      const [receipt] = await tx
+        .update(receipts)
+        .set({ 
+          invoiceId,
+          appliedAmount: (parseFloat(currentReceipt.appliedAmount || '0') + amount).toFixed(2),
+          status: (parseFloat(currentReceipt.appliedAmount || '0') + amount) >= parseFloat(currentReceipt.amount) ? 'cleared' : 'pending'
+        })
+        .where(eq(receipts.id, receiptId))
+        .returning();
 
-    // Update invoice paid amount
-    const [invoice] = await db
-      .update(invoices)
-      .set({ 
-        paidAmount: sql`${invoices.paidAmount} + ${amount}`,
-        updatedAt: new Date()
-      })
-      .where(eq(invoices.id, invoiceId))
-      .returning();
+      // Update invoice paid amount and status
+      const newPaidAmount = parseFloat(currentInvoice.paidAmount || '0') + amount;
+      const totalAmount = parseFloat(currentInvoice.totalAmount || '0');
+      const newStatus = newPaidAmount >= totalAmount ? 'paid' : newPaidAmount > 0 ? 'sent' : currentInvoice.status;
+      
+      const [invoice] = await tx
+        .update(invoices)
+        .set({ 
+          paidAmount: newPaidAmount.toFixed(2),
+          status: newStatus as any,
+          updatedAt: new Date()
+        })
+        .where(eq(invoices.id, invoiceId))
+        .returning();
 
-    return { receipt, invoice };
+      return { receipt, invoice };
+    });
   }
 
   // CRM Module - Commission operations
@@ -2879,7 +3520,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           salesRepId ? eq(commissionEntries.salesRepId, salesRepId) : sql`true`,
-          status ? eq(commissionEntries.status, status) : sql`true`
+          status ? sql`${commissionEntries.status} = ${status}` : sql`true`
         )
       )
       .limit(limit)
@@ -3003,7 +3644,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           customerId ? eq(creditOverrides.customerId, customerId) : sql`true`,
-          status ? eq(creditOverrides.status, status) : sql`true`
+          status ? sql`${creditOverrides.status} = ${status}` : sql`true`
         )
       )
       .limit(limit)
@@ -3132,7 +3773,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(leads.isActive, true),
-          status ? eq(leads.leadStatus, status) : sql`true`,
+          status ? sql`${leads.leadStatus} = ${status}` : sql`true`,
           assignedTo ? eq(leads.assignedTo, assignedTo) : sql`true`
         )
       )
@@ -3349,7 +3990,7 @@ export class DatabaseStorage implements IStorage {
     
     const prs = await db
       .select({
-        ...purchaseRequests,
+        pr: purchaseRequests,
         requester: users,
         supplier: suppliers,
       })
@@ -3365,14 +4006,19 @@ export class DatabaseStorage implements IStorage {
     for (const pr of prs) {
       const items = await db
         .select({
-          ...purchaseRequestItems,
+          item: purchaseRequestItems,
           product: products,
         })
         .from(purchaseRequestItems)
         .innerJoin(products, eq(purchaseRequestItems.productId, products.id))
-        .where(eq(purchaseRequestItems.prId, pr.id));
+        .where(eq(purchaseRequestItems.prId, pr.pr.id));
       
-      results.push({ ...pr, items });
+      results.push({ 
+        ...pr.pr, 
+        requester: pr.requester!, 
+        supplier: pr.supplier || undefined,
+        items: items.map(item => ({ ...item.item, product: item.product }))
+      });
     }
     
     return results as any;
@@ -3383,7 +4029,7 @@ export class DatabaseStorage implements IStorage {
     
     const [pr] = await db
       .select({
-        ...purchaseRequests,
+        pr: purchaseRequests,
         requester: users,
         supplier: suppliers,
       })
@@ -3396,14 +4042,19 @@ export class DatabaseStorage implements IStorage {
 
     const items = await db
       .select({
-        ...purchaseRequestItems,
+        item: purchaseRequestItems,
         product: products,
       })
       .from(purchaseRequestItems)
       .innerJoin(products, eq(purchaseRequestItems.productId, products.id))
       .where(eq(purchaseRequestItems.prId, id));
 
-    return { ...pr, items } as any;
+    return { 
+      ...pr.pr, 
+      requester: pr.requester!,
+      supplier: pr.supplier || undefined,
+      items: items.map(item => ({ ...item.item, product: item.product }))
+    };
   }
 
   async createPurchaseRequest(prData: InsertPurchaseRequest): Promise<PurchaseRequest> {
@@ -3721,51 +4372,109 @@ export class DatabaseStorage implements IStorage {
   async postGoodsReceipt(id: string): Promise<GoodsReceipt> {
     const db = await getDb();
     
-    // Update GR status
-    const [gr] = await db
-      .update(goodsReceipts)
-      .set({ status: 'posted' })
-      .where(eq(goodsReceipts.id, id))
-      .returning();
+    return await db.transaction(async (tx) => {
+      // Get GR details and validate state
+      const grDetail = await this.getGoodsReceipt(id);
+      if (!grDetail) throw new Error('Goods receipt not found');
+      
+      if (grDetail.status === 'posted') {
+        throw new Error('Goods receipt has already been posted');
+      }
+      
+      // Validate associated purchase order exists
+      const [po] = await tx
+        .select()
+        .from(purchaseOrders)
+        .where(eq(purchaseOrders.id, grDetail.purchaseOrder.id));
+      
+      if (!po) {
+        throw new Error('Associated purchase order not found');
+      }
+      
+      // Get PO items for cost reference
+      const poItems = await tx
+        .select()
+        .from(purchaseOrderItems)
+        .where(eq(purchaseOrderItems.orderId, po.id));
+      
+      // Update GR status
+      const [gr] = await tx
+        .update(goodsReceipts)
+        .set({ status: 'posted' })
+        .where(eq(goodsReceipts.id, id))
+        .returning();
 
-    // Get GR items to create inventory and stock movements
-    const grItems = await db
-      .select()
-      .from(goodsReceiptItems)
-      .where(eq(goodsReceiptItems.grId, id));
+      // Get GR items to create inventory and stock movements
+      const grItems = await tx
+        .select()
+        .from(goodsReceiptItems)
+        .where(eq(goodsReceiptItems.grId, id));
+      
+      if (grItems.length === 0) {
+        throw new Error('No goods receipt items found');
+      }
 
-    const grDetail = await this.getGoodsReceipt(id);
-    if (!grDetail) throw new Error('Goods receipt not found');
+      // Create/update inventory and stock movements with proper batch/expiry data
+      for (const item of grItems) {
+        // Find corresponding PO item for cost data
+        const poItem = poItems.find(pi => pi.productId === item.productId);
+        const costPerUnit = poItem ? poItem.unitPrice : '0';
+        
+        // Validate expiry date is in the future for pharmaceuticals
+        if (item.expiryDate) {
+          const expiryDate = new Date(item.expiryDate);
+          const today = new Date();
+          if (expiryDate <= today) {
+            throw new Error(`Cannot receive expired product. Batch ${item.batchNumber} expires on ${expiryDate.toDateString()}`);
+          }
+        }
+        
+        // Create inventory entry with proper batch and expiry tracking
+        const [inventoryEntry] = await tx
+          .insert(inventory)
+          .values({
+            productId: item.productId,
+            warehouseId: grDetail.warehouseId,
+            batchNumber: item.batchNumber || `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            quantity: item.quantity,
+            manufactureDate: new Date().toISOString().split('T')[0], // Today as received date
+            expiryDate: item.expiryDate,
+            costPerUnit: costPerUnit || '0',
+          })
+          .returning();
 
-    // Create/update inventory and stock movements
-    for (const item of grItems) {
-      // Create inventory entry
-      await db
-        .insert(inventory)
-        .values({
-          productId: item.productId,
-          warehouseId: grDetail.warehouseId,
-          batchNumber: item.batchNumber || 'BATCH-' + Date.now(),
-          quantity: item.quantity,
-          expiryDate: item.expiryDate,
-          costPerUnit: '0', // Will be updated from PO
-        });
+        // Create stock movement
+        await tx
+          .insert(stockMovements)
+          .values({
+            productId: item.productId,
+            warehouseId: grDetail.warehouseId,
+            inventoryId: inventoryEntry.id,
+            movementType: 'in',
+            quantity: item.quantity,
+            reference: grDetail.grNumber,
+            notes: `Goods receipt: ${grDetail.grNumber} - Batch: ${item.batchNumber || 'Auto-generated'}${item.expiryDate ? ` - Expires: ${item.expiryDate}` : ''}`,
+            userId: grDetail.receivedBy,
+          });
+      }
+      
+      // Update PO status if all items received
+      const totalPOItems = poItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalGRItems = grItems.reduce((sum, item) => sum + item.quantity, 0);
+      
+      if (totalGRItems >= totalPOItems) {
+        await tx
+          .update(purchaseOrders)
+          .set({ 
+            status: 'received',
+            deliveryDate: new Date().toISOString().split('T')[0],
+            updatedAt: new Date()
+          })
+          .where(eq(purchaseOrders.id, po.id));
+      }
 
-      // Create stock movement
-      await db
-        .insert(stockMovements)
-        .values({
-          productId: item.productId,
-          warehouseId: grDetail.warehouseId,
-          movementType: 'in',
-          quantity: item.quantity,
-          reference: grDetail.grNumber,
-          notes: `Goods receipt: ${grDetail.grNumber}`,
-          userId: grDetail.receivedBy,
-        });
-    }
-
-    return gr;
+      return gr;
+    });
   }
 
   // Vendor Bill operations
@@ -3923,66 +4632,147 @@ export class DatabaseStorage implements IStorage {
   async performThreeWayMatch(poId: string): Promise<MatchResult> {
     const db = await getDb();
     
-    // Get PO, GR, and Bill for the PO
-    const po = await this.getPurchaseOrder(poId);
-    if (!po) throw new Error('Purchase order not found');
-
-    const [gr] = await db
-      .select()
-      .from(goodsReceipts)
-      .where(eq(goodsReceipts.poId, poId))
-      .limit(1);
-
-    const [bill] = await db
-      .select()
-      .from(vendorBills)
-      .where(eq(vendorBills.poId, poId))
-      .limit(1);
-
-    let matchStatus: 'matched' | 'quantity_mismatch' | 'price_mismatch' | 'missing_receipt' | 'missing_bill' | 'pending' = 'pending';
-    let quantityVariance = '0';
-    let priceVariance = '0';
-    const matchDetails: any = {
-      po: { id: po.id, amount: po.totalAmount },
-      gr: gr ? { id: gr.id, received: true } : null,
-      bill: bill ? { id: bill.id, amount: bill.totalAmount } : null,
-    };
-
-    if (!gr && !bill) {
-      matchStatus = 'pending';
-    } else if (!gr) {
-      matchStatus = 'missing_receipt';
-    } else if (!bill) {
-      matchStatus = 'missing_bill';
-    } else {
-      // Perform detailed matching
-      const poAmount = parseFloat(po.totalAmount || '0');
-      const billAmount = parseFloat(bill.totalAmount || '0');
-      const priceDiff = Math.abs(poAmount - billAmount);
+    return await db.transaction(async (tx) => {
+      // Validate PO exists
+      const po = await this.getPurchaseOrder(poId);
+      if (!po) throw new Error('Purchase order not found');
       
-      priceVariance = priceDiff.toString();
+      // Check if match already exists
+      const [existingMatch] = await tx
+        .select()
+        .from(matchResults)
+        .where(eq(matchResults.poId, poId))
+        .limit(1);
       
-      if (priceDiff > 0.01) { // Allow 1 cent tolerance
-        matchStatus = 'price_mismatch';
-      } else {
-        matchStatus = 'matched';
+      if (existingMatch && existingMatch.status === 'matched') {
+        throw new Error('Three-way match already completed for this purchase order');
       }
-    }
 
-    const [matchResult] = await db
-      .insert(matchResults)
-      .values({
-        poId,
-        grId: gr?.id,
-        billId: bill?.id,
-        status: matchStatus,
-        quantityVariance,
-        priceVariance,
-        matchDetails,
-      })
-      .returning();
+      // Get GR and Bill for the PO
+      const [gr] = await tx
+        .select()
+        .from(goodsReceipts)
+        .where(eq(goodsReceipts.poId, poId))
+        .limit(1);
 
-    return matchResult;
+      const [bill] = await tx
+        .select()
+        .from(vendorBills)
+        .where(eq(vendorBills.poId, poId))
+        .limit(1);
+
+      let matchStatus: 'matched' | 'quantity_mismatch' | 'price_mismatch' | 'missing_receipt' | 'missing_bill' | 'pending' = 'pending';
+      let quantityVariance = '0';
+      let priceVariance = '0';
+      const matchDetails: any = {
+        po: { id: po.id, amount: po.totalAmount, items: po.items.length },
+        gr: gr ? { id: gr.id, received: true } : null,
+        bill: bill ? { id: bill.id, amount: bill.totalAmount } : null,
+        matchedAt: new Date().toISOString(),
+      };
+
+      if (!gr && !bill) {
+        matchStatus = 'pending';
+      } else if (!gr) {
+        matchStatus = 'missing_receipt';
+      } else if (!bill) {
+        matchStatus = 'missing_bill';
+      } else {
+        // Perform detailed three-way matching
+        const poAmount = parseFloat(po.totalAmount || '0');
+        const billAmount = parseFloat(bill.totalAmount || '0');
+        const priceDiff = Math.abs(poAmount - billAmount);
+        
+        // Get detailed item-level matching
+        const grItems = await tx
+          .select()
+          .from(goodsReceiptItems)
+          .where(eq(goodsReceiptItems.grId, gr.id));
+          
+        const billItems = await tx
+          .select()
+          .from(vendorBillItems)
+          .where(eq(vendorBillItems.billId, bill.id));
+        
+        // Calculate quantity variance
+        const poQuantity = po.items.reduce((sum, item) => sum + item.quantity, 0);
+        const grQuantity = grItems.reduce((sum, item) => sum + item.quantity, 0);
+        const quantityDiff = Math.abs(poQuantity - grQuantity);
+        
+        quantityVariance = quantityDiff.toString();
+        priceVariance = priceDiff.toString();
+        
+        // Enhanced matching details
+        matchDetails.quantities = {
+          po: poQuantity,
+          gr: grQuantity,
+          variance: quantityDiff
+        };
+        matchDetails.amounts = {
+          po: poAmount,
+          bill: billAmount,
+          variance: priceDiff
+        };
+        
+        // Determine match status with tolerance thresholds
+        const priceTolerancePercent = 0.05; // 5% tolerance
+        const quantityTolerancePercent = 0.02; // 2% tolerance
+        
+        const priceToleranceAmount = poAmount * priceTolerancePercent;
+        const quantityToleranceAmount = poQuantity * quantityTolerancePercent;
+        
+        if (quantityDiff > quantityToleranceAmount) {
+          matchStatus = 'quantity_mismatch';
+        } else if (priceDiff > Math.max(priceToleranceAmount, 0.01)) { // At least 1 cent tolerance
+          matchStatus = 'price_mismatch';
+        } else {
+          matchStatus = 'matched';
+        }
+      }
+
+      // Insert or update match result
+      let matchResult: MatchResult;
+      if (existingMatch) {
+        [matchResult] = await tx
+          .update(matchResults)
+          .set({
+            grId: gr?.id,
+            billId: bill?.id,
+            status: matchStatus,
+            quantityVariance,
+            priceVariance,
+            matchDetails,
+          })
+          .where(eq(matchResults.id, existingMatch.id))
+          .returning();
+      } else {
+        [matchResult] = await tx
+          .insert(matchResults)
+          .values({
+            poId,
+            grId: gr?.id,
+            billId: bill?.id,
+            status: matchStatus,
+            quantityVariance,
+            priceVariance,
+            matchDetails,
+          })
+          .returning();
+      }
+      
+      // If matched successfully, update PO status to closed
+      if (matchStatus === 'matched') {
+        await tx
+          .update(purchaseOrders)
+          .set({ 
+            status: 'closed',
+            updatedAt: new Date()
+          })
+          .where(eq(purchaseOrders.id, poId));
+      }
+
+      return matchResult;
+    });
   }
 
   async resolveMatchException(matchId: string, resolvedBy: string, notes: string): Promise<MatchResult> {
@@ -4241,6 +5031,1152 @@ export class DatabaseStorage implements IStorage {
       matchingExceptions: matchMetrics?.matchingExceptions || 0,
       currencyExposure: [], // Would implement with complex query
     };
+  }
+
+  // AI Module Operations Implementation
+  
+  // AI Chat Session operations
+  async getAiChatSessions(userId?: string, status?: string, limit = 50): Promise<AiChatSession[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (userId) conditions.push(eq(aiChatSessions.userId, userId));
+    if (status) conditions.push(eq(aiChatSessions.status, status as any));
+    
+    return await db
+      .select()
+      .from(aiChatSessions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(aiChatSessions.createdAt));
+  }
+
+  async getAiChatSession(id: string): Promise<(AiChatSession & { messages: AiChatMessage[] }) | undefined> {
+    const db = await getDb();
+    const [session] = await db
+      .select()
+      .from(aiChatSessions)
+      .where(eq(aiChatSessions.id, id));
+    
+    if (!session) return undefined;
+    
+    const messages = await db
+      .select()
+      .from(aiChatMessages)
+      .where(eq(aiChatMessages.sessionId, id))
+      .orderBy(asc(aiChatMessages.createdAt));
+    
+    return { ...session, messages };
+  }
+
+  async createAiChatSession(sessionData: InsertAiChatSession): Promise<AiChatSession> {
+    const db = await getDb();
+    const [session] = await db
+      .insert(aiChatSessions)
+      .values(sessionData)
+      .returning();
+    return session;
+  }
+
+  async updateAiChatSession(id: string, sessionData: Partial<InsertAiChatSession>): Promise<AiChatSession> {
+    const db = await getDb();
+    const [session] = await db
+      .update(aiChatSessions)
+      .set({ ...sessionData, updatedAt: new Date() })
+      .where(eq(aiChatSessions.id, id))
+      .returning();
+    return session;
+  }
+
+  async closeAiChatSession(id: string): Promise<AiChatSession> {
+    const db = await getDb();
+    const [session] = await db
+      .update(aiChatSessions)
+      .set({ 
+        status: 'closed',
+        updatedAt: new Date()
+      })
+      .where(eq(aiChatSessions.id, id))
+      .returning();
+    return session;
+  }
+
+  // AI Chat Message operations
+  async getAiChatMessages(sessionId: string, limit = 100): Promise<AiChatMessage[]> {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(aiChatMessages)
+      .where(eq(aiChatMessages.sessionId, sessionId))
+      .limit(limit)
+      .orderBy(asc(aiChatMessages.createdAt));
+  }
+
+  async createAiChatMessage(messageData: InsertAiChatMessage): Promise<AiChatMessage> {
+    const db = await getDb();
+    const [message] = await db
+      .insert(aiChatMessages)
+      .values(messageData)
+      .returning();
+    
+    // Update session timestamp
+    await db
+      .update(aiChatSessions)
+      .set({ updatedAt: new Date() })
+      .where(eq(aiChatSessions.id, messageData.sessionId));
+    
+    return message;
+  }
+
+  // AI Insights operations
+  async getAiInsights(type?: string, status?: string, entityType?: string, entityId?: string, limit = 50): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (type) conditions.push(eq(aiInsights.type, type as any));
+    if (status) conditions.push(eq(aiInsights.status, status as any));
+    if (entityType) conditions.push(eq(aiInsights.entityType, entityType));
+    if (entityId) conditions.push(eq(aiInsights.entityId, entityId));
+    
+    return await db
+      .select({
+        insight: aiInsights,
+        generatedBy: sql<User>`gen_user.*`.as('generatedBy'),
+        reviewedBy: sql<User>`rev_user.*`.as('reviewedBy'),
+        appliedBy: sql<User>`app_user.*`.as('appliedBy'),
+      })
+      .from(aiInsights)
+      .leftJoin(sql`${users} AS gen_user`, sql`${aiInsights.generatedBy} = gen_user.id`)
+      .leftJoin(sql`${users} AS rev_user`, sql`${aiInsights.reviewedBy} = rev_user.id`)
+      .leftJoin(sql`${users} AS app_user`, sql`${aiInsights.appliedBy} = app_user.id`)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(aiInsights.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.insight,
+        generatedBy: row.generatedBy || undefined,
+        reviewedBy: row.reviewedBy || undefined,
+        appliedBy: row.appliedBy || undefined,
+      })));
+  }
+
+  async getAiInsight(id: string): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        insight: aiInsights,
+        generatedBy: sql<User>`gen_user.*`.as('generatedBy'),
+        reviewedBy: sql<User>`rev_user.*`.as('reviewedBy'),
+        appliedBy: sql<User>`app_user.*`.as('appliedBy'),
+      })
+      .from(aiInsights)
+      .leftJoin(sql`${users} AS gen_user`, sql`${aiInsights.generatedBy} = gen_user.id`)
+      .leftJoin(sql`${users} AS rev_user`, sql`${aiInsights.reviewedBy} = rev_user.id`)
+      .leftJoin(sql`${users} AS app_user`, sql`${aiInsights.appliedBy} = app_user.id`)
+      .where(eq(aiInsights.id, id));
+    
+    if (!row) return undefined;
+    
+    return {
+      ...row.insight,
+      generatedBy: row.generatedBy || undefined,
+      reviewedBy: row.reviewedBy || undefined,
+      appliedBy: row.appliedBy || undefined,
+    };
+  }
+
+  async createAiInsight(insightData: InsertAiInsight): Promise<AiInsight> {
+    const db = await getDb();
+    const [insight] = await db
+      .insert(aiInsights)
+      .values(insightData)
+      .returning();
+    return insight;
+  }
+
+  async updateAiInsight(id: string, insightData: Partial<InsertAiInsight>): Promise<AiInsight> {
+    const db = await getDb();
+    const [insight] = await db
+      .update(aiInsights)
+      .set({ ...insightData, updatedAt: new Date() })
+      .where(eq(aiInsights.id, id))
+      .returning();
+    return insight;
+  }
+
+  async reviewAiInsight(id: string, reviewerId: string, status: 'reviewed' | 'applied' | 'dismissed'): Promise<AiInsight> {
+    const db = await getDb();
+    const [insight] = await db
+      .update(aiInsights)
+      .set({ 
+        status,
+        reviewedBy: reviewerId,
+        updatedAt: new Date()
+      })
+      .where(eq(aiInsights.id, id))
+      .returning();
+    return insight;
+  }
+
+  async applyAiInsight(id: string, appliedBy: string): Promise<AiInsight> {
+    const db = await getDb();
+    const [insight] = await db
+      .update(aiInsights)
+      .set({ 
+        status: 'applied',
+        appliedBy,
+        appliedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(aiInsights.id, id))
+      .returning();
+    return insight;
+  }
+
+  // AI Model Metrics operations
+  async getAiModelMetrics(modelName?: string, requestType?: string, limit = 100): Promise<AiModelMetric[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (modelName) conditions.push(eq(aiModelMetrics.modelName, modelName));
+    if (requestType) conditions.push(eq(aiModelMetrics.requestType, requestType));
+    
+    return await db
+      .select()
+      .from(aiModelMetrics)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(aiModelMetrics.createdAt));
+  }
+
+  async createAiModelMetric(metricData: InsertAiModelMetric): Promise<AiModelMetric> {
+    const db = await getDb();
+    const [metric] = await db
+      .insert(aiModelMetrics)
+      .values(metricData)
+      .returning();
+    return metric;
+  }
+
+  async getAiModelPerformanceStats(modelName?: string, days = 30): Promise<{
+    totalRequests: number;
+    successRate: number;
+    averageResponseTime: number;
+    averageTokensUsed: number;
+    errorRate: number;
+    costEstimate: number;
+  }> {
+    const db = await getDb();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const conditions = [gte(aiModelMetrics.createdAt, cutoffDate)];
+    if (modelName) conditions.push(eq(aiModelMetrics.modelName, modelName));
+    
+    const [stats] = await db
+      .select({
+        totalRequests: sql<number>`COUNT(*)`.as('totalRequests'),
+        successCount: sql<number>`COUNT(*) FILTER (WHERE ${aiModelMetrics.success} = true)`.as('successCount'),
+        errorCount: sql<number>`COUNT(*) FILTER (WHERE ${aiModelMetrics.success} = false)`.as('errorCount'),
+        avgResponseTime: sql<number>`AVG(${aiModelMetrics.responseTime})`.as('avgResponseTime'),
+        avgTokensUsed: sql<number>`AVG(${aiModelMetrics.tokensUsed})`.as('avgTokensUsed'),
+      })
+      .from(aiModelMetrics)
+      .where(and(...conditions));
+    
+    const totalRequests = stats?.totalRequests || 0;
+    const successCount = stats?.successCount || 0;
+    const errorCount = stats?.errorCount || 0;
+    const successRate = totalRequests > 0 ? (successCount / totalRequests) * 100 : 0;
+    const errorRate = totalRequests > 0 ? (errorCount / totalRequests) * 100 : 0;
+    
+    // Rough cost estimate based on tokens used (OpenAI pricing approximation)
+    const avgTokens = stats?.avgTokensUsed || 0;
+    const costEstimate = (avgTokens * totalRequests * 0.000002); // $0.002 per 1K tokens
+    
+    return {
+      totalRequests,
+      successRate: Math.round(successRate * 100) / 100,
+      averageResponseTime: Math.round(stats?.avgResponseTime || 0),
+      averageTokensUsed: Math.round(avgTokens),
+      errorRate: Math.round(errorRate * 100) / 100,
+      costEstimate: Math.round(costEstimate * 100) / 100,
+    };
+  }
+
+  // Marketing Module Operations Implementation
+  
+  // Campaign operations
+  async getCampaigns(status?: string, type?: string, managerId?: string, limit = 50): Promise<(Campaign & { manager: User; members: CampaignMember[] })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (status) conditions.push(eq(campaigns.status, status as any));
+    if (type) conditions.push(eq(campaigns.type, type as any));
+    if (managerId) conditions.push(eq(campaigns.managedBy, managerId));
+    
+    const campaignData = await db
+      .select({
+        campaign: campaigns,
+        manager: users,
+      })
+      .from(campaigns)
+      .innerJoin(users, eq(campaigns.managedBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(campaigns.createdAt));
+    
+    const results = [];
+    for (const row of campaignData) {
+      const members = await db
+        .select()
+        .from(campaignMembers)
+        .where(eq(campaignMembers.campaignId, row.campaign.id))
+        .orderBy(asc(campaignMembers.createdAt));
+      
+      results.push({
+        ...row.campaign,
+        manager: row.manager,
+        members,
+      });
+    }
+    
+    return results as any;
+  }
+
+  async getCampaign(id: string): Promise<(Campaign & { manager: User; members: (CampaignMember & { customer?: Customer; lead?: Lead })[] }) | undefined> {
+    const db = await getDb();
+    const [campaignData] = await db
+      .select({
+        campaign: campaigns,
+        manager: users,
+      })
+      .from(campaigns)
+      .innerJoin(users, eq(campaigns.managedBy, users.id))
+      .where(eq(campaigns.id, id));
+    
+    if (!campaignData) return undefined;
+    
+    const members = await db
+      .select({
+        member: campaignMembers,
+        customer: customers,
+        lead: leads,
+      })
+      .from(campaignMembers)
+      .leftJoin(customers, eq(campaignMembers.customerId, customers.id))
+      .leftJoin(leads, eq(campaignMembers.leadId, leads.id))
+      .where(eq(campaignMembers.campaignId, id))
+      .orderBy(asc(campaignMembers.createdAt));
+    
+    return {
+      ...campaignData.campaign,
+      manager: campaignData.manager,
+      members: members.map(row => ({
+        ...row.member,
+        customer: row.customer || undefined,
+        lead: row.lead || undefined,
+      })),
+    } as any;
+  }
+
+  async createCampaign(campaignData: InsertCampaign): Promise<Campaign> {
+    const db = await getDb();
+    const [campaign] = await db
+      .insert(campaigns)
+      .values(campaignData)
+      .returning();
+    return campaign;
+  }
+
+  async updateCampaign(id: string, campaignData: Partial<InsertCampaign>): Promise<Campaign> {
+    const db = await getDb();
+    const [campaign] = await db
+      .update(campaigns)
+      .set({ ...campaignData, updatedAt: new Date() })
+      .where(eq(campaigns.id, id))
+      .returning();
+    return campaign;
+  }
+
+  async deleteCampaign(id: string): Promise<void> {
+    const db = await getDb();
+    // First delete members
+    await db.delete(campaignMembers).where(eq(campaignMembers.campaignId, id));
+    // Then delete campaign
+    await db.delete(campaigns).where(eq(campaigns.id, id));
+  }
+
+  async launchCampaign(id: string): Promise<Campaign> {
+    const db = await getDb();
+    const [campaign] = await db
+      .update(campaigns)
+      .set({ 
+        status: 'active',
+        launchedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(campaigns.id, id))
+      .returning();
+    return campaign;
+  }
+
+  async pauseCampaign(id: string): Promise<Campaign> {
+    const db = await getDb();
+    const [campaign] = await db
+      .update(campaigns)
+      .set({ 
+        status: 'paused',
+        updatedAt: new Date()
+      })
+      .where(eq(campaigns.id, id))
+      .returning();
+    return campaign;
+  }
+
+  async completeCampaign(id: string): Promise<Campaign> {
+    const db = await getDb();
+    const [campaign] = await db
+      .update(campaigns)
+      .set({ 
+        status: 'completed',
+        completedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(campaigns.id, id))
+      .returning();
+    return campaign;
+  }
+
+  // Campaign Member operations
+  async getCampaignMembers(campaignId?: string, status?: string, limit = 100): Promise<(CampaignMember & { customer?: Customer; lead?: Lead })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (campaignId) conditions.push(eq(campaignMembers.campaignId, campaignId));
+    if (status) conditions.push(eq(campaignMembers.status, status as any));
+    
+    return await db
+      .select({
+        member: campaignMembers,
+        customer: customers,
+        lead: leads,
+      })
+      .from(campaignMembers)
+      .leftJoin(customers, eq(campaignMembers.customerId, customers.id))
+      .leftJoin(leads, eq(campaignMembers.leadId, leads.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(campaignMembers.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.member,
+        customer: row.customer || undefined,
+        lead: row.lead || undefined,
+      })));
+  }
+
+  async addCampaignMember(memberData: InsertCampaignMember): Promise<CampaignMember> {
+    const db = await getDb();
+    const [member] = await db
+      .insert(campaignMembers)
+      .values(memberData)
+      .returning();
+    
+    // Update campaign member count
+    await db
+      .update(campaigns)
+      .set({ 
+        totalMembers: sql`${campaigns.totalMembers} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(campaigns.id, memberData.campaignId));
+    
+    return member;
+  }
+
+  async updateCampaignMember(id: string, memberData: Partial<InsertCampaignMember>): Promise<CampaignMember> {
+    const db = await getDb();
+    const [member] = await db
+      .update(campaignMembers)
+      .set({ ...memberData, updatedAt: new Date() })
+      .where(eq(campaignMembers.id, id))
+      .returning();
+    return member;
+  }
+
+  async removeCampaignMember(id: string): Promise<void> {
+    const db = await getDb();
+    
+    // Get the campaign ID first
+    const [member] = await db
+      .select({ campaignId: campaignMembers.campaignId })
+      .from(campaignMembers)
+      .where(eq(campaignMembers.id, id));
+    
+    if (member) {
+      // Delete the member
+      await db.delete(campaignMembers).where(eq(campaignMembers.id, id));
+      
+      // Update campaign member count
+      await db
+        .update(campaigns)
+        .set({ 
+          totalMembers: sql`${campaigns.totalMembers} - 1`,
+          updatedAt: new Date()
+        })
+        .where(eq(campaigns.id, member.campaignId));
+    }
+  }
+
+  async getCampaignAnalytics(campaignId: string): Promise<{
+    totalMembers: number;
+    activeMembers: number;
+    optedOutMembers: number;
+    bouncedMembers: number;
+    engagementRate: number;
+    conversionRate: number;
+    totalSent: number;
+    totalOpened: number;
+    totalClicked: number;
+  }> {
+    const db = await getDb();
+    
+    const [memberStats] = await db
+      .select({
+        totalMembers: sql<number>`COUNT(*)`.as('totalMembers'),
+        activeMembers: sql<number>`COUNT(*) FILTER (WHERE ${campaignMembers.status} = 'active')`.as('activeMembers'),
+        optedOutMembers: sql<number>`COUNT(*) FILTER (WHERE ${campaignMembers.status} = 'opted_out')`.as('optedOutMembers'),
+        bouncedMembers: sql<number>`COUNT(*) FILTER (WHERE ${campaignMembers.status} = 'bounced')`.as('bouncedMembers'),
+      })
+      .from(campaignMembers)
+      .where(eq(campaignMembers.campaignId, campaignId));
+    
+    // Get communication stats
+    const [commStats] = await db
+      .select({
+        totalSent: sql<number>`COUNT(*) FILTER (WHERE ${communications.status} IN ('sent', 'delivered'))`.as('totalSent'),
+        totalOpened: sql<number>`COUNT(*) FILTER (WHERE ${communications.status} = 'opened')`.as('totalOpened'),
+        totalClicked: sql<number>`COUNT(*) FILTER (WHERE ${communications.status} = 'clicked')`.as('totalClicked'),
+      })
+      .from(communications)
+      .where(eq(communications.campaignId, campaignId));
+    
+    const totalMembers = memberStats?.totalMembers || 0;
+    const totalSent = commStats?.totalSent || 0;
+    const totalOpened = commStats?.totalOpened || 0;
+    const totalClicked = commStats?.totalClicked || 0;
+    
+    const engagementRate = totalSent > 0 ? (totalOpened / totalSent) * 100 : 0;
+    const conversionRate = totalOpened > 0 ? (totalClicked / totalOpened) * 100 : 0;
+    
+    return {
+      totalMembers,
+      activeMembers: memberStats?.activeMembers || 0,
+      optedOutMembers: memberStats?.optedOutMembers || 0,
+      bouncedMembers: memberStats?.bouncedMembers || 0,
+      engagementRate: Math.round(engagementRate * 100) / 100,
+      conversionRate: Math.round(conversionRate * 100) / 100,
+      totalSent,
+      totalOpened,
+      totalClicked,
+    };
+  }
+
+  // Compliance Module Operations Implementation
+  
+  // License operations
+  async getLicenses(status?: string, managedBy?: string, limit = 50): Promise<(License & { manager: User })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (status) conditions.push(eq(licenses.status, status as any));
+    if (managedBy) conditions.push(eq(licenses.managedBy, managedBy));
+    
+    return await db
+      .select({
+        license: licenses,
+        manager: users,
+      })
+      .from(licenses)
+      .innerJoin(users, eq(licenses.managedBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(asc(licenses.expiryDate))
+      .then(rows => rows.map(row => ({
+        ...row.license,
+        manager: row.manager,
+      })));
+  }
+
+  async getLicense(id: string): Promise<(License & { manager: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        license: licenses,
+        manager: users,
+      })
+      .from(licenses)
+      .innerJoin(users, eq(licenses.managedBy, users.id))
+      .where(eq(licenses.id, id));
+    
+    return row ? { ...row.license, manager: row.manager } : undefined;
+  }
+
+  async createLicense(licenseData: InsertLicense): Promise<License> {
+    const db = await getDb();
+    const [license] = await db
+      .insert(licenses)
+      .values(licenseData)
+      .returning();
+    return license;
+  }
+
+  async updateLicense(id: string, licenseData: Partial<InsertLicense>): Promise<License> {
+    const db = await getDb();
+    const [license] = await db
+      .update(licenses)
+      .set({ ...licenseData, updatedAt: new Date() })
+      .where(eq(licenses.id, id))
+      .returning();
+    return license;
+  }
+
+  async deleteLicense(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete(licenses).where(eq(licenses.id, id));
+  }
+
+  async renewLicense(id: string, newExpiryDate: string, renewalDate: string): Promise<License> {
+    const db = await getDb();
+    const [license] = await db
+      .update(licenses)
+      .set({ 
+        expiryDate: newExpiryDate,
+        renewalDate,
+        status: 'active',
+        updatedAt: new Date()
+      })
+      .where(eq(licenses.id, id))
+      .returning();
+    return license;
+  }
+
+  async getExpiringLicenses(daysAhead: number): Promise<(License & { manager: User })[]> {
+    const db = await getDb();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
+    
+    return await db
+      .select({
+        license: licenses,
+        manager: users,
+      })
+      .from(licenses)
+      .innerJoin(users, eq(licenses.managedBy, users.id))
+      .where(
+        and(
+          lte(licenses.expiryDate, cutoffDate.toISOString().split('T')[0]),
+          eq(licenses.status, 'active')
+        )
+      )
+      .orderBy(asc(licenses.expiryDate))
+      .then(rows => rows.map(row => ({
+        ...row.license,
+        manager: row.manager,
+      })));
+  }
+
+  // Regulatory Report operations
+  async getRegulatoryReports(status?: string, reportType?: string, preparedBy?: string, limit = 50): Promise<(RegulatoryReport & { preparer: User; reviewer?: User; approver?: User })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (status) conditions.push(eq(regulatoryReports.status, status as any));
+    if (reportType) conditions.push(eq(regulatoryReports.reportType, reportType));
+    if (preparedBy) conditions.push(eq(regulatoryReports.preparedBy, preparedBy));
+    
+    return await db
+      .select({
+        report: regulatoryReports,
+        preparer: sql<User>`prep_user.*`.as('preparer'),
+        reviewer: sql<User>`rev_user.*`.as('reviewer'),
+        approver: sql<User>`app_user.*`.as('approver'),
+      })
+      .from(regulatoryReports)
+      .innerJoin(sql`${users} AS prep_user`, sql`${regulatoryReports.preparedBy} = prep_user.id`)
+      .leftJoin(sql`${users} AS rev_user`, sql`${regulatoryReports.reviewedBy} = rev_user.id`)
+      .leftJoin(sql`${users} AS app_user`, sql`${regulatoryReports.approvedBy} = app_user.id`)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(regulatoryReports.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.report,
+        preparer: row.preparer,
+        reviewer: row.reviewer || undefined,
+        approver: row.approver || undefined,
+      })));
+  }
+
+  async getRegulatoryReport(id: string): Promise<(RegulatoryReport & { preparer: User; reviewer?: User; approver?: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        report: regulatoryReports,
+        preparer: sql<User>`prep_user.*`.as('preparer'),
+        reviewer: sql<User>`rev_user.*`.as('reviewer'),
+        approver: sql<User>`app_user.*`.as('approver'),
+      })
+      .from(regulatoryReports)
+      .innerJoin(sql`${users} AS prep_user`, sql`${regulatoryReports.preparedBy} = prep_user.id`)
+      .leftJoin(sql`${users} AS rev_user`, sql`${regulatoryReports.reviewedBy} = rev_user.id`)
+      .leftJoin(sql`${users} AS app_user`, sql`${regulatoryReports.approvedBy} = app_user.id`)
+      .where(eq(regulatoryReports.id, id));
+    
+    return row ? {
+      ...row.report,
+      preparer: row.preparer,
+      reviewer: row.reviewer || undefined,
+      approver: row.approver || undefined,
+    } : undefined;
+  }
+
+  async createRegulatoryReport(reportData: InsertRegulatoryReport): Promise<RegulatoryReport> {
+    const db = await getDb();
+    const [report] = await db
+      .insert(regulatoryReports)
+      .values(reportData)
+      .returning();
+    return report;
+  }
+
+  async updateRegulatoryReport(id: string, reportData: Partial<InsertRegulatoryReport>): Promise<RegulatoryReport> {
+    const db = await getDb();
+    const [report] = await db
+      .update(regulatoryReports)
+      .set({ ...reportData, updatedAt: new Date() })
+      .where(eq(regulatoryReports.id, id))
+      .returning();
+    return report;
+  }
+
+  async submitRegulatoryReport(id: string, submissionRef: string): Promise<RegulatoryReport> {
+    const db = await getDb();
+    const [report] = await db
+      .update(regulatoryReports)
+      .set({ 
+        status: 'submitted',
+        submissionReference: submissionRef,
+        submittedDate: new Date().toISOString().split('T')[0],
+        updatedAt: new Date()
+      })
+      .where(eq(regulatoryReports.id, id))
+      .returning();
+    return report;
+  }
+
+  async reviewRegulatoryReport(id: string, reviewerId: string): Promise<RegulatoryReport> {
+    const db = await getDb();
+    const [report] = await db
+      .update(regulatoryReports)
+      .set({ 
+        reviewedBy: reviewerId,
+        updatedAt: new Date()
+      })
+      .where(eq(regulatoryReports.id, id))
+      .returning();
+    return report;
+  }
+
+  async approveRegulatoryReport(id: string, approverId: string): Promise<RegulatoryReport> {
+    const db = await getDb();
+    const [report] = await db
+      .update(regulatoryReports)
+      .set({ 
+        status: 'accepted',
+        approvedBy: approverId,
+        updatedAt: new Date()
+      })
+      .where(eq(regulatoryReports.id, id))
+      .returning();
+    return report;
+  }
+
+  async rejectRegulatoryReport(id: string, approverId: string, reason: string): Promise<RegulatoryReport> {
+    const db = await getDb();
+    const [report] = await db
+      .update(regulatoryReports)
+      .set({ 
+        status: 'rejected',
+        approvedBy: approverId,
+        rejectionReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(regulatoryReports.id, id))
+      .returning();
+    return report;
+  }
+
+  // Audit Log operations
+  async getAuditLogs(tableName?: string, recordId?: string, userId?: string, action?: string, limit = 100): Promise<(AuditLog & { user?: User })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (tableName) conditions.push(eq(auditLogs.tableName, tableName));
+    if (recordId) conditions.push(eq(auditLogs.recordId, recordId));
+    if (userId) conditions.push(eq(auditLogs.userId, userId));
+    if (action) conditions.push(eq(auditLogs.action, action as any));
+    
+    return await db
+      .select({
+        auditLog: auditLogs,
+        user: users,
+      })
+      .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.userId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(auditLogs.timestamp))
+      .then(rows => rows.map(row => ({
+        ...row.auditLog,
+        user: row.user || undefined,
+      })));
+  }
+
+  async createAuditLog(auditLogData: InsertAuditLog): Promise<AuditLog> {
+    const db = await getDb();
+    const [auditLog] = await db
+      .insert(auditLogs)
+      .values(auditLogData)
+      .returning();
+    return auditLog;
+  }
+
+  // Recall Notice operations
+  async getRecallNotices(status?: string, productId?: string, managedBy?: string, limit = 50): Promise<(RecallNotice & { product: Product; manager: User })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (status) conditions.push(eq(recallNotices.status, status as any));
+    if (productId) conditions.push(eq(recallNotices.productId, productId));
+    if (managedBy) conditions.push(eq(recallNotices.managedBy, managedBy));
+    
+    return await db
+      .select({
+        recall: recallNotices,
+        product: products,
+        manager: users,
+      })
+      .from(recallNotices)
+      .innerJoin(products, eq(recallNotices.productId, products.id))
+      .innerJoin(users, eq(recallNotices.managedBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(recallNotices.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.recall,
+        product: row.product,
+        manager: row.manager,
+      })));
+  }
+
+  async getRecallNotice(id: string): Promise<(RecallNotice & { product: Product; manager: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        recall: recallNotices,
+        product: products,
+        manager: users,
+      })
+      .from(recallNotices)
+      .innerJoin(products, eq(recallNotices.productId, products.id))
+      .innerJoin(users, eq(recallNotices.managedBy, users.id))
+      .where(eq(recallNotices.id, id));
+    
+    return row ? {
+      ...row.recall,
+      product: row.product,
+      manager: row.manager,
+    } : undefined;
+  }
+
+  async createRecallNotice(recallData: InsertRecallNotice): Promise<RecallNotice> {
+    const db = await getDb();
+    const [recall] = await db
+      .insert(recallNotices)
+      .values(recallData)
+      .returning();
+    return recall;
+  }
+
+  async updateRecallNotice(id: string, recallData: Partial<InsertRecallNotice>): Promise<RecallNotice> {
+    const db = await getDb();
+    const [recall] = await db
+      .update(recallNotices)
+      .set({ ...recallData, updatedAt: new Date() })
+      .where(eq(recallNotices.id, id))
+      .returning();
+    return recall;
+  }
+
+  async initiateRecall(id: string): Promise<RecallNotice> {
+    const db = await getDb();
+    const [recall] = await db
+      .update(recallNotices)
+      .set({ 
+        status: 'in_progress',
+        updatedAt: new Date()
+      })
+      .where(eq(recallNotices.id, id))
+      .returning();
+    return recall;
+  }
+
+  async completeRecall(id: string, recoveryPercentage: number): Promise<RecallNotice> {
+    const db = await getDb();
+    const [recall] = await db
+      .update(recallNotices)
+      .set({ 
+        status: 'completed',
+        recoveryPercentage: recoveryPercentage.toString(),
+        completionDate: new Date().toISOString().split('T')[0],
+        updatedAt: new Date()
+      })
+      .where(eq(recallNotices.id, id))
+      .returning();
+    return recall;
+  }
+
+  // Advanced Reporting Operations Implementation
+  
+  // Report Definition operations
+  async getReportDefinitions(category?: string, isPublic?: boolean, ownerId?: string, limit = 50): Promise<(ReportDefinition & { owner: User })[]> {
+    const db = await getDb();
+    const conditions = [eq(reportDefinitions.isActive, true)];
+    
+    if (category) conditions.push(eq(reportDefinitions.category, category));
+    if (isPublic !== undefined) conditions.push(eq(reportDefinitions.isPublic, isPublic));
+    if (ownerId) conditions.push(eq(reportDefinitions.ownerId, ownerId));
+    
+    return await db
+      .select({
+        reportDef: reportDefinitions,
+        owner: users,
+      })
+      .from(reportDefinitions)
+      .innerJoin(users, eq(reportDefinitions.ownerId, users.id))
+      .where(and(...conditions))
+      .limit(limit)
+      .orderBy(desc(reportDefinitions.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.reportDef,
+        owner: row.owner,
+      })));
+  }
+
+  async getReportDefinition(id: string): Promise<(ReportDefinition & { owner: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        reportDef: reportDefinitions,
+        owner: users,
+      })
+      .from(reportDefinitions)
+      .innerJoin(users, eq(reportDefinitions.ownerId, users.id))
+      .where(eq(reportDefinitions.id, id));
+    
+    return row ? {
+      ...row.reportDef,
+      owner: row.owner,
+    } : undefined;
+  }
+
+  async createReportDefinition(reportDefData: InsertReportDefinition): Promise<ReportDefinition> {
+    const db = await getDb();
+    const [reportDef] = await db
+      .insert(reportDefinitions)
+      .values(reportDefData)
+      .returning();
+    return reportDef;
+  }
+
+  async updateReportDefinition(id: string, reportDefData: Partial<InsertReportDefinition>): Promise<ReportDefinition> {
+    const db = await getDb();
+    const [reportDef] = await db
+      .update(reportDefinitions)
+      .set({ ...reportDefData, updatedAt: new Date() })
+      .where(eq(reportDefinitions.id, id))
+      .returning();
+    return reportDef;
+  }
+
+  async deleteReportDefinition(id: string): Promise<void> {
+    const db = await getDb();
+    await db
+      .update(reportDefinitions)
+      .set({ isActive: false })
+      .where(eq(reportDefinitions.id, id));
+  }
+
+  // Saved Report operations
+  async getSavedReports(userId?: string, reportDefinitionId?: string, limit = 50): Promise<(SavedReport & { reportDefinition: ReportDefinition; user: User })[]> {
+    const db = await getDb();
+    const conditions = [eq(savedReports.isActive, true)];
+    
+    if (userId) conditions.push(eq(savedReports.userId, userId));
+    if (reportDefinitionId) conditions.push(eq(savedReports.reportDefinitionId, reportDefinitionId));
+    
+    return await db
+      .select({
+        savedReport: savedReports,
+        reportDefinition: reportDefinitions,
+        user: users,
+      })
+      .from(savedReports)
+      .innerJoin(reportDefinitions, eq(savedReports.reportDefinitionId, reportDefinitions.id))
+      .innerJoin(users, eq(savedReports.userId, users.id))
+      .where(and(...conditions))
+      .limit(limit)
+      .orderBy(desc(savedReports.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.savedReport,
+        reportDefinition: row.reportDefinition,
+        user: row.user,
+      })));
+  }
+
+  async getSavedReport(id: string): Promise<(SavedReport & { reportDefinition: ReportDefinition; user: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        savedReport: savedReports,
+        reportDefinition: reportDefinitions,
+        user: users,
+      })
+      .from(savedReports)
+      .innerJoin(reportDefinitions, eq(savedReports.reportDefinitionId, reportDefinitions.id))
+      .innerJoin(users, eq(savedReports.userId, users.id))
+      .where(eq(savedReports.id, id));
+    
+    return row ? {
+      ...row.savedReport,
+      reportDefinition: row.reportDefinition,
+      user: row.user,
+    } : undefined;
+  }
+
+  async createSavedReport(savedReportData: InsertSavedReport): Promise<SavedReport> {
+    const db = await getDb();
+    const [savedReport] = await db
+      .insert(savedReports)
+      .values(savedReportData)
+      .returning();
+    return savedReport;
+  }
+
+  async updateSavedReport(id: string, savedReportData: Partial<InsertSavedReport>): Promise<SavedReport> {
+    const db = await getDb();
+    const [savedReport] = await db
+      .update(savedReports)
+      .set({ ...savedReportData, updatedAt: new Date() })
+      .where(eq(savedReports.id, id))
+      .returning();
+    return savedReport;
+  }
+
+  async deleteSavedReport(id: string): Promise<void> {
+    const db = await getDb();
+    await db
+      .update(savedReports)
+      .set({ isActive: false })
+      .where(eq(savedReports.id, id));
+  }
+
+  // Report Export operations
+  async getReportExports(generatedBy?: string, status?: string, limit = 50): Promise<(ReportExport & { generator: User })[]> {
+    const db = await getDb();
+    const conditions = [];
+    
+    if (generatedBy) conditions.push(eq(reportExports.generatedBy, generatedBy));
+    if (status) conditions.push(eq(reportExports.status, status as any));
+    
+    return await db
+      .select({
+        reportExport: reportExports,
+        generator: users,
+      })
+      .from(reportExports)
+      .innerJoin(users, eq(reportExports.generatedBy, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .limit(limit)
+      .orderBy(desc(reportExports.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.reportExport,
+        generator: row.generator,
+      })));
+  }
+
+  async getReportExport(id: string): Promise<(ReportExport & { generator: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        reportExport: reportExports,
+        generator: users,
+      })
+      .from(reportExports)
+      .innerJoin(users, eq(reportExports.generatedBy, users.id))
+      .where(eq(reportExports.id, id));
+    
+    return row ? {
+      ...row.reportExport,
+      generator: row.generator,
+    } : undefined;
+  }
+
+  async createReportExport(reportExportData: InsertReportExport): Promise<ReportExport> {
+    const db = await getDb();
+    const [reportExport] = await db
+      .insert(reportExports)
+      .values(reportExportData)
+      .returning();
+    return reportExport;
+  }
+
+  async updateReportExport(id: string, reportExportData: Partial<InsertReportExport>): Promise<ReportExport> {
+    const db = await getDb();
+    const [reportExport] = await db
+      .update(reportExports)
+      .set(reportExportData)
+      .where(eq(reportExports.id, id))
+      .returning();
+    return reportExport;
+  }
+
+  async markReportExportComplete(id: string, filePath: string, fileSize: number): Promise<ReportExport> {
+    const db = await getDb();
+    const [reportExport] = await db
+      .update(reportExports)
+      .set({ 
+        status: 'completed',
+        filePath,
+        fileSize,
+        generatedAt: new Date()
+      })
+      .where(eq(reportExports.id, id))
+      .returning();
+    return reportExport;
+  }
+
+  async markReportExportFailed(id: string, errorMessage: string): Promise<ReportExport> {
+    const db = await getDb();
+    const [reportExport] = await db
+      .update(reportExports)
+      .set({ 
+        status: 'failed',
+        errorMessage
+      })
+      .where(eq(reportExports.id, id))
+      .returning();
+    return reportExport;
   }
 }
 
