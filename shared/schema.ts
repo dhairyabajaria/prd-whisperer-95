@@ -127,6 +127,28 @@ export const recallStatusEnum = pgEnum('recall_status', [
   'cancelled'
 ]);
 
+export const quotationStatusEnum = pgEnum('quotation_status', [
+  'draft',
+  'sent',
+  'accepted',
+  'expired',
+  'cancelled'
+]);
+
+export const receiptStatusEnum = pgEnum('receipt_status', [
+  'pending',
+  'cleared',
+  'bounced',
+  'cancelled'
+]);
+
+export const commissionStatusEnum = pgEnum('commission_status', [
+  'accrued',
+  'approved',
+  'paid',
+  'cancelled'
+]);
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -300,6 +322,96 @@ export const stockMovements = pgTable("stock_movements", {
   notes: text("notes"),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// CRM Module Tables
+
+// Quotations table
+export const quotations = pgTable("quotations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationNumber: varchar("quotation_number").notNull().unique(),
+  customerId: varchar("customer_id").references(() => customers.id).notNull(),
+  salesRepId: varchar("sales_rep_id").references(() => users.id),
+  quotationDate: date("quotation_date").notNull(),
+  validityDate: date("validity_date").notNull(),
+  status: quotationStatusEnum("status").default('draft'),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  fxRate: decimal("fx_rate", { precision: 10, scale: 6 }).default('1'),
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0'),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0'),
+  discountAmount: decimal("discount_amount", { precision: 12, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
+  notes: text("notes"),
+  convertedToOrderId: varchar("converted_to_order_id").references(() => salesOrders.id),
+  convertedAt: timestamp("converted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Quotation items table
+export const quotationItems = pgTable("quotation_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationId: varchar("quotation_id").references(() => quotations.id).notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  discount: decimal("discount", { precision: 5, scale: 2 }).default('0'),
+  tax: decimal("tax", { precision: 5, scale: 2 }).default('0'),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Receipts table for payment tracking
+export const receipts = pgTable("receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptNumber: varchar("receipt_number").notNull().unique(),
+  customerId: varchar("customer_id").references(() => customers.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  fxRate: decimal("fx_rate", { precision: 10, scale: 6 }).default('1'),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  reference: varchar("reference"), // bank reference, cheque number, etc.
+  appliedAmount: decimal("applied_amount", { precision: 12, scale: 2 }).default('0'),
+  status: receiptStatusEnum("status").default('pending'),
+  notes: text("notes"),
+  receivedBy: varchar("received_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Commission entries table
+export const commissionEntries = pgTable("commission_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
+  salesRepId: varchar("sales_rep_id").references(() => users.id).notNull(),
+  basisAmount: decimal("basis_amount", { precision: 12, scale: 2 }).notNull(),
+  commissionPercent: decimal("commission_percent", { precision: 5, scale: 2 }).notNull(),
+  commissionAmount: decimal("commission_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  status: commissionStatusEnum("status").default('accrued'),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Credit overrides table for credit limit exceptions
+export const creditOverrides = pgTable("credit_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").references(() => customers.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id),
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  reason: text("reason").notNull(),
+  requestedAmount: decimal("requested_amount", { precision: 12, scale: 2 }).notNull(),
+  approvedAmount: decimal("approved_amount", { precision: 12, scale: 2 }),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  expiryDate: date("expiry_date"),
+  status: varchar("status").default('pending'), // pending, approved, rejected, expired
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
 });
 
 // HR Module Tables
@@ -736,6 +848,13 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   customers: many(customers),
   salesOrders: many(salesOrders),
   stockMovements: many(stockMovements),
+  // CRM relations
+  quotations: many(quotations, { relationName: "salesRep" }),
+  receipts: many(receipts, { relationName: "receiver" }),
+  commissionEntries: many(commissionEntries, { relationName: "salesRep" }),
+  creditOverridesRequested: many(creditOverrides, { relationName: "requester" }),
+  creditOverridesApproved: many(creditOverrides, { relationName: "approver" }),
+  commissionsApproved: many(commissionEntries, { relationName: "approver" }),
   // HR relations
   employee: one(employees, {
     fields: [users.id],
@@ -774,6 +893,9 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   }),
   salesOrders: many(salesOrders),
   invoices: many(invoices),
+  quotations: many(quotations),
+  receipts: many(receipts),
+  creditOverrides: many(creditOverrides),
 }));
 
 export const suppliersRelations = relations(suppliers, ({ many }) => ({
@@ -879,6 +1001,89 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   user: one(users, {
     fields: [stockMovements.userId],
     references: [users.id],
+  }),
+}));
+
+// CRM Module Relations
+export const quotationsRelations = relations(quotations, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [quotations.customerId],
+    references: [customers.id],
+  }),
+  salesRep: one(users, {
+    fields: [quotations.salesRepId],
+    references: [users.id],
+    relationName: "salesRep",
+  }),
+  items: many(quotationItems),
+  convertedOrder: one(salesOrders, {
+    fields: [quotations.convertedToOrderId],
+    references: [salesOrders.id],
+  }),
+}));
+
+export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
+  quotation: one(quotations, {
+    fields: [quotationItems.quotationId],
+    references: [quotations.id],
+  }),
+  product: one(products, {
+    fields: [quotationItems.productId],
+    references: [products.id],
+  }),
+}));
+
+export const receiptsRelations = relations(receipts, ({ one }) => ({
+  customer: one(customers, {
+    fields: [receipts.customerId],
+    references: [customers.id],
+  }),
+  invoice: one(invoices, {
+    fields: [receipts.invoiceId],
+    references: [invoices.id],
+  }),
+  receivedBy: one(users, {
+    fields: [receipts.receivedBy],
+    references: [users.id],
+    relationName: "receiver",
+  }),
+}));
+
+export const commissionEntriesRelations = relations(commissionEntries, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [commissionEntries.invoiceId],
+    references: [invoices.id],
+  }),
+  salesRep: one(users, {
+    fields: [commissionEntries.salesRepId],
+    references: [users.id],
+    relationName: "salesRep",
+  }),
+  approver: one(users, {
+    fields: [commissionEntries.approvedBy],
+    references: [users.id],
+    relationName: "approver",
+  }),
+}));
+
+export const creditOverridesRelations = relations(creditOverrides, ({ one }) => ({
+  customer: one(customers, {
+    fields: [creditOverrides.customerId],
+    references: [customers.id],
+  }),
+  invoice: one(invoices, {
+    fields: [creditOverrides.invoiceId],
+    references: [invoices.id],
+  }),
+  requester: one(users, {
+    fields: [creditOverrides.requestedBy],
+    references: [users.id],
+    relationName: "requester",
+  }),
+  approver: one(users, {
+    fields: [creditOverrides.approvedBy],
+    references: [users.id],
+    relationName: "approver",
   }),
 }));
 
@@ -1293,6 +1498,33 @@ export const insertCommunicationSchema = createInsertSchema(communications).omit
   createdAt: true,
 });
 
+// CRM Module Insert Schemas
+export const insertQuotationSchema = createInsertSchema(quotations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertQuotationItemSchema = createInsertSchema(quotationItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReceiptSchema = createInsertSchema(receipts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCommissionEntrySchema = createInsertSchema(commissionEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCreditOverrideSchema = createInsertSchema(creditOverrides).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Advanced Reporting Insert Schemas
 export const insertReportDefinitionSchema = createInsertSchema(reportDefinitions).omit({
   id: true,
@@ -1393,6 +1625,18 @@ export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
 export type Communication = typeof communications.$inferSelect;
+
+// CRM Module Types
+export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
+export type Quotation = typeof quotations.$inferSelect;
+export type InsertQuotationItem = z.infer<typeof insertQuotationItemSchema>;
+export type QuotationItem = typeof quotationItems.$inferSelect;
+export type InsertReceipt = z.infer<typeof insertReceiptSchema>;
+export type Receipt = typeof receipts.$inferSelect;
+export type InsertCommissionEntry = z.infer<typeof insertCommissionEntrySchema>;
+export type CommissionEntry = typeof commissionEntries.$inferSelect;
+export type InsertCreditOverride = z.infer<typeof insertCreditOverrideSchema>;
+export type CreditOverride = typeof creditOverrides.$inferSelect;
 
 // Advanced Reporting Types
 export type InsertReportDefinition = z.infer<typeof insertReportDefinitionSchema>;

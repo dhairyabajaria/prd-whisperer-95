@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Search, Plus, Edit, Trash2, DollarSign, Calendar, Phone, Mail, MapPin } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Users, Search, Plus, Edit, Trash2, DollarSign, Calendar, Phone, Mail, MapPin, FileText, CreditCard, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema, type Customer, type InsertCustomer } from "@shared/schema";
@@ -34,6 +35,31 @@ export default function Customers() {
   const { data: users } = useQuery({
     queryKey: ["/api/auth/user"],
     retry: false,
+  });
+
+  // Fetch credit information for each customer
+  const { data: creditInfoMap } = useQuery({
+    queryKey: ["/api/crm/customers/credit-summary"],
+    queryFn: async () => {
+      if (!customers?.length) return {};
+      
+      const creditPromises = customers.map(async (customer) => {
+        try {
+          const response = await fetch(`/api/crm/customers/${customer.id}/credit-check?orderAmount=0`);
+          if (response.ok) {
+            const creditInfo = await response.json();
+            return { [customer.id]: creditInfo };
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch credit info for customer ${customer.id}:`, error);
+        }
+        return { [customer.id]: null };
+      });
+      
+      const results = await Promise.all(creditPromises);
+      return results.reduce((acc, item) => ({ ...acc, ...item }), {});
+    },
+    enabled: !!customers?.length,
   });
 
   const form = useForm<InsertCustomer>({
@@ -111,6 +137,87 @@ export default function Customers() {
       currency: 'USD'
     }).format(num);
   };
+
+  // Utility functions for CRM features
+  const getSentimentIndicator = (customer: Customer) => {
+    // Mock sentiment analysis based on payment behavior and credit utilization
+    const creditInfo = creditInfoMap?.[customer.id];
+    if (!creditInfo) return { icon: Minus, color: "text-muted-foreground", label: "Unknown" };
+
+    const creditUtilization = creditInfo.creditLimit > 0 
+      ? (creditInfo.outstandingAmount / creditInfo.creditLimit) * 100 
+      : 0;
+
+    if (creditUtilization < 30) {
+      return { icon: CheckCircle, color: "text-green-600", label: "Excellent" };
+    } else if (creditUtilization < 60) {
+      return { icon: TrendingUp, color: "text-blue-600", label: "Good" };
+    } else if (creditUtilization < 90) {
+      return { icon: AlertTriangle, color: "text-orange-600", label: "Caution" };
+    } else {
+      return { icon: XCircle, color: "text-red-600", label: "High Risk" };
+    }
+  };
+
+  const getCreditUtilization = (customer: Customer) => {
+    const creditInfo = creditInfoMap?.[customer.id];
+    if (!creditInfo || creditInfo.creditLimit <= 0) return { percentage: 0, available: 0 };
+
+    const percentage = (creditInfo.outstandingAmount / creditInfo.creditLimit) * 100;
+    return {
+      percentage: Math.min(percentage, 100),
+      available: creditInfo.availableCredit,
+      outstanding: creditInfo.outstandingAmount
+    };
+  };
+
+  // Quick action mutations
+  const createQuotationMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const quotationData = {
+        quotationNumber: `QT-${Date.now()}`,
+        customerId,
+        status: 'draft',
+        validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        currency: 'USD',
+        fxRate: '1.00',
+        subtotal: '0.00',
+        taxAmount: '0.00',
+        discountAmount: '0.00',
+        totalAmount: '0.00',
+        notes: null,
+      };
+      
+      const response = await apiRequest("POST", "/api/crm/quotations", quotationData);
+      return await response.json();
+    },
+    onSuccess: (quotation) => {
+      toast({
+        title: "Success",
+        description: `Quotation ${quotation.quotationNumber} created successfully`,
+      });
+      // Redirect to quotation page when we have it
+      // navigate(`/quotations/${quotation.id}`);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create quotation",
+        variant: "destructive",
+      });
+    },
+  });
 
   if (error) {
     return (
@@ -347,9 +454,20 @@ export default function Customers() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg truncate" data-testid={`text-customer-name-${customer.id}`}>
-                          {customer.name}
-                        </CardTitle>
+                        <div className="flex items-center space-x-2">
+                          <CardTitle className="text-lg truncate" data-testid={`text-customer-name-${customer.id}`}>
+                            {customer.name}
+                          </CardTitle>
+                          {(() => {
+                            const sentiment = getSentimentIndicator(customer);
+                            const SentimentIcon = sentiment.icon;
+                            return (
+                              <div className={`flex items-center space-x-1 ${sentiment.color}`} title={`Credit Health: ${sentiment.label}`}>
+                                <SentimentIcon className="w-4 h-4" />
+                              </div>
+                            );
+                          })()}
+                        </div>
                         <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                           {customer.email && (
                             <div className="flex items-center space-x-1 truncate">
@@ -365,12 +483,26 @@ export default function Customers() {
                           </div>
                         )}
                       </div>
-                      <Badge 
-                        variant={customer.isActive ? "default" : "secondary"}
-                        data-testid={`badge-status-${customer.id}`}
-                      >
-                        {customer.isActive ? "Active" : "Inactive"}
-                      </Badge>
+                      <div className="flex flex-col items-end space-y-2">
+                        <Badge 
+                          variant={customer.isActive ? "default" : "secondary"}
+                          data-testid={`badge-status-${customer.id}`}
+                        >
+                          {customer.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        {(() => {
+                          const sentiment = getSentimentIndicator(customer);
+                          return (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${sentiment.color} border-current`}
+                              data-testid={`badge-sentiment-${customer.id}`}
+                            >
+                              {sentiment.label}
+                            </Badge>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -381,6 +513,34 @@ export default function Customers() {
                       </div>
                     )}
                     
+                    {/* Credit Utilization Progress */}
+                    {(() => {
+                      const creditUtilization = getCreditUtilization(customer);
+                      const creditInfo = creditInfoMap?.[customer.id];
+                      
+                      return (
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between text-sm mb-2">
+                            <span className="text-muted-foreground">Credit Utilization</span>
+                            <span className="font-medium" data-testid={`text-credit-utilization-${customer.id}`}>
+                              {creditUtilization.percentage.toFixed(1)}%
+                            </span>
+                          </div>
+                          <Progress 
+                            value={creditUtilization.percentage} 
+                            className="h-2"
+                            data-testid={`progress-credit-${customer.id}`}
+                          />
+                          {creditInfo && (
+                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                              <span>Outstanding: {formatCurrency(creditInfo.outstandingAmount)}</span>
+                              <span>Available: {formatCurrency(creditUtilization.available)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                       <div>
                         <div className="flex items-center space-x-1 text-muted-foreground">
@@ -400,6 +560,45 @@ export default function Customers() {
                           {customer.paymentTerms || 30} days
                         </p>
                       </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex gap-2 mb-3">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => createQuotationMutation.mutate(customer.id)}
+                        disabled={createQuotationMutation.isPending}
+                        data-testid={`button-create-quotation-${customer.id}`}
+                      >
+                        <FileText className="w-4 h-4 mr-1" />
+                        {createQuotationMutation.isPending ? "Creating..." : "Quote"}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          const creditInfo = creditInfoMap?.[customer.id];
+                          if (creditInfo) {
+                            toast({
+                              title: "Credit Check",
+                              description: `Available Credit: ${formatCurrency(creditInfo.availableCredit)}`,
+                            });
+                          } else {
+                            toast({
+                              title: "Credit Check",
+                              description: "Credit information not available",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        data-testid={`button-credit-check-${customer.id}`}
+                      >
+                        <CreditCard className="w-4 h-4 mr-1" />
+                        Credit
+                      </Button>
                     </div>
 
                     <div className="flex justify-between items-center pt-3 border-t">

@@ -11,6 +11,13 @@ import {
   purchaseOrderItems,
   invoices,
   stockMovements,
+  quotations,
+  quotationItems,
+  receipts,
+  commissionEntries,
+  creditOverrides,
+  leads,
+  communications,
   posTerminals,
   posSessions,
   posReceipts,
@@ -45,6 +52,20 @@ import {
   type InsertInvoice,
   type StockMovement,
   type InsertStockMovement,
+  type Quotation,
+  type InsertQuotation,
+  type QuotationItem,
+  type InsertQuotationItem,
+  type Receipt,
+  type InsertReceipt,
+  type CommissionEntry,
+  type InsertCommissionEntry,
+  type CreditOverride,
+  type InsertCreditOverride,
+  type Lead,
+  type InsertLead,
+  type Communication,
+  type InsertCommunication,
   type PosTerminal,
   type InsertPosTerminal,
   type PosSession,
@@ -283,6 +304,75 @@ export interface IStorage {
       recommended: number;
     };
   }>>;
+
+  // CRM Module - Quotation operations
+  getQuotations(limit?: number, status?: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]>;
+  getQuotation(id: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }) | undefined>;
+  createQuotation(quotation: InsertQuotation): Promise<Quotation>;
+  updateQuotation(id: string, quotation: Partial<InsertQuotation>): Promise<Quotation>;
+  deleteQuotation(id: string): Promise<void>;
+  createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
+  convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder>;
+
+  // CRM Module - Receipt operations
+  getReceipts(limit?: number, customerId?: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User })[]>;
+  getReceipt(id: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined>;
+  createReceipt(receipt: InsertReceipt): Promise<Receipt>;
+  updateReceipt(id: string, receipt: Partial<InsertReceipt>): Promise<Receipt>;
+  allocateReceiptToInvoice(receiptId: string, invoiceId: string, amount: number): Promise<{ receipt: Receipt; invoice: Invoice }>;
+
+  // CRM Module - Commission operations
+  getCommissionEntries(salesRepId?: string, status?: string, limit?: number): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User })[]>;
+  getCommissionEntry(id: string): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User }) | undefined>;
+  createCommissionEntry(commission: InsertCommissionEntry): Promise<CommissionEntry>;
+  updateCommissionEntry(id: string, commission: Partial<InsertCommissionEntry>): Promise<CommissionEntry>;
+  approveCommission(id: string, approverId: string): Promise<CommissionEntry>;
+  getSalesRepCommissionSummary(salesRepId: string, startDate?: string, endDate?: string): Promise<{
+    totalAccrued: number;
+    totalApproved: number;
+    totalPaid: number;
+    entries: (CommissionEntry & { invoice: Invoice })[];
+  }>;
+
+  // CRM Module - Credit Override operations
+  getCreditOverrides(customerId?: string, status?: string, limit?: number): Promise<(CreditOverride & { customer: Customer; requester: User; approver?: User; invoice?: Invoice })[]>;
+  getCreditOverride(id: string): Promise<(CreditOverride & { customer: Customer; requester: User; approver?: User; invoice?: Invoice }) | undefined>;
+  createCreditOverride(override: InsertCreditOverride): Promise<CreditOverride>;
+  updateCreditOverride(id: string, override: Partial<InsertCreditOverride>): Promise<CreditOverride>;
+  approveCreditOverride(id: string, approverId: string, approvedAmount: number): Promise<CreditOverride>;
+  checkCustomerCredit(customerId: string, newOrderAmount: number): Promise<{
+    creditLimit: number;
+    outstandingAmount: number;
+    availableCredit: number;
+    canProceed: boolean;
+    requiresOverride: boolean;
+  }>;
+
+  // CRM Module - Lead operations
+  getLeads(limit?: number, status?: string, assignedTo?: string): Promise<(Lead & { assignee?: User; campaign?: any; communications: Communication[] })[]>;
+  getLead(id: string): Promise<(Lead & { assignee?: User; campaign?: any; communications: Communication[] }) | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead>;
+  deleteLead(id: string): Promise<void>;
+  convertLeadToCustomer(leadId: string, customerData: InsertCustomer): Promise<{ lead: Lead; customer: Customer }>;
+  
+  // CRM Module - Lead Communication operations
+  getLeadCommunications(leadId: string, limit?: number): Promise<(Communication & { user: User })[]>;
+  createLeadCommunication(communication: InsertCommunication): Promise<Communication>;
+  updateLeadCommunication(id: string, communication: Partial<InsertCommunication>): Promise<Communication>;
+
+  // Enhanced Dashboard metrics for CRM
+  getCrmDashboardMetrics(): Promise<{
+    totalQuotations: number;
+    pendingQuotations: number;
+    quotationValue: number;
+    conversionRate: number;
+    totalLeads: number;
+    qualifiedLeads: number;
+    totalCommissions: number;
+    outstandingReceipts: number;
+    creditOverridesPending: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2412,6 +2502,718 @@ export class DatabaseStorage implements IStorage {
         },
       };
     });
+  }
+
+  // CRM Module - Quotation operations
+  async getQuotations(limit = 100, status?: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
+    const db = await getDb();
+    const quotationData = await db
+      .select({
+        quotation: quotations,
+        customer: customers,
+        salesRep: users,
+      })
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.salesRepId, users.id))
+      .where(status ? eq(quotations.status, status) : sql`true`)
+      .limit(limit)
+      .orderBy(desc(quotations.createdAt));
+
+    const quotationsWithItems = await Promise.all(
+      quotationData.map(async (row) => {
+        const items = await db
+          .select({
+            quotationItem: quotationItems,
+            product: products,
+          })
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotation.id));
+
+        return {
+          ...row.quotation,
+          customer: row.customer!,
+          salesRep: row.salesRep || undefined,
+          items: items.map(item => ({ ...item.quotationItem, product: item.product! })),
+        };
+      })
+    );
+
+    return quotationsWithItems;
+  }
+
+  async getQuotation(id: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }) | undefined> {
+    const db = await getDb();
+    const quotationData = await db
+      .select({
+        quotation: quotations,
+        customer: customers,
+        salesRep: users,
+      })
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.salesRepId, users.id))
+      .where(eq(quotations.id, id));
+
+    if (quotationData.length === 0) return undefined;
+
+    const row = quotationData[0];
+    const items = await db
+      .select({
+        quotationItem: quotationItems,
+        product: products,
+      })
+      .from(quotationItems)
+      .leftJoin(products, eq(quotationItems.productId, products.id))
+      .where(eq(quotationItems.quotationId, id));
+
+    return {
+      ...row.quotation,
+      customer: row.customer!,
+      salesRep: row.salesRep || undefined,
+      items: items.map(item => ({ ...item.quotationItem, product: item.product! })),
+    };
+  }
+
+  async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
+    const db = await getDb();
+    const [quotation] = await db.insert(quotations).values(quotationData).returning();
+    return quotation;
+  }
+
+  async updateQuotation(id: string, quotationData: Partial<InsertQuotation>): Promise<Quotation> {
+    const db = await getDb();
+    const [quotation] = await db
+      .update(quotations)
+      .set({ ...quotationData, updatedAt: new Date() })
+      .where(eq(quotations.id, id))
+      .returning();
+    return quotation;
+  }
+
+  async deleteQuotation(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+    await db.delete(quotations).where(eq(quotations.id, id));
+  }
+
+  async createQuotationItem(itemData: InsertQuotationItem): Promise<QuotationItem> {
+    const db = await getDb();
+    const [item] = await db.insert(quotationItems).values(itemData).returning();
+    return item;
+  }
+
+  async convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder> {
+    const db = await getDb();
+    
+    const quotation = await this.getQuotation(quotationId);
+    if (!quotation) throw new Error("Quotation not found");
+
+    // Create sales order
+    const orderNumber = `SO-${Date.now()}`;
+    const [order] = await db.insert(salesOrders).values({
+      orderNumber,
+      customerId: quotation.customerId,
+      salesRepId: quotation.salesRepId,
+      orderDate: new Date().toISOString().split('T')[0] as any,
+      subtotal: quotation.subtotal,
+      taxAmount: quotation.taxAmount,
+      totalAmount: quotation.totalAmount,
+      notes: quotation.notes,
+      ...orderData,
+    }).returning();
+
+    // Create order items
+    for (const item of quotation.items) {
+      await db.insert(salesOrderItems).values({
+        orderId: order.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.lineTotal,
+      });
+    }
+
+    // Update quotation status
+    await db.update(quotations)
+      .set({ 
+        status: 'accepted', 
+        convertedToOrderId: order.id,
+        convertedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(quotations.id, quotationId));
+
+    return order;
+  }
+
+  // CRM Module - Receipt operations
+  async getReceipts(limit = 100, customerId?: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        receipt: receipts,
+        customer: customers,
+        invoice: invoices,
+        receivedBy: users,
+      })
+      .from(receipts)
+      .leftJoin(customers, eq(receipts.customerId, customers.id))
+      .leftJoin(invoices, eq(receipts.invoiceId, invoices.id))
+      .leftJoin(users, eq(receipts.receivedBy, users.id))
+      .where(customerId ? eq(receipts.customerId, customerId) : sql`true`)
+      .limit(limit)
+      .orderBy(desc(receipts.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.receipt,
+        customer: row.customer!,
+        invoice: row.invoice || undefined,
+        receivedBy: row.receivedBy!,
+      })));
+  }
+
+  async getReceipt(id: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        receipt: receipts,
+        customer: customers,
+        invoice: invoices,
+        receivedBy: users,
+      })
+      .from(receipts)
+      .leftJoin(customers, eq(receipts.customerId, customers.id))
+      .leftJoin(invoices, eq(receipts.invoiceId, invoices.id))
+      .leftJoin(users, eq(receipts.receivedBy, users.id))
+      .where(eq(receipts.id, id));
+
+    if (!row) return undefined;
+
+    return {
+      ...row.receipt,
+      customer: row.customer!,
+      invoice: row.invoice || undefined,
+      receivedBy: row.receivedBy!,
+    };
+  }
+
+  async createReceipt(receiptData: InsertReceipt): Promise<Receipt> {
+    const db = await getDb();
+    const [receipt] = await db.insert(receipts).values(receiptData).returning();
+    return receipt;
+  }
+
+  async updateReceipt(id: string, receiptData: Partial<InsertReceipt>): Promise<Receipt> {
+    const db = await getDb();
+    const [receipt] = await db
+      .update(receipts)
+      .set(receiptData)
+      .where(eq(receipts.id, id))
+      .returning();
+    return receipt;
+  }
+
+  async allocateReceiptToInvoice(receiptId: string, invoiceId: string, amount: number): Promise<{ receipt: Receipt; invoice: Invoice }> {
+    const db = await getDb();
+    
+    // Update receipt
+    const [receipt] = await db
+      .update(receipts)
+      .set({ 
+        invoiceId,
+        appliedAmount: String(amount),
+        status: 'cleared'
+      })
+      .where(eq(receipts.id, receiptId))
+      .returning();
+
+    // Update invoice paid amount
+    const [invoice] = await db
+      .update(invoices)
+      .set({ 
+        paidAmount: sql`${invoices.paidAmount} + ${amount}`,
+        updatedAt: new Date()
+      })
+      .where(eq(invoices.id, invoiceId))
+      .returning();
+
+    return { receipt, invoice };
+  }
+
+  // CRM Module - Commission operations
+  async getCommissionEntries(salesRepId?: string, status?: string, limit = 100): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        commission: commissionEntries,
+        invoice: invoices,
+        salesRep: users,
+        approver: sql<User>`approver_user.*`.as('approver'),
+      })
+      .from(commissionEntries)
+      .leftJoin(invoices, eq(commissionEntries.invoiceId, invoices.id))
+      .leftJoin(users, eq(commissionEntries.salesRepId, users.id))
+      .leftJoin(sql`users AS approver_user`, sql`${commissionEntries.approvedBy} = approver_user.id`)
+      .where(
+        and(
+          salesRepId ? eq(commissionEntries.salesRepId, salesRepId) : sql`true`,
+          status ? eq(commissionEntries.status, status) : sql`true`
+        )
+      )
+      .limit(limit)
+      .orderBy(desc(commissionEntries.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.commission,
+        invoice: row.invoice!,
+        salesRep: row.salesRep!,
+        approver: row.approver || undefined,
+      })));
+  }
+
+  async getCommissionEntry(id: string): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        commission: commissionEntries,
+        invoice: invoices,
+        salesRep: users,
+        approver: sql<User>`approver_user.*`.as('approver'),
+      })
+      .from(commissionEntries)
+      .leftJoin(invoices, eq(commissionEntries.invoiceId, invoices.id))
+      .leftJoin(users, eq(commissionEntries.salesRepId, users.id))
+      .leftJoin(sql`users AS approver_user`, sql`${commissionEntries.approvedBy} = approver_user.id`)
+      .where(eq(commissionEntries.id, id));
+
+    if (!row) return undefined;
+
+    return {
+      ...row.commission,
+      invoice: row.invoice!,
+      salesRep: row.salesRep!,
+      approver: row.approver || undefined,
+    };
+  }
+
+  async createCommissionEntry(commissionData: InsertCommissionEntry): Promise<CommissionEntry> {
+    const db = await getDb();
+    const [commission] = await db.insert(commissionEntries).values(commissionData).returning();
+    return commission;
+  }
+
+  async updateCommissionEntry(id: string, commissionData: Partial<InsertCommissionEntry>): Promise<CommissionEntry> {
+    const db = await getDb();
+    const [commission] = await db
+      .update(commissionEntries)
+      .set(commissionData)
+      .where(eq(commissionEntries.id, id))
+      .returning();
+    return commission;
+  }
+
+  async approveCommission(id: string, approverId: string): Promise<CommissionEntry> {
+    const db = await getDb();
+    const [commission] = await db
+      .update(commissionEntries)
+      .set({ 
+        status: 'approved',
+        approvedBy: approverId,
+        approvedAt: new Date()
+      })
+      .where(eq(commissionEntries.id, id))
+      .returning();
+    return commission;
+  }
+
+  async getSalesRepCommissionSummary(salesRepId: string, startDate?: string, endDate?: string): Promise<{
+    totalAccrued: number;
+    totalApproved: number;
+    totalPaid: number;
+    entries: (CommissionEntry & { invoice: Invoice })[];
+  }> {
+    const db = await getDb();
+    
+    const dateFilter = and(
+      startDate ? gte(commissionEntries.createdAt, new Date(startDate)) : sql`true`,
+      endDate ? lte(commissionEntries.createdAt, new Date(endDate)) : sql`true`
+    );
+
+    const entries = await db
+      .select({
+        commission: commissionEntries,
+        invoice: invoices,
+      })
+      .from(commissionEntries)
+      .leftJoin(invoices, eq(commissionEntries.invoiceId, invoices.id))
+      .where(and(eq(commissionEntries.salesRepId, salesRepId), dateFilter))
+      .orderBy(desc(commissionEntries.createdAt));
+
+    const totals = entries.reduce((acc, entry) => {
+      const amount = parseFloat(entry.commission.commissionAmount);
+      if (entry.commission.status === 'accrued') acc.totalAccrued += amount;
+      if (entry.commission.status === 'approved') acc.totalApproved += amount;
+      if (entry.commission.status === 'paid') acc.totalPaid += amount;
+      return acc;
+    }, { totalAccrued: 0, totalApproved: 0, totalPaid: 0 });
+
+    return {
+      ...totals,
+      entries: entries.map(row => ({ ...row.commission, invoice: row.invoice! })),
+    };
+  }
+
+  // CRM Module - Credit Override operations
+  async getCreditOverrides(customerId?: string, status?: string, limit = 100): Promise<(CreditOverride & { customer: Customer; requester: User; approver?: User; invoice?: Invoice })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        override: creditOverrides,
+        customer: customers,
+        requester: users,
+        approver: sql<User>`approver_user.*`.as('approver'),
+        invoice: invoices,
+      })
+      .from(creditOverrides)
+      .leftJoin(customers, eq(creditOverrides.customerId, customers.id))
+      .leftJoin(users, eq(creditOverrides.requestedBy, users.id))
+      .leftJoin(sql`users AS approver_user`, sql`${creditOverrides.approvedBy} = approver_user.id`)
+      .leftJoin(invoices, eq(creditOverrides.invoiceId, invoices.id))
+      .where(
+        and(
+          customerId ? eq(creditOverrides.customerId, customerId) : sql`true`,
+          status ? eq(creditOverrides.status, status) : sql`true`
+        )
+      )
+      .limit(limit)
+      .orderBy(desc(creditOverrides.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.override,
+        customer: row.customer!,
+        requester: row.requester!,
+        approver: row.approver || undefined,
+        invoice: row.invoice || undefined,
+      })));
+  }
+
+  async getCreditOverride(id: string): Promise<(CreditOverride & { customer: Customer; requester: User; approver?: User; invoice?: Invoice }) | undefined> {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        override: creditOverrides,
+        customer: customers,
+        requester: users,
+        approver: sql<User>`approver_user.*`.as('approver'),
+        invoice: invoices,
+      })
+      .from(creditOverrides)
+      .leftJoin(customers, eq(creditOverrides.customerId, customers.id))
+      .leftJoin(users, eq(creditOverrides.requestedBy, users.id))
+      .leftJoin(sql`users AS approver_user`, sql`${creditOverrides.approvedBy} = approver_user.id`)
+      .leftJoin(invoices, eq(creditOverrides.invoiceId, invoices.id))
+      .where(eq(creditOverrides.id, id));
+
+    if (!row) return undefined;
+
+    return {
+      ...row.override,
+      customer: row.customer!,
+      requester: row.requester!,
+      approver: row.approver || undefined,
+      invoice: row.invoice || undefined,
+    };
+  }
+
+  async createCreditOverride(overrideData: InsertCreditOverride): Promise<CreditOverride> {
+    const db = await getDb();
+    const [override] = await db.insert(creditOverrides).values(overrideData).returning();
+    return override;
+  }
+
+  async updateCreditOverride(id: string, overrideData: Partial<InsertCreditOverride>): Promise<CreditOverride> {
+    const db = await getDb();
+    const [override] = await db
+      .update(creditOverrides)
+      .set(overrideData)
+      .where(eq(creditOverrides.id, id))
+      .returning();
+    return override;
+  }
+
+  async approveCreditOverride(id: string, approverId: string, approvedAmount: number): Promise<CreditOverride> {
+    const db = await getDb();
+    const [override] = await db
+      .update(creditOverrides)
+      .set({ 
+        status: 'approved',
+        approvedBy: approverId,
+        approvedAmount: String(approvedAmount),
+        approvedAt: new Date()
+      })
+      .where(eq(creditOverrides.id, id))
+      .returning();
+    return override;
+  }
+
+  async checkCustomerCredit(customerId: string, newOrderAmount: number): Promise<{
+    creditLimit: number;
+    outstandingAmount: number;
+    availableCredit: number;
+    canProceed: boolean;
+    requiresOverride: boolean;
+  }> {
+    const db = await getDb();
+    
+    // Get customer credit limit
+    const [customer] = await db
+      .select({ creditLimit: customers.creditLimit })
+      .from(customers)
+      .where(eq(customers.id, customerId));
+
+    if (!customer) throw new Error("Customer not found");
+
+    // Calculate outstanding amount
+    const [outstandingResult] = await db
+      .select({
+        outstanding: sql<number>`COALESCE(SUM(${invoices.totalAmount} - ${invoices.paidAmount}), 0)`.as('outstanding')
+      })
+      .from(invoices)
+      .where(and(
+        eq(invoices.customerId, customerId),
+        sql`${invoices.status} != 'paid'`
+      ));
+
+    const creditLimit = parseFloat(customer.creditLimit || '0');
+    const outstandingAmount = outstandingResult?.outstanding || 0;
+    const availableCredit = creditLimit - outstandingAmount;
+    const canProceed = availableCredit >= newOrderAmount;
+    const requiresOverride = !canProceed && creditLimit > 0;
+
+    return {
+      creditLimit,
+      outstandingAmount,
+      availableCredit,
+      canProceed,
+      requiresOverride,
+    };
+  }
+
+  // CRM Module - Lead operations
+  async getLeads(limit = 100, status?: string, assignedTo?: string): Promise<(Lead & { assignee?: User; campaign?: any; communications: Communication[] })[]> {
+    const db = await getDb();
+    const leadData = await db
+      .select({
+        lead: leads,
+        assignee: users,
+      })
+      .from(leads)
+      .leftJoin(users, eq(leads.assignedTo, users.id))
+      .where(
+        and(
+          eq(leads.isActive, true),
+          status ? eq(leads.leadStatus, status) : sql`true`,
+          assignedTo ? eq(leads.assignedTo, assignedTo) : sql`true`
+        )
+      )
+      .limit(limit)
+      .orderBy(desc(leads.createdAt));
+
+    const leadsWithCommunications = await Promise.all(
+      leadData.map(async (row) => {
+        const comms = await db
+          .select()
+          .from(communications)
+          .where(eq(communications.leadId, row.lead.id))
+          .orderBy(desc(communications.createdAt));
+
+        return {
+          ...row.lead,
+          assignee: row.assignee || undefined,
+          campaign: undefined, // TODO: Add campaign data if needed
+          communications: comms,
+        };
+      })
+    );
+
+    return leadsWithCommunications;
+  }
+
+  async getLead(id: string): Promise<(Lead & { assignee?: User; campaign?: any; communications: Communication[] }) | undefined> {
+    const db = await getDb();
+    const [leadData] = await db
+      .select({
+        lead: leads,
+        assignee: users,
+      })
+      .from(leads)
+      .leftJoin(users, eq(leads.assignedTo, users.id))
+      .where(eq(leads.id, id));
+
+    if (!leadData) return undefined;
+
+    const comms = await db
+      .select()
+      .from(communications)
+      .where(eq(communications.leadId, id))
+      .orderBy(desc(communications.createdAt));
+
+    return {
+      ...leadData.lead,
+      assignee: leadData.assignee || undefined,
+      campaign: undefined, // TODO: Add campaign data if needed
+      communications: comms,
+    };
+  }
+
+  async createLead(leadData: InsertLead): Promise<Lead> {
+    const db = await getDb();
+    const [lead] = await db.insert(leads).values(leadData).returning();
+    return lead;
+  }
+
+  async updateLead(id: string, leadData: Partial<InsertLead>): Promise<Lead> {
+    const db = await getDb();
+    const [lead] = await db
+      .update(leads)
+      .set({ ...leadData, updatedAt: new Date() })
+      .where(eq(leads.id, id))
+      .returning();
+    return lead;
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    const db = await getDb();
+    await db.update(leads).set({ isActive: false }).where(eq(leads.id, id));
+  }
+
+  async convertLeadToCustomer(leadId: string, customerData: InsertCustomer): Promise<{ lead: Lead; customer: Customer }> {
+    const db = await getDb();
+    
+    // Create customer
+    const [customer] = await db.insert(customers).values(customerData).returning();
+    
+    // Update lead
+    const [lead] = await db
+      .update(leads)
+      .set({ 
+        leadStatus: 'converted',
+        convertedAt: new Date(),
+        convertedToCustomerId: customer.id,
+        updatedAt: new Date()
+      })
+      .where(eq(leads.id, leadId))
+      .returning();
+
+    return { lead, customer };
+  }
+
+  // CRM Module - Lead Communication operations
+  async getLeadCommunications(leadId: string, limit = 50): Promise<(Communication & { user: User })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        communication: communications,
+        user: users,
+      })
+      .from(communications)
+      .leftJoin(users, eq(communications.userId, users.id))
+      .where(eq(communications.leadId, leadId))
+      .limit(limit)
+      .orderBy(desc(communications.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row.communication,
+        user: row.user!,
+      })));
+  }
+
+  async createLeadCommunication(communicationData: InsertCommunication): Promise<Communication> {
+    const db = await getDb();
+    const [communication] = await db.insert(communications).values(communicationData).returning();
+    return communication;
+  }
+
+  async updateLeadCommunication(id: string, communicationData: Partial<InsertCommunication>): Promise<Communication> {
+    const db = await getDb();
+    const [communication] = await db
+      .update(communications)
+      .set(communicationData)
+      .where(eq(communications.id, id))
+      .returning();
+    return communication;
+  }
+
+  // Enhanced Dashboard metrics for CRM
+  async getCrmDashboardMetrics(): Promise<{
+    totalQuotations: number;
+    pendingQuotations: number;
+    quotationValue: number;
+    conversionRate: number;
+    totalLeads: number;
+    qualifiedLeads: number;
+    totalCommissions: number;
+    outstandingReceipts: number;
+    creditOverridesPending: number;
+  }> {
+    const db = await getDb();
+
+    // Get quotation metrics
+    const [quotationMetrics] = await db
+      .select({
+        totalQuotations: sql<number>`COUNT(*)`.as('totalQuotations'),
+        pendingQuotations: sql<number>`COUNT(CASE WHEN status IN ('draft', 'sent') THEN 1 END)`.as('pendingQuotations'),
+        quotationValue: sql<number>`COALESCE(SUM(${quotations.totalAmount}), 0)`.as('quotationValue'),
+        acceptedQuotations: sql<number>`COUNT(CASE WHEN status = 'accepted' THEN 1 END)`.as('acceptedQuotations'),
+      })
+      .from(quotations);
+
+    // Get lead metrics
+    const [leadMetrics] = await db
+      .select({
+        totalLeads: sql<number>`COUNT(*)`.as('totalLeads'),
+        qualifiedLeads: sql<number>`COUNT(CASE WHEN lead_status IN ('qualified', 'converted') THEN 1 END)`.as('qualifiedLeads'),
+      })
+      .from(leads)
+      .where(eq(leads.isActive, true));
+
+    // Get commission metrics
+    const [commissionMetrics] = await db
+      .select({
+        totalCommissions: sql<number>`COALESCE(SUM(${commissionEntries.commissionAmount}), 0)`.as('totalCommissions'),
+      })
+      .from(commissionEntries)
+      .where(eq(commissionEntries.status, 'accrued'));
+
+    // Get receipt metrics
+    const [receiptMetrics] = await db
+      .select({
+        outstandingReceipts: sql<number>`COALESCE(SUM(${receipts.amount} - ${receipts.appliedAmount}), 0)`.as('outstandingReceipts'),
+      })
+      .from(receipts)
+      .where(eq(receipts.status, 'pending'));
+
+    // Get credit override metrics
+    const [creditMetrics] = await db
+      .select({
+        creditOverridesPending: sql<number>`COUNT(*)`.as('creditOverridesPending'),
+      })
+      .from(creditOverrides)
+      .where(eq(creditOverrides.status, 'pending'));
+
+    const totalQuotations = quotationMetrics?.totalQuotations || 0;
+    const acceptedQuotations = quotationMetrics?.acceptedQuotations || 0;
+    const conversionRate = totalQuotations > 0 ? (acceptedQuotations / totalQuotations) * 100 : 0;
+
+    return {
+      totalQuotations: totalQuotations,
+      pendingQuotations: quotationMetrics?.pendingQuotations || 0,
+      quotationValue: parseFloat(quotationMetrics?.quotationValue?.toString() || '0'),
+      conversionRate: Math.round(conversionRate * 100) / 100,
+      totalLeads: leadMetrics?.totalLeads || 0,
+      qualifiedLeads: leadMetrics?.qualifiedLeads || 0,
+      totalCommissions: parseFloat(commissionMetrics?.totalCommissions?.toString() || '0'),
+      outstandingReceipts: parseFloat(receiptMetrics?.outstandingReceipts?.toString() || '0'),
+      creditOverridesPending: creditMetrics?.creditOverridesPending || 0,
+    };
   }
 }
 

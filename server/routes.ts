@@ -15,6 +15,13 @@ import {
   insertPurchaseOrderItemSchema,
   insertInvoiceSchema,
   insertStockMovementSchema,
+  insertQuotationSchema,
+  insertQuotationItemSchema,
+  insertReceiptSchema,
+  insertCommissionEntrySchema,
+  insertCreditOverrideSchema,
+  insertLeadSchema,
+  insertCommunicationSchema,
   insertPosTerminalSchema,
   insertPosSessionSchema,
   insertCashMovementSchema,
@@ -63,6 +70,12 @@ const requirePosAccess = requireRole(['admin', 'pos', 'sales']);
 
 // HR access middleware (admin, hr roles only)
 const requireHrAccess = requireRole(['admin', 'hr']);
+
+// Sales access middleware (admin, sales roles only)
+const requireSalesAccess = requireRole(['admin', 'sales']);
+
+// Finance access middleware (admin, finance roles only)
+const requireFinanceAccess = requireRole(['admin', 'finance']);
 
 // Time tracking access middleware - allows employees to manage their own entries
 const requireTimeTrackingAccess: RequestHandler = async (req, res, next) => {
@@ -1014,6 +1027,518 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error completing performance review:", error);
       res.status(400).json({ message: "Failed to complete performance review", error: error.message });
+    }
+  });
+
+  // =============================================================================
+  // CRM MODULE ROUTES
+  // =============================================================================
+
+  // Quotation Management Routes
+  app.get("/api/crm/quotations", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 100),
+        status: z.string().optional(),
+      });
+
+      const { limit, status } = querySchema.parse(req.query);
+      const quotations = await storage.getQuotations(limit, status);
+      res.json(quotations);
+    } catch (error: any) {
+      console.error("Error fetching quotations:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch quotations" });
+      }
+    }
+  });
+
+  app.get("/api/crm/quotations/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const quotation = await storage.getQuotation(req.params.id);
+      if (!quotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+      res.json(quotation);
+    } catch (error) {
+      console.error("Error fetching quotation:", error);
+      res.status(500).json({ message: "Failed to fetch quotation" });
+    }
+  });
+
+  app.post("/api/crm/quotations", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const quotationData = insertQuotationSchema.parse(req.body);
+      const quotation = await storage.createQuotation(quotationData);
+      res.status(201).json(quotation);
+    } catch (error: any) {
+      console.error("Error creating quotation:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid quotation data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create quotation", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/crm/quotations/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const quotationData = insertQuotationSchema.partial().parse(req.body);
+      const quotation = await storage.updateQuotation(req.params.id, quotationData);
+      res.json(quotation);
+    } catch (error: any) {
+      console.error("Error updating quotation:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid quotation data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update quotation", error: error.message });
+      }
+    }
+  });
+
+  app.delete("/api/crm/quotations/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      await storage.deleteQuotation(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting quotation:", error);
+      res.status(500).json({ message: "Failed to delete quotation" });
+    }
+  });
+
+  app.post("/api/crm/quotations/:id/items", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const itemData = insertQuotationItemSchema.parse(req.body);
+      const item = await storage.createQuotationItem(itemData);
+      res.status(201).json(item);
+    } catch (error: any) {
+      console.error("Error creating quotation item:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid quotation item data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create quotation item", error: error.message });
+      }
+    }
+  });
+
+  app.post("/api/crm/quotations/:id/convert", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const orderData = req.body.orderData || {};
+      const order = await storage.convertQuotationToOrder(req.params.id, orderData);
+      res.status(201).json(order);
+    } catch (error: any) {
+      console.error("Error converting quotation to order:", error);
+      res.status(400).json({ message: "Failed to convert quotation to order", error: error.message });
+    }
+  });
+
+  // Receipt Management Routes
+  app.get("/api/crm/receipts", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 100),
+        customerId: z.string().optional(),
+      });
+
+      const { limit, customerId } = querySchema.parse(req.query);
+      const receipts = await storage.getReceipts(limit, customerId);
+      res.json(receipts);
+    } catch (error: any) {
+      console.error("Error fetching receipts:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch receipts" });
+      }
+    }
+  });
+
+  app.get("/api/crm/receipts/:id", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const receipt = await storage.getReceipt(req.params.id);
+      if (!receipt) {
+        return res.status(404).json({ message: "Receipt not found" });
+      }
+      res.json(receipt);
+    } catch (error) {
+      console.error("Error fetching receipt:", error);
+      res.status(500).json({ message: "Failed to fetch receipt" });
+    }
+  });
+
+  app.post("/api/crm/receipts", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const receiptData = insertReceiptSchema.parse(req.body);
+      const receipt = await storage.createReceipt(receiptData);
+      res.status(201).json(receipt);
+    } catch (error: any) {
+      console.error("Error creating receipt:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid receipt data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create receipt", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/crm/receipts/:id", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const receiptData = insertReceiptSchema.partial().parse(req.body);
+      const receipt = await storage.updateReceipt(req.params.id, receiptData);
+      res.json(receipt);
+    } catch (error: any) {
+      console.error("Error updating receipt:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid receipt data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update receipt", error: error.message });
+      }
+    }
+  });
+
+  app.post("/api/crm/receipts/:receiptId/allocate/:invoiceId", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const { amount } = req.body;
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      
+      const result = await storage.allocateReceiptToInvoice(req.params.receiptId, req.params.invoiceId, amount);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error allocating receipt to invoice:", error);
+      res.status(400).json({ message: "Failed to allocate receipt to invoice", error: error.message });
+    }
+  });
+
+  // Commission Management Routes
+  app.get("/api/crm/commissions", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        salesRepId: z.string().optional(),
+        status: z.string().optional(),
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 100),
+      });
+
+      const { salesRepId, status, limit } = querySchema.parse(req.query);
+      const commissions = await storage.getCommissionEntries(salesRepId, status, limit);
+      res.json(commissions);
+    } catch (error: any) {
+      console.error("Error fetching commissions:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch commissions" });
+      }
+    }
+  });
+
+  app.get("/api/crm/commissions/:id", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const commission = await storage.getCommissionEntry(req.params.id);
+      if (!commission) {
+        return res.status(404).json({ message: "Commission entry not found" });
+      }
+      res.json(commission);
+    } catch (error) {
+      console.error("Error fetching commission:", error);
+      res.status(500).json({ message: "Failed to fetch commission" });
+    }
+  });
+
+  app.post("/api/crm/commissions", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const commissionData = insertCommissionEntrySchema.parse(req.body);
+      const commission = await storage.createCommissionEntry(commissionData);
+      res.status(201).json(commission);
+    } catch (error: any) {
+      console.error("Error creating commission:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid commission data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create commission", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/crm/commissions/:id/approve", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unable to identify approving user" });
+      }
+      
+      const commission = await storage.approveCommission(req.params.id, userId);
+      res.json(commission);
+    } catch (error: any) {
+      console.error("Error approving commission:", error);
+      res.status(400).json({ message: "Failed to approve commission", error: error.message });
+    }
+  });
+
+  app.get("/api/crm/commissions/summary/:salesRepId", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      });
+
+      const { startDate, endDate } = querySchema.parse(req.query);
+      const summary = await storage.getSalesRepCommissionSummary(req.params.salesRepId, startDate, endDate);
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching commission summary:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch commission summary" });
+      }
+    }
+  });
+
+  // Credit Override Management Routes
+  app.get("/api/crm/credit-overrides", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        customerId: z.string().optional(),
+        status: z.string().optional(),
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 100),
+      });
+
+      const { customerId, status, limit } = querySchema.parse(req.query);
+      const overrides = await storage.getCreditOverrides(customerId, status, limit);
+      res.json(overrides);
+    } catch (error: any) {
+      console.error("Error fetching credit overrides:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch credit overrides" });
+      }
+    }
+  });
+
+  app.get("/api/crm/credit-overrides/:id", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const override = await storage.getCreditOverride(req.params.id);
+      if (!override) {
+        return res.status(404).json({ message: "Credit override not found" });
+      }
+      res.json(override);
+    } catch (error) {
+      console.error("Error fetching credit override:", error);
+      res.status(500).json({ message: "Failed to fetch credit override" });
+    }
+  });
+
+  app.post("/api/crm/credit-overrides", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const overrideData = insertCreditOverrideSchema.parse(req.body);
+      const override = await storage.createCreditOverride(overrideData);
+      res.status(201).json(override);
+    } catch (error: any) {
+      console.error("Error creating credit override:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid credit override data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create credit override", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/crm/credit-overrides/:id/approve", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unable to identify approving user" });
+      }
+
+      const { approvedAmount } = req.body;
+      if (!approvedAmount || approvedAmount <= 0) {
+        return res.status(400).json({ message: "Valid approved amount is required" });
+      }
+      
+      const override = await storage.approveCreditOverride(req.params.id, userId, approvedAmount);
+      res.json(override);
+    } catch (error: any) {
+      console.error("Error approving credit override:", error);
+      res.status(400).json({ message: "Failed to approve credit override", error: error.message });
+    }
+  });
+
+  app.get("/api/crm/customers/:customerId/credit-check", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const { orderAmount } = req.query;
+      if (!orderAmount) {
+        return res.status(400).json({ message: "Order amount is required" });
+      }
+
+      const amount = parseFloat(orderAmount as string);
+      if (isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ message: "Valid order amount is required" });
+      }
+
+      const creditCheck = await storage.checkCustomerCredit(req.params.customerId, amount);
+      res.json(creditCheck);
+    } catch (error: any) {
+      console.error("Error checking customer credit:", error);
+      res.status(400).json({ message: "Failed to check customer credit", error: error.message });
+    }
+  });
+
+  // Lead Management Routes
+  app.get("/api/crm/leads", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 100),
+        status: z.string().optional(),
+        assignedTo: z.string().optional(),
+      });
+
+      const { limit, status, assignedTo } = querySchema.parse(req.query);
+      const leads = await storage.getLeads(limit, status, assignedTo);
+      res.json(leads);
+    } catch (error: any) {
+      console.error("Error fetching leads:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch leads" });
+      }
+    }
+  });
+
+  app.get("/api/crm/leads/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Error fetching lead:", error);
+      res.status(500).json({ message: "Failed to fetch lead" });
+    }
+  });
+
+  app.post("/api/crm/leads", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const leadData = insertLeadSchema.parse(req.body);
+      const lead = await storage.createLead(leadData);
+      res.status(201).json(lead);
+    } catch (error: any) {
+      console.error("Error creating lead:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid lead data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create lead", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/crm/leads/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const leadData = insertLeadSchema.partial().parse(req.body);
+      const lead = await storage.updateLead(req.params.id, leadData);
+      res.json(lead);
+    } catch (error: any) {
+      console.error("Error updating lead:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid lead data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update lead", error: error.message });
+      }
+    }
+  });
+
+  app.delete("/api/crm/leads/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      await storage.deleteLead(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting lead:", error);
+      res.status(500).json({ message: "Failed to delete lead" });
+    }
+  });
+
+  app.post("/api/crm/leads/:id/convert", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const customerData = insertCustomerSchema.parse(req.body);
+      const result = await storage.convertLeadToCustomer(req.params.id, customerData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Error converting lead to customer:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to convert lead to customer", error: error.message });
+      }
+    }
+  });
+
+  // Lead Communication Routes
+  app.get("/api/crm/leads/:leadId/communications", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 50),
+      });
+
+      const { limit } = querySchema.parse(req.query);
+      const communications = await storage.getLeadCommunications(req.params.leadId, limit);
+      res.json(communications);
+    } catch (error: any) {
+      console.error("Error fetching lead communications:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch lead communications" });
+      }
+    }
+  });
+
+  app.post("/api/crm/leads/:leadId/communications", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const communicationData = insertCommunicationSchema.parse({
+        ...req.body,
+        leadId: req.params.leadId,
+      });
+      const communication = await storage.createLeadCommunication(communicationData);
+      res.status(201).json(communication);
+    } catch (error: any) {
+      console.error("Error creating lead communication:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid communication data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create lead communication", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/crm/communications/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const communicationData = insertCommunicationSchema.partial().parse(req.body);
+      const communication = await storage.updateLeadCommunication(req.params.id, communicationData);
+      res.json(communication);
+    } catch (error: any) {
+      console.error("Error updating communication:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid communication data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update communication", error: error.message });
+      }
+    }
+  });
+
+  // CRM Dashboard Metrics
+  app.get("/api/crm/dashboard", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const metrics = await storage.getCrmDashboardMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching CRM dashboard metrics:", error);
+      res.status(500).json({ message: "Failed to fetch CRM dashboard metrics" });
     }
   });
 
