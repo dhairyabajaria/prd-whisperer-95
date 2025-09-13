@@ -209,6 +209,119 @@ export const matchStatusEnum = pgEnum('match_status', [
   'pending'
 ]);
 
+// Additional missing enums for proper status management
+export const salesOrderStatusEnum = pgEnum('sales_order_status', [
+  'draft',
+  'confirmed',
+  'shipped',
+  'delivered',
+  'cancelled'
+]);
+
+export const invoiceStatusEnum = pgEnum('invoice_status', [
+  'draft',
+  'sent',
+  'paid',
+  'overdue',
+  'cancelled'
+]);
+
+export const creditOverrideStatusEnum = pgEnum('credit_override_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'expired'
+]);
+
+export const payrollStatusEnum = pgEnum('payroll_status', [
+  'draft',
+  'processing',
+  'completed',
+  'cancelled'
+]);
+
+export const performanceReviewStatusEnum = pgEnum('performance_review_status', [
+  'draft',
+  'in_review',
+  'completed',
+  'archived'
+]);
+
+export const posSessionStatusEnum = pgEnum('pos_session_status', [
+  'open',
+  'closed',
+  'suspended'
+]);
+
+export const posReceiptStatusEnum = pgEnum('pos_receipt_status', [
+  'completed',
+  'voided',
+  'refunded'
+]);
+
+export const posPaymentStatusEnum = pgEnum('pos_payment_status', [
+  'pending',
+  'completed',
+  'failed',
+  'refunded'
+]);
+
+export const campaignStatusEnum = pgEnum('campaign_status', [
+  'draft',
+  'active',
+  'paused',
+  'completed',
+  'cancelled'
+]);
+
+export const campaignMemberStatusEnum = pgEnum('campaign_member_status', [
+  'active',
+  'opted_out',
+  'bounced'
+]);
+
+export const communicationStatusEnum = pgEnum('communication_status', [
+  'draft',
+  'sent',
+  'delivered',
+  'opened',
+  'clicked',
+  'replied',
+  'failed'
+]);
+
+export const regulatoryReportStatusEnum = pgEnum('regulatory_report_status', [
+  'draft',
+  'submitted',
+  'accepted',
+  'rejected'
+]);
+
+// AI-related enums
+export const aiInsightTypeEnum = pgEnum('ai_insight_type', [
+  'inventory_optimization',
+  'price_optimization',
+  'sales_forecast',
+  'customer_sentiment',
+  'business_intelligence',
+  'purchase_risk_analysis',
+  'expiry_prediction'
+]);
+
+export const aiInsightStatusEnum = pgEnum('ai_insight_status', [
+  'generated',
+  'reviewed',
+  'applied',
+  'dismissed',
+  'expired'
+]);
+
+export const aiChatSessionStatusEnum = pgEnum('ai_chat_session_status', [
+  'active',
+  'closed',
+  'archived'
+]);
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -294,7 +407,9 @@ export const inventory = pgTable("inventory", {
   costPerUnit: decimal("cost_per_unit", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_inventory_fefo").on(table.productId, table.warehouseId, table.expiryDate),
+]);
 
 // Sales orders table
 export const salesOrders = pgTable("sales_orders", {
@@ -304,7 +419,7 @@ export const salesOrders = pgTable("sales_orders", {
   salesRepId: varchar("sales_rep_id").references(() => users.id),
   orderDate: date("order_date").notNull(),
   deliveryDate: date("delivery_date"),
-  status: varchar("status").default('draft'), // draft, confirmed, shipped, delivered, cancelled
+  status: salesOrderStatusEnum("status").default('draft'),
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0'),
   taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
@@ -323,7 +438,9 @@ export const salesOrderItems = pgTable("sales_order_items", {
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_sales_order_items_order").on(table.orderId),
+]);
 
 // Purchase orders table (enhanced)
 export const purchaseOrders = pgTable("purchase_orders", {
@@ -357,7 +474,9 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_purchase_order_items_order").on(table.orderId),
+]);
 
 // Purchase requests table
 export const purchaseRequests = pgTable("purchase_requests", {
@@ -424,7 +543,9 @@ export const goodsReceiptItems = pgTable("goods_receipt_items", {
   expiryDate: date("expiry_date"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_goods_receipt_items_gr").on(table.grId),
+]);
 
 // Vendor bills table
 export const vendorBills = pgTable("vendor_bills", {
@@ -504,7 +625,7 @@ export const invoices = pgTable("invoices", {
   salesOrderId: varchar("sales_order_id").references(() => salesOrders.id),
   invoiceDate: date("invoice_date").notNull(),
   dueDate: date("due_date").notNull(),
-  status: varchar("status").default('draft'), // draft, sent, paid, overdue, cancelled
+  status: invoiceStatusEnum("status").default('draft'),
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0'),
   taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
@@ -612,7 +733,7 @@ export const creditOverrides = pgTable("credit_overrides", {
   approvedAmount: decimal("approved_amount", { precision: 12, scale: 2 }),
   currency: varchar("currency", { length: 3 }).default('USD'),
   expiryDate: date("expiry_date"),
-  status: varchar("status").default('pending'), // pending, approved, rejected, expired
+  status: creditOverrideStatusEnum("status").default('pending'),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   approvedAt: timestamp("approved_at"),
@@ -665,7 +786,7 @@ export const payrollRuns = pgTable("payroll_runs", {
   payrollPeriod: varchar("payroll_period").notNull(), // e.g., "2024-01"
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
-  status: varchar("status").default('draft'), // draft, processing, completed, cancelled
+  status: payrollStatusEnum("status").default('draft'),
   totalGrossPay: decimal("total_gross_pay", { precision: 15, scale: 2 }).default('0'),
   totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default('0'),
   totalNetPay: decimal("total_net_pay", { precision: 15, scale: 2 }).default('0'),
@@ -709,7 +830,7 @@ export const performanceReviews = pgTable("performance_reviews", {
   areasForImprovement: text("areas_for_improvement"),
   reviewerComments: text("reviewer_comments"),
   employeeComments: text("employee_comments"),
-  status: varchar("status").default('draft'), // draft, in_review, completed, archived
+  status: performanceReviewStatusEnum("status").default('draft'),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -749,7 +870,7 @@ export const posSessions = pgTable("pos_sessions", {
   totalSales: decimal("total_sales", { precision: 12, scale: 2 }).default('0'),
   totalTransactions: integer("total_transactions").default(0),
   currency: varchar("currency", { length: 3 }).default('AOA'),
-  status: varchar("status").default('open'), // open, closed, suspended
+  status: posSessionStatusEnum("status").default('open'),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -767,7 +888,7 @@ export const posReceipts = pgTable("pos_receipts", {
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
   currency: varchar("currency", { length: 3 }).default('AOA'),
   receiptData: jsonb("receipt_data"), // full receipt JSON for reprints
-  status: varchar("status").default('completed'), // completed, voided, refunded
+  status: posReceiptStatusEnum("status").default('completed'),
   voidedBy: varchar("voided_by").references(() => users.id),
   voidedAt: timestamp("voided_at"),
   voidReason: text("void_reason"),
@@ -789,7 +910,7 @@ export const posPayments = pgTable("pos_payments", {
   checkNumber: varchar("check_number"), // for check payments
   bankName: varchar("bank_name"), // for check/transfer payments
   referenceNumber: varchar("reference_number"),
-  status: varchar("status").default('completed'), // pending, completed, failed, refunded
+  status: posPaymentStatusEnum("status").default('completed'),
   processedAt: timestamp("processed_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -822,7 +943,7 @@ export const campaigns = pgTable("campaigns", {
   currency: varchar("currency", { length: 3 }).default('AOA'),
   targetAudience: text("target_audience"),
   objectives: text("objectives"),
-  status: varchar("status").default('draft'), // draft, active, paused, completed, cancelled
+  status: campaignStatusEnum("status").default('draft'),
   managerId: varchar("manager_id").references(() => users.id).notNull(),
   metrics: jsonb("metrics"), // campaign performance metrics
   isActive: boolean("is_active").default(true),
@@ -836,7 +957,7 @@ export const campaignMembers = pgTable("campaign_members", {
   campaignId: varchar("campaign_id").references(() => campaigns.id).notNull(),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   joinedAt: timestamp("joined_at").defaultNow(),
-  status: varchar("status").default('active'), // active, opted_out, bounced
+  status: campaignMemberStatusEnum("status").default('active'),
   responseData: jsonb("response_data"), // tracking campaign engagement
   lastContactedAt: timestamp("last_contacted_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -878,7 +999,7 @@ export const communications = pgTable("communications", {
   subject: varchar("subject"),
   content: text("content"),
   direction: varchar("direction").notNull(), // inbound, outbound
-  status: varchar("status").default('sent'), // draft, sent, delivered, opened, clicked, replied, failed
+  status: communicationStatusEnum("status").default('sent'),
   userId: varchar("user_id").references(() => users.id).notNull(),
   scheduledAt: timestamp("scheduled_at"),
   sentAt: timestamp("sent_at"),
@@ -982,9 +1103,9 @@ export const regulatoryReports = pgTable("regulatory_reports", {
   submittedDate: date("submitted_date"),
   reportData: jsonb("report_data").notNull(), // structured report data
   documentPath: varchar("document_path"), // generated report file path
-  status: varchar("status").default('draft'), // draft, submitted, accepted, rejected
+  status: regulatoryReportStatusEnum("status").default('draft'),
   submissionReference: varchar("submission_reference"), // authority reference number
-  preparadBy: varchar("prepared_by").references(() => users.id).notNull(),
+  preparedBy: varchar("prepared_by").references(() => users.id).notNull(),
   reviewedBy: varchar("reviewed_by").references(() => users.id),
   approvedBy: varchar("approved_by").references(() => users.id),
   rejectionReason: text("rejection_reason"),
@@ -1046,6 +1167,66 @@ export const recallNotices = pgTable("recall_notices", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// AI Module Tables
+
+// AI chat sessions table
+export const aiChatSessions = pgTable("ai_chat_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionTitle: varchar("session_title").notNull(),
+  status: aiChatSessionStatusEnum("status").default('active'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI chat messages table
+export const aiChatMessages = pgTable("ai_chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => aiChatSessions.id).notNull(),
+  content: text("content").notNull(),
+  role: varchar("role").notNull(), // 'user' | 'assistant'
+  metadata: jsonb("metadata"), // additional context like tokens used, model version
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// AI insights table for storing generated recommendations
+export const aiInsights = pgTable("ai_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: aiInsightTypeEnum("type").notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  insightData: jsonb("insight_data").notNull(), // structured insight data
+  confidence: decimal("confidence", { precision: 5, scale: 2 }), // confidence score 0-100
+  status: aiInsightStatusEnum("status").default('generated'),
+  entityType: varchar("entity_type"), // 'product', 'customer', 'order', etc.
+  entityId: varchar("entity_id"), // reference to specific entity
+  generatedBy: varchar("generated_by").references(() => users.id),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  appliedBy: varchar("applied_by").references(() => users.id),
+  appliedAt: timestamp("applied_at"),
+  expiresAt: timestamp("expires_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI model performance tracking
+export const aiModelMetrics = pgTable("ai_model_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelName: varchar("model_name").notNull(),
+  modelVersion: varchar("model_version").notNull(),
+  requestType: varchar("request_type").notNull(), // 'chat', 'insight_generation', etc.
+  tokensUsed: integer("tokens_used"),
+  responseTime: integer("response_time"), // milliseconds
+  success: boolean("success").default(true),
+  errorMessage: text("error_message"),
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id").references(() => aiChatSessions.id),
+  insightId: varchar("insight_id").references(() => aiInsights.id),
+  metadata: jsonb("metadata"), // additional metrics
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   // Existing relations
@@ -1088,6 +1269,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   approvedReports: many(regulatoryReports, { relationName: "approver" }),
   auditLogs: many(auditLogs, { relationName: "user" }),
   managedRecalls: many(recallNotices, { relationName: "manager" }),
+  // AI relations
+  aiChatSessions: many(aiChatSessions),
+  aiInsightsGenerated: many(aiInsights, { relationName: "generator" }),
+  aiInsightsReviewed: many(aiInsights, { relationName: "reviewer" }),
+  aiInsightsApplied: many(aiInsights, { relationName: "applier" }),
+  aiModelMetrics: many(aiModelMetrics),
 }));
 
 export const customersRelations = relations(customers, ({ one, many }) => ({
@@ -1525,7 +1712,7 @@ export const licensesRelations = relations(licenses, ({ one }) => ({
 
 export const regulatoryReportsRelations = relations(regulatoryReports, ({ one }) => ({
   preparer: one(users, {
-    fields: [regulatoryReports.preparadBy],
+    fields: [regulatoryReports.preparedBy],
     references: [users.id],
     relationName: "preparer",
   }),
@@ -1558,6 +1745,56 @@ export const recallNoticesRelations = relations(recallNotices, ({ one }) => ({
     fields: [recallNotices.managedBy],
     references: [users.id],
     relationName: "manager",
+  }),
+}));
+
+// AI Module Relations
+export const aiChatSessionsRelations = relations(aiChatSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [aiChatSessions.userId],
+    references: [users.id],
+  }),
+  messages: many(aiChatMessages),
+  modelMetrics: many(aiModelMetrics),
+}));
+
+export const aiChatMessagesRelations = relations(aiChatMessages, ({ one }) => ({
+  session: one(aiChatSessions, {
+    fields: [aiChatMessages.sessionId],
+    references: [aiChatSessions.id],
+  }),
+}));
+
+export const aiInsightsRelations = relations(aiInsights, ({ one }) => ({
+  generatedBy: one(users, {
+    fields: [aiInsights.generatedBy],
+    references: [users.id],
+    relationName: "generator",
+  }),
+  reviewedBy: one(users, {
+    fields: [aiInsights.reviewedBy],
+    references: [users.id],
+    relationName: "reviewer",
+  }),
+  appliedBy: one(users, {
+    fields: [aiInsights.appliedBy],
+    references: [users.id],
+    relationName: "applier",
+  }),
+}));
+
+export const aiModelMetricsRelations = relations(aiModelMetrics, ({ one }) => ({
+  user: one(users, {
+    fields: [aiModelMetrics.userId],
+    references: [users.id],
+  }),
+  session: one(aiChatSessions, {
+    fields: [aiModelMetrics.sessionId],
+    references: [aiChatSessions.id],
+  }),
+  insight: one(aiInsights, {
+    fields: [aiModelMetrics.insightId],
+    references: [aiInsights.id],
   }),
 }));
 
@@ -1823,6 +2060,29 @@ export const insertMatchResultSchema = createInsertSchema(matchResults).omit({
   createdAt: true,
 });
 
+// AI Module Insert Schemas
+export const insertAiChatSessionSchema = createInsertSchema(aiChatSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiChatMessageSchema = createInsertSchema(aiChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAiInsightSchema = createInsertSchema(aiInsights).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiModelMetricSchema = createInsertSchema(aiModelMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -1934,6 +2194,16 @@ export type InsertCompetitorPrice = z.infer<typeof insertCompetitorPriceSchema>;
 export type CompetitorPrice = typeof competitorPrices.$inferSelect;
 export type InsertMatchResult = z.infer<typeof insertMatchResultSchema>;
 export type MatchResult = typeof matchResults.$inferSelect;
+
+// AI Module Types
+export type InsertAiChatSession = z.infer<typeof insertAiChatSessionSchema>;
+export type AiChatSession = typeof aiChatSessions.$inferSelect;
+export type InsertAiChatMessage = z.infer<typeof insertAiChatMessageSchema>;
+export type AiChatMessage = typeof aiChatMessages.$inferSelect;
+export type InsertAiInsight = z.infer<typeof insertAiInsightSchema>;
+export type AiInsight = typeof aiInsights.$inferSelect;
+export type InsertAiModelMetric = z.infer<typeof insertAiModelMetricSchema>;
+export type AiModelMetric = typeof aiModelMetrics.$inferSelect;
 
 // POS Request Schemas - for API endpoints
 export const openSessionRequestSchema = z.object({
