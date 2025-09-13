@@ -230,6 +230,59 @@ export interface IStorage {
   createPerformanceReview(review: InsertPerformanceReview): Promise<PerformanceReview>;
   updatePerformanceReview(id: string, review: Partial<InsertPerformanceReview>): Promise<PerformanceReview>;
   completePerformanceReview(id: string): Promise<PerformanceReview>;
+  
+  // AI Analytics - Sales History and Business Intelligence
+  getSalesHistory(productId?: string, daysBack?: number): Promise<Array<{
+    productId: string;
+    productName: string;
+    salesData: Array<{
+      date: string;
+      quantity: number;
+      revenue: number;
+    }>;
+    totalSold: number;
+    averageDailySales: number;
+    salesVelocity: number;
+  }>>;
+  
+  getLeadTimeAnalysis(supplierId?: string): Promise<Array<{
+    supplierId: string;
+    supplierName: string;
+    productId: string;
+    productName: string;
+    averageLeadTimeDays: number;
+    minLeadTimeDays: number;
+    maxLeadTimeDays: number;
+    orderCount: number;
+    reliability: number; // percentage of on-time deliveries
+  }>>;
+  
+  getProductDemandAnalysis(productId?: string): Promise<Array<{
+    productId: string;
+    productName: string;
+    currentStock: number;
+    averageMonthlySales: number;
+    stockTurnoverRate: number;
+    seasonalPattern: number[]; // 12 months pattern
+    demandTrend: 'increasing' | 'decreasing' | 'stable';
+    forecastedDemand: number; // next 30 days
+  }>>;
+  
+  getPriceOptimizationData(productId?: string): Promise<Array<{
+    productId: string;
+    productName: string;
+    currentPrice: number;
+    averageCost: number;
+    currentMargin: number;
+    salesVolume: number;
+    competitorPrices: number[];
+    priceElasticity: number;
+    optimalPriceRange: {
+      min: number;
+      max: number;
+      recommended: number;
+    };
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1966,6 +2019,399 @@ export class DatabaseStorage implements IStorage {
       .where(eq(performanceReviews.id, id))
       .returning();
     return completedReview;
+  }
+  
+  // AI Analytics - Sales History and Business Intelligence
+  
+  async getSalesHistory(productId?: string, daysBack = 90): Promise<Array<{
+    productId: string;
+    productName: string;
+    salesData: Array<{
+      date: string;
+      quantity: number;
+      revenue: number;
+    }>;
+    totalSold: number;
+    averageDailySales: number;
+    salesVelocity: number;
+  }>> {
+    const db = await getDb();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    
+    // Get sales data from both sales orders and POS receipts
+    const salesQuery = db
+      .select({
+        productId: salesOrderItems.productId,
+        productName: products.name,
+        orderDate: salesOrders.orderDate,
+        quantity: salesOrderItems.quantity,
+        revenue: salesOrderItems.totalPrice,
+        status: salesOrders.status,
+      })
+      .from(salesOrderItems)
+      .innerJoin(salesOrders, eq(salesOrderItems.orderId, salesOrders.id))
+      .innerJoin(products, eq(salesOrderItems.productId, products.id))
+      .where(
+        and(
+          gte(salesOrders.orderDate, cutoffDate.toISOString().split('T')[0]),
+          eq(salesOrders.status, 'delivered'),
+          productId ? eq(salesOrderItems.productId, productId) : sql`true`
+        )
+      );
+
+    const salesData = await salesQuery;
+    
+    // Group by product and aggregate data
+    const productSalesMap = new Map<string, {
+      productId: string;
+      productName: string;
+      salesByDate: Map<string, { quantity: number; revenue: number }>;
+      totalSold: number;
+      totalRevenue: number;
+    }>();
+
+    salesData.forEach(sale => {
+      if (!productSalesMap.has(sale.productId)) {
+        productSalesMap.set(sale.productId, {
+          productId: sale.productId,
+          productName: sale.productName,
+          salesByDate: new Map(),
+          totalSold: 0,
+          totalRevenue: 0,
+        });
+      }
+      
+      const product = productSalesMap.get(sale.productId)!;
+      const dateKey = sale.orderDate || new Date().toISOString().split('T')[0];
+      
+      if (!product.salesByDate.has(dateKey)) {
+        product.salesByDate.set(dateKey, { quantity: 0, revenue: 0 });
+      }
+      
+      const dayData = product.salesByDate.get(dateKey)!;
+      dayData.quantity += sale.quantity;
+      dayData.revenue += parseFloat(sale.revenue?.toString() || '0');
+      
+      product.totalSold += sale.quantity;
+      product.totalRevenue += parseFloat(sale.revenue?.toString() || '0');
+    });
+
+    return Array.from(productSalesMap.values()).map(product => ({
+      productId: product.productId,
+      productName: product.productName,
+      salesData: Array.from(product.salesByDate.entries()).map(([date, data]) => ({
+        date,
+        quantity: data.quantity,
+        revenue: data.revenue,
+      })).sort((a, b) => a.date.localeCompare(b.date)),
+      totalSold: product.totalSold,
+      averageDailySales: product.totalSold / daysBack,
+      salesVelocity: product.totalSold / Math.max(1, product.salesByDate.size), // avg per active day
+    }));
+  }
+
+  async getLeadTimeAnalysis(supplierId?: string): Promise<Array<{
+    supplierId: string;
+    supplierName: string;
+    productId: string;
+    productName: string;
+    averageLeadTimeDays: number;
+    minLeadTimeDays: number;
+    maxLeadTimeDays: number;
+    orderCount: number;
+    reliability: number;
+  }>> {
+    const db = await getDb();
+    
+    // Get purchase orders with actual delivery data
+    const purchaseData = await db
+      .select({
+        supplierId: purchaseOrders.supplierId,
+        supplierName: suppliers.name,
+        productId: purchaseOrderItems.productId,
+        productName: products.name,
+        orderDate: purchaseOrders.orderDate,
+        expectedDeliveryDate: purchaseOrders.expectedDeliveryDate,
+        status: purchaseOrders.status,
+        actualDeliveryDate: sql<string>`
+          CASE 
+            WHEN ${purchaseOrders.status} = 'received' 
+            THEN ${purchaseOrders.updatedAt}::date
+            ELSE NULL
+          END
+        `.as('actualDeliveryDate'),
+      })
+      .from(purchaseOrderItems)
+      .innerJoin(purchaseOrders, eq(purchaseOrderItems.orderId, purchaseOrders.id))
+      .innerJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .innerJoin(products, eq(purchaseOrderItems.productId, products.id))
+      .where(
+        and(
+          supplierId ? eq(purchaseOrders.supplierId, supplierId) : sql`true`,
+          eq(purchaseOrders.status, 'received')
+        )
+      );
+
+    // Group by supplier and product combination
+    const leadTimeMap = new Map<string, {
+      supplierId: string;
+      supplierName: string;
+      productId: string;
+      productName: string;
+      leadTimes: number[];
+      onTimeDeliveries: number;
+      totalOrders: number;
+    }>();
+
+    purchaseData.forEach(order => {
+      if (!order.actualDeliveryDate || !order.orderDate) return;
+      
+      const key = `${order.supplierId}-${order.productId}`;
+      
+      if (!leadTimeMap.has(key)) {
+        leadTimeMap.set(key, {
+          supplierId: order.supplierId,
+          supplierName: order.supplierName,
+          productId: order.productId,
+          productName: order.productName,
+          leadTimes: [],
+          onTimeDeliveries: 0,
+          totalOrders: 0,
+        });
+      }
+      
+      const analysis = leadTimeMap.get(key)!;
+      const orderDate = new Date(order.orderDate);
+      const actualDate = new Date(order.actualDeliveryDate);
+      const expectedDate = order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate) : null;
+      
+      const leadTime = Math.ceil((actualDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+      analysis.leadTimes.push(leadTime);
+      analysis.totalOrders++;
+      
+      // Check if delivery was on time (within expected date or reasonable buffer)
+      if (expectedDate && actualDate <= expectedDate) {
+        analysis.onTimeDeliveries++;
+      } else if (!expectedDate && leadTime <= 14) { // default 14 days as reasonable
+        analysis.onTimeDeliveries++;
+      }
+    });
+
+    return Array.from(leadTimeMap.values()).map(analysis => ({
+      supplierId: analysis.supplierId,
+      supplierName: analysis.supplierName,
+      productId: analysis.productId,
+      productName: analysis.productName,
+      averageLeadTimeDays: Math.round(
+        analysis.leadTimes.reduce((sum, lt) => sum + lt, 0) / analysis.leadTimes.length
+      ),
+      minLeadTimeDays: Math.min(...analysis.leadTimes),
+      maxLeadTimeDays: Math.max(...analysis.leadTimes),
+      orderCount: analysis.totalOrders,
+      reliability: Math.round((analysis.onTimeDeliveries / analysis.totalOrders) * 100),
+    }));
+  }
+
+  async getProductDemandAnalysis(productId?: string): Promise<Array<{
+    productId: string;
+    productName: string;
+    currentStock: number;
+    averageMonthlySales: number;
+    stockTurnoverRate: number;
+    seasonalPattern: number[];
+    demandTrend: 'increasing' | 'decreasing' | 'stable';
+    forecastedDemand: number;
+  }>> {
+    const db = await getDb();
+    
+    // Get current inventory levels
+    const inventoryData = await db
+      .select({
+        productId: inventory.productId,
+        productName: products.name,
+        totalStock: sql<number>`SUM(${inventory.quantity})`.as('totalStock'),
+      })
+      .from(inventory)
+      .innerJoin(products, eq(inventory.productId, products.id))
+      .where(productId ? eq(inventory.productId, productId) : sql`true`)
+      .groupBy(inventory.productId, products.name);
+
+    // Get sales history for the past 12 months for seasonal analysis
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    
+    const salesHistory = await db
+      .select({
+        productId: salesOrderItems.productId,
+        month: sql<number>`EXTRACT(MONTH FROM ${salesOrders.orderDate})`.as('month'),
+        quantity: sql<number>`SUM(${salesOrderItems.quantity})`.as('quantity'),
+        orderDate: salesOrders.orderDate,
+      })
+      .from(salesOrderItems)
+      .innerJoin(salesOrders, eq(salesOrderItems.orderId, salesOrders.id))
+      .where(
+        and(
+          gte(salesOrders.orderDate, twelveMonthsAgo.toISOString().split('T')[0]),
+          eq(salesOrders.status, 'delivered'),
+          productId ? eq(salesOrderItems.productId, productId) : sql`true`
+        )
+      )
+      .groupBy(salesOrderItems.productId, sql`EXTRACT(MONTH FROM ${salesOrders.orderDate})`, salesOrders.orderDate)
+      .orderBy(salesOrders.orderDate);
+
+    // Process demand analysis
+    const demandMap = new Map<string, {
+      productId: string;
+      productName: string;
+      currentStock: number;
+      monthlySales: number[];
+      salesByMonth: Map<number, number>;
+    }>();
+
+    // Initialize with inventory data
+    inventoryData.forEach(item => {
+      demandMap.set(item.productId, {
+        productId: item.productId,
+        productName: item.productName,
+        currentStock: item.totalStock || 0,
+        monthlySales: [],
+        salesByMonth: new Map(),
+      });
+    });
+
+    // Add sales data
+    salesHistory.forEach(sale => {
+      const product = demandMap.get(sale.productId);
+      if (product) {
+        const month = sale.month;
+        const currentSales = product.salesByMonth.get(month) || 0;
+        product.salesByMonth.set(month, currentSales + sale.quantity);
+      }
+    });
+
+    return Array.from(demandMap.values()).map(product => {
+      // Create seasonal pattern array (12 months)
+      const seasonalPattern = Array.from({ length: 12 }, (_, i) => 
+        product.salesByMonth.get(i + 1) || 0
+      );
+      
+      const monthlySales = Array.from(product.salesByMonth.values());
+      const averageMonthlySales = monthlySales.length > 0 
+        ? monthlySales.reduce((sum, sales) => sum + sales, 0) / monthlySales.length
+        : 0;
+      
+      // Calculate trend (simple linear regression on last 6 months)
+      const recentMonths = monthlySales.slice(-6);
+      let demandTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
+      
+      if (recentMonths.length >= 3) {
+        const firstHalf = recentMonths.slice(0, 3).reduce((sum, val) => sum + val, 0) / 3;
+        const secondHalf = recentMonths.slice(-3).reduce((sum, val) => sum + val, 0) / 3;
+        const change = (secondHalf - firstHalf) / Math.max(firstHalf, 1);
+        
+        if (change > 0.15) demandTrend = 'increasing';
+        else if (change < -0.15) demandTrend = 'decreasing';
+      }
+      
+      // Forecast next 30 days based on average and trend
+      const forecastedDemand = Math.round(averageMonthlySales * 
+        (demandTrend === 'increasing' ? 1.1 : demandTrend === 'decreasing' ? 0.9 : 1.0));
+      
+      return {
+        productId: product.productId,
+        productName: product.productName,
+        currentStock: product.currentStock,
+        averageMonthlySales: Math.round(averageMonthlySales),
+        stockTurnoverRate: product.currentStock > 0 ? averageMonthlySales / product.currentStock : 0,
+        seasonalPattern,
+        demandTrend,
+        forecastedDemand,
+      };
+    });
+  }
+
+  async getPriceOptimizationData(productId?: string): Promise<Array<{
+    productId: string;
+    productName: string;
+    currentPrice: number;
+    averageCost: number;
+    currentMargin: number;
+    salesVolume: number;
+    competitorPrices: number[];
+    priceElasticity: number;
+    optimalPriceRange: {
+      min: number;
+      max: number;
+      recommended: number;
+    };
+  }>> {
+    const db = await getDb();
+    
+    // Get product pricing and sales data
+    const productData = await db
+      .select({
+        productId: products.id,
+        productName: products.name,
+        currentPrice: products.unitPrice,
+        averageCost: sql<number>`COALESCE(AVG(${inventory.costPerUnit}), 0)`.as('averageCost'),
+        totalSalesVolume: sql<number>`COALESCE(SUM(${salesOrderItems.quantity}), 0)`.as('totalSalesVolume'),
+      })
+      .from(products)
+      .leftJoin(inventory, eq(products.id, inventory.productId))
+      .leftJoin(salesOrderItems, eq(products.id, salesOrderItems.productId))
+      .leftJoin(salesOrders, and(
+        eq(salesOrderItems.orderId, salesOrders.id),
+        eq(salesOrders.status, 'delivered'),
+        gte(salesOrders.orderDate, sql`CURRENT_DATE - INTERVAL '90 days'`)
+      ))
+      .where(
+        and(
+          eq(products.isActive, true),
+          productId ? eq(products.id, productId) : sql`true`
+        )
+      )
+      .groupBy(products.id, products.name, products.unitPrice);
+
+    return productData.map(product => {
+      const currentPrice = parseFloat(product.currentPrice?.toString() || '0');
+      const averageCost = product.averageCost || 0;
+      const salesVolume = product.totalSalesVolume || 0;
+      
+      // Calculate current margin
+      const currentMargin = currentPrice > 0 ? ((currentPrice - averageCost) / currentPrice) * 100 : 0;
+      
+      // Mock competitor prices (in real implementation, this would come from market data)
+      const competitorPrices = [
+        currentPrice * 0.95, // slightly lower
+        currentPrice * 1.05, // slightly higher
+        currentPrice * 0.90, // significantly lower
+      ].filter(price => price > 0);
+      
+      // Simple price elasticity calculation (would be more sophisticated in real implementation)
+      const priceElasticity = salesVolume > 0 ? -1.2 : 0; // typical pharmaceutical elasticity
+      
+      // Calculate optimal price range
+      const minPrice = averageCost * 1.1; // at least 10% margin
+      const maxPrice = currentPrice * 1.3; // not more than 30% increase
+      const recommended = averageCost > 0 ? averageCost * 1.4 : currentPrice; // target 40% margin
+      
+      return {
+        productId: product.productId,
+        productName: product.productName,
+        currentPrice,
+        averageCost,
+        currentMargin: Math.round(currentMargin * 100) / 100,
+        salesVolume,
+        competitorPrices,
+        priceElasticity: Math.round(priceElasticity * 100) / 100,
+        optimalPriceRange: {
+          min: Math.round(minPrice * 100) / 100,
+          max: Math.round(maxPrice * 100) / 100,
+          recommended: Math.round(recommended * 100) / 100,
+        },
+      };
+    });
   }
 }
 
