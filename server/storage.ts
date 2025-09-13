@@ -1408,7 +1408,13 @@ export class DatabaseStorage implements IStorage {
   // HR Module - Employee Management
   async getEmployees(limit = 100, department?: string): Promise<(Employee & { user: User; manager?: User })[]> {
     const db = await getDb();
-    let query = db
+    
+    const baseConditions = [eq(employees.isActive, true)];
+    if (department) {
+      baseConditions.push(eq(employees.department, department));
+    }
+    
+    const results = await db
       .select({
         id: employees.id,
         userId: employees.userId,
@@ -1429,19 +1435,23 @@ export class DatabaseStorage implements IStorage {
         isActive: employees.isActive,
         createdAt: employees.createdAt,
         updatedAt: employees.updatedAt,
-        user: users,
+        user: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          role: users.role,
+          isActive: users.isActive,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        },
         manager: sql<User | null>`manager_user.*`.as('manager'),
       })
       .from(employees)
       .innerJoin(users, eq(employees.userId, users.id))
       .leftJoin(sql`${users} AS manager_user`, sql`manager_user.id = ${employees.managerId}`)
-      .where(eq(employees.isActive, true));
-
-    if (department) {
-      query = query.where(and(eq(employees.isActive, true), eq(employees.department, department)));
-    }
-
-    const results = await query
+      .where(and(...baseConditions))
       .limit(limit)
       .orderBy(desc(employees.createdAt));
 
@@ -1474,7 +1484,17 @@ export class DatabaseStorage implements IStorage {
         isActive: employees.isActive,
         createdAt: employees.createdAt,
         updatedAt: employees.updatedAt,
-        user: users,
+        user: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          role: users.role,
+          isActive: users.isActive,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        },
         manager: sql<User | null>`manager_user.*`.as('manager'),
       })
       .from(employees)
@@ -1527,68 +1547,46 @@ export class DatabaseStorage implements IStorage {
   // HR Module - Time Tracking
   async getTimeEntries(employeeId?: string, startDate?: string, endDate?: string, limit = 100): Promise<(TimeEntry & { employee: Employee & { user: User }; approver?: User })[]> {
     const db = await getDb();
-    let whereCondition = sql`1=1`;
+    const conditions = [];
 
     if (employeeId) {
-      whereCondition = and(whereCondition, eq(timeEntries.employeeId, employeeId));
+      conditions.push(eq(timeEntries.employeeId, employeeId));
     }
 
     if (startDate) {
-      whereCondition = and(whereCondition, gte(timeEntries.date, startDate));
+      conditions.push(gte(timeEntries.date, startDate));
     }
 
     if (endDate) {
-      whereCondition = and(whereCondition, lte(timeEntries.date, endDate));
+      conditions.push(lte(timeEntries.date, endDate));
     }
 
-    const results = await db
+    const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+    let query = db
       .select({
-        id: timeEntries.id,
-        employeeId: timeEntries.employeeId,
-        date: timeEntries.date,
-        clockIn: timeEntries.clockIn,
-        clockOut: timeEntries.clockOut,
-        totalHours: timeEntries.totalHours,
-        overtimeHours: timeEntries.overtimeHours,
-        entryType: timeEntries.entryType,
-        notes: timeEntries.notes,
-        approvedBy: timeEntries.approvedBy,
-        approvedAt: timeEntries.approvedAt,
-        createdAt: timeEntries.createdAt,
-        employee: {
-          id: employees.id,
-          userId: employees.userId,
-          employeeNumber: employees.employeeNumber,
-          department: employees.department,
-          position: employees.position,
-          hireDate: employees.hireDate,
-          baseSalary: employees.baseSalary,
-          currency: employees.currency,
-          employmentStatus: employees.employmentStatus,
-          managerId: employees.managerId,
-          workSchedule: employees.workSchedule,
-          emergencyContactName: employees.emergencyContactName,
-          emergencyContactPhone: employees.emergencyContactPhone,
-          bankAccountNumber: employees.bankAccountNumber,
-          taxIdNumber: employees.taxIdNumber,
-          socialSecurityNumber: employees.socialSecurityNumber,
-          isActive: employees.isActive,
-          createdAt: employees.createdAt,
-          updatedAt: employees.updatedAt,
-          user: users,
-        },
+        timeEntry: timeEntries,
+        employee: employees,
+        user: users,
         approver: sql<User | null>`approver_user.*`.as('approver'),
       })
       .from(timeEntries)
       .innerJoin(employees, eq(timeEntries.employeeId, employees.id))
       .innerJoin(users, eq(employees.userId, users.id))
-      .leftJoin(sql`${users} AS approver_user`, sql`approver_user.id = ${timeEntries.approvedBy}`)
-      .where(whereCondition)
+      .leftJoin(sql`${users} AS approver_user`, sql`approver_user.id = ${timeEntries.approvedBy}`);
+
+    // Apply where clause and execute query
+    const baseQuery = whereCondition ? query.where(whereCondition) : query;
+    const queryResults = await baseQuery
       .limit(limit)
       .orderBy(desc(timeEntries.date));
 
-    return results.map(r => ({
-      ...r,
+    return queryResults.map(r => ({
+      ...r.timeEntry,
+      employee: {
+        ...r.employee,
+        user: r.user
+      },
       approver: r.approver || undefined
     }));
   }
@@ -1597,40 +1595,9 @@ export class DatabaseStorage implements IStorage {
     const db = await getDb();
     const [result] = await db
       .select({
-        id: timeEntries.id,
-        employeeId: timeEntries.employeeId,
-        date: timeEntries.date,
-        clockIn: timeEntries.clockIn,
-        clockOut: timeEntries.clockOut,
-        totalHours: timeEntries.totalHours,
-        overtimeHours: timeEntries.overtimeHours,
-        entryType: timeEntries.entryType,
-        notes: timeEntries.notes,
-        approvedBy: timeEntries.approvedBy,
-        approvedAt: timeEntries.approvedAt,
-        createdAt: timeEntries.createdAt,
-        employee: {
-          id: employees.id,
-          userId: employees.userId,
-          employeeNumber: employees.employeeNumber,
-          department: employees.department,
-          position: employees.position,
-          hireDate: employees.hireDate,
-          baseSalary: employees.baseSalary,
-          currency: employees.currency,
-          employmentStatus: employees.employmentStatus,
-          managerId: employees.managerId,
-          workSchedule: employees.workSchedule,
-          emergencyContactName: employees.emergencyContactName,
-          emergencyContactPhone: employees.emergencyContactPhone,
-          bankAccountNumber: employees.bankAccountNumber,
-          taxIdNumber: employees.taxIdNumber,
-          socialSecurityNumber: employees.socialSecurityNumber,
-          isActive: employees.isActive,
-          createdAt: employees.createdAt,
-          updatedAt: employees.updatedAt,
-          user: users,
-        },
+        timeEntry: timeEntries,
+        employee: employees,
+        user: users,
         approver: sql<User | null>`approver_user.*`.as('approver'),
       })
       .from(timeEntries)
@@ -1640,7 +1607,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(timeEntries.id, id));
 
     return result ? {
-      ...result,
+      ...result.timeEntry,
+      employee: {
+        ...result.employee,
+        user: result.user
+      },
       approver: result.approver || undefined
     } : undefined;
   }
@@ -1694,7 +1665,17 @@ export class DatabaseStorage implements IStorage {
         processedBy: payrollRuns.processedBy,
         processedAt: payrollRuns.processedAt,
         createdAt: payrollRuns.createdAt,
-        processedByUser: users,
+        processedByUser: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          role: users.role,
+          isActive: users.isActive,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        },
       })
       .from(payrollRuns)
       .leftJoin(users, eq(payrollRuns.processedBy, users.id))
@@ -1702,9 +1683,19 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(payrollRuns.createdAt));
 
     return results.map(r => ({
-      ...r,
-      processedBy: r.processedByUser || undefined
-    }));
+      id: r.id,
+      payrollPeriod: r.payrollPeriod,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      status: r.status,
+      totalGrossPay: r.totalGrossPay,
+      totalDeductions: r.totalDeductions,
+      totalNetPay: r.totalNetPay,
+      currency: r.currency,
+      processedAt: r.processedAt,
+      createdAt: r.createdAt,
+      processedBy: r.processedByUser
+    } as PayrollRun & { processedBy?: User }));
   }
 
   async getPayrollRun(id: string): Promise<(PayrollRun & { processedBy?: User; payrollItems: (PayrollItem & { employee: Employee & { user: User } })[] }) | undefined> {
@@ -1734,44 +1725,9 @@ export class DatabaseStorage implements IStorage {
     // Get payroll items for this run
     const payrollItemsResults = await db
       .select({
-        id: payrollItems.id,
-        payrollRunId: payrollItems.payrollRunId,
-        employeeId: payrollItems.employeeId,
-        basePay: payrollItems.basePay,
-        overtimePay: payrollItems.overtimePay,
-        bonuses: payrollItems.bonuses,
-        grossPay: payrollItems.grossPay,
-        taxDeductions: payrollItems.taxDeductions,
-        socialSecurityDeductions: payrollItems.socialSecurityDeductions,
-        otherDeductions: payrollItems.otherDeductions,
-        totalDeductions: payrollItems.totalDeductions,
-        netPay: payrollItems.netPay,
-        currency: payrollItems.currency,
-        regularHours: payrollItems.regularHours,
-        overtimeHours: payrollItems.overtimeHours,
-        createdAt: payrollItems.createdAt,
-        employee: {
-          id: employees.id,
-          userId: employees.userId,
-          employeeNumber: employees.employeeNumber,
-          department: employees.department,
-          position: employees.position,
-          hireDate: employees.hireDate,
-          baseSalary: employees.baseSalary,
-          currency: employees.currency,
-          employmentStatus: employees.employmentStatus,
-          managerId: employees.managerId,
-          workSchedule: employees.workSchedule,
-          emergencyContactName: employees.emergencyContactName,
-          emergencyContactPhone: employees.emergencyContactPhone,
-          bankAccountNumber: employees.bankAccountNumber,
-          taxIdNumber: employees.taxIdNumber,
-          socialSecurityNumber: employees.socialSecurityNumber,
-          isActive: employees.isActive,
-          createdAt: employees.createdAt,
-          updatedAt: employees.updatedAt,
-          user: users,
-        },
+        payrollItem: payrollItems,
+        employee: employees,
+        user: users,
       })
       .from(payrollItems)
       .innerJoin(employees, eq(payrollItems.employeeId, employees.id))
@@ -1779,11 +1735,32 @@ export class DatabaseStorage implements IStorage {
       .where(eq(payrollItems.payrollRunId, id))
       .orderBy(asc(employees.employeeNumber));
 
-    return {
-      ...payrollRunResult,
+    const payrollItemsWithEmployee = payrollItemsResults.map(item => ({
+      ...item.payrollItem,
+      employee: {
+        ...item.employee,
+        user: item.user
+      }
+    }));
+
+    // Construct the return object matching the expected interface
+    const result = {
+      id: payrollRunResult.id,
+      payrollPeriod: payrollRunResult.payrollPeriod,
+      startDate: payrollRunResult.startDate,
+      endDate: payrollRunResult.endDate,
+      status: payrollRunResult.status,
+      totalGrossPay: payrollRunResult.totalGrossPay,
+      totalDeductions: payrollRunResult.totalDeductions,
+      totalNetPay: payrollRunResult.totalNetPay,
+      currency: payrollRunResult.currency,
+      processedAt: payrollRunResult.processedAt,
+      createdAt: payrollRunResult.createdAt,
       processedBy: payrollRunResult.processedByUser || undefined,
-      payrollItems: payrollItemsResults,
-    };
+      payrollItems: payrollItemsWithEmployee,
+    } as PayrollRun & { processedBy?: User; payrollItems: (PayrollItem & { employee: Employee & { user: User } })[] };
+
+    return result;
   }
 
   async createPayrollRun(payrollRun: InsertPayrollRun): Promise<PayrollRun> {
@@ -1807,64 +1784,42 @@ export class DatabaseStorage implements IStorage {
 
   async getPayrollItems(payrollRunId?: string, employeeId?: string): Promise<(PayrollItem & { employee: Employee & { user: User }; payrollRun: PayrollRun })[]> {
     const db = await getDb();
-    let whereCondition = sql`1=1`;
+    const conditions = [];
 
     if (payrollRunId) {
-      whereCondition = and(whereCondition, eq(payrollItems.payrollRunId, payrollRunId));
+      conditions.push(eq(payrollItems.payrollRunId, payrollRunId));
     }
 
     if (employeeId) {
-      whereCondition = and(whereCondition, eq(payrollItems.employeeId, employeeId));
+      conditions.push(eq(payrollItems.employeeId, employeeId));
     }
 
-    return await db
+    const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Build the query with simplified select structure
+    let query = db
       .select({
-        id: payrollItems.id,
-        payrollRunId: payrollItems.payrollRunId,
-        employeeId: payrollItems.employeeId,
-        basePay: payrollItems.basePay,
-        overtimePay: payrollItems.overtimePay,
-        bonuses: payrollItems.bonuses,
-        grossPay: payrollItems.grossPay,
-        taxDeductions: payrollItems.taxDeductions,
-        socialSecurityDeductions: payrollItems.socialSecurityDeductions,
-        otherDeductions: payrollItems.otherDeductions,
-        totalDeductions: payrollItems.totalDeductions,
-        netPay: payrollItems.netPay,
-        currency: payrollItems.currency,
-        regularHours: payrollItems.regularHours,
-        overtimeHours: payrollItems.overtimeHours,
-        createdAt: payrollItems.createdAt,
-        employee: {
-          id: employees.id,
-          userId: employees.userId,
-          employeeNumber: employees.employeeNumber,
-          department: employees.department,
-          position: employees.position,
-          hireDate: employees.hireDate,
-          baseSalary: employees.baseSalary,
-          currency: employees.currency,
-          employmentStatus: employees.employmentStatus,
-          managerId: employees.managerId,
-          workSchedule: employees.workSchedule,
-          emergencyContactName: employees.emergencyContactName,
-          emergencyContactPhone: employees.emergencyContactPhone,
-          bankAccountNumber: employees.bankAccountNumber,
-          taxIdNumber: employees.taxIdNumber,
-          socialSecurityNumber: employees.socialSecurityNumber,
-          isActive: employees.isActive,
-          createdAt: employees.createdAt,
-          updatedAt: employees.updatedAt,
-          user: users,
-        },
+        payrollItem: payrollItems,
+        employee: employees,
+        user: users,
         payrollRun: payrollRuns,
       })
       .from(payrollItems)
       .innerJoin(employees, eq(payrollItems.employeeId, employees.id))
       .innerJoin(users, eq(employees.userId, users.id))
-      .innerJoin(payrollRuns, eq(payrollItems.payrollRunId, payrollRuns.id))
-      .where(whereCondition)
-      .orderBy(desc(payrollItems.createdAt));
+      .innerJoin(payrollRuns, eq(payrollItems.payrollRunId, payrollRuns.id));
+
+    const baseQuery = whereCondition ? query.where(whereCondition) : query;
+    const results = await baseQuery.orderBy(desc(payrollItems.createdAt));
+
+    return results.map(r => ({
+      ...r.payrollItem,
+      employee: {
+        ...r.employee,
+        user: r.user
+      },
+      payrollRun: r.payrollRun
+    }));
   }
 
   async createPayrollItem(payrollItem: InsertPayrollItem): Promise<PayrollItem> {
@@ -1912,113 +1867,56 @@ export class DatabaseStorage implements IStorage {
   // HR Module - Performance Reviews
   async getPerformanceReviews(employeeId?: string, reviewerId?: string, status?: string, limit = 50): Promise<(PerformanceReview & { employee: Employee & { user: User }; reviewer: User })[]> {
     const db = await getDb();
-    let whereCondition = sql`1=1`;
+    const conditions = [];
 
     if (employeeId) {
-      whereCondition = and(whereCondition, eq(performanceReviews.employeeId, employeeId));
+      conditions.push(eq(performanceReviews.employeeId, employeeId));
     }
 
     if (reviewerId) {
-      whereCondition = and(whereCondition, eq(performanceReviews.reviewerId, reviewerId));
+      conditions.push(eq(performanceReviews.reviewerId, reviewerId));
     }
 
     if (status) {
-      whereCondition = and(whereCondition, eq(performanceReviews.status, status));
+      conditions.push(eq(performanceReviews.status, status));
     }
 
-    return await db
+    const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+    let query = db
       .select({
-        id: performanceReviews.id,
-        employeeId: performanceReviews.employeeId,
-        reviewerId: performanceReviews.reviewerId,
-        reviewPeriod: performanceReviews.reviewPeriod,
-        startDate: performanceReviews.startDate,
-        endDate: performanceReviews.endDate,
-        overallRating: performanceReviews.overallRating,
-        goals: performanceReviews.goals,
-        achievements: performanceReviews.achievements,
-        areasForImprovement: performanceReviews.areasForImprovement,
-        reviewerComments: performanceReviews.reviewerComments,
-        employeeComments: performanceReviews.employeeComments,
-        status: performanceReviews.status,
-        completedAt: performanceReviews.completedAt,
-        createdAt: performanceReviews.createdAt,
-        updatedAt: performanceReviews.updatedAt,
-        employee: {
-          id: employees.id,
-          userId: employees.userId,
-          employeeNumber: employees.employeeNumber,
-          department: employees.department,
-          position: employees.position,
-          hireDate: employees.hireDate,
-          baseSalary: employees.baseSalary,
-          currency: employees.currency,
-          employmentStatus: employees.employmentStatus,
-          managerId: employees.managerId,
-          workSchedule: employees.workSchedule,
-          emergencyContactName: employees.emergencyContactName,
-          emergencyContactPhone: employees.emergencyContactPhone,
-          bankAccountNumber: employees.bankAccountNumber,
-          taxIdNumber: employees.taxIdNumber,
-          socialSecurityNumber: employees.socialSecurityNumber,
-          isActive: employees.isActive,
-          createdAt: employees.createdAt,
-          updatedAt: employees.updatedAt,
-          user: users,
-        },
+        performanceReview: performanceReviews,
+        employee: employees,
+        user: users,
         reviewer: sql<User>`reviewer_user.*`.as('reviewer'),
       })
       .from(performanceReviews)
       .innerJoin(employees, eq(performanceReviews.employeeId, employees.id))
       .innerJoin(users, eq(employees.userId, users.id))
-      .innerJoin(sql`${users} AS reviewer_user`, sql`reviewer_user.id = ${performanceReviews.reviewerId}`)
-      .where(whereCondition)
+      .innerJoin(sql`${users} AS reviewer_user`, sql`reviewer_user.id = ${performanceReviews.reviewerId}`);
+
+    const baseQuery = whereCondition ? query.where(whereCondition) : query;
+    const results = await baseQuery
       .limit(limit)
       .orderBy(desc(performanceReviews.createdAt));
+
+    return results.map(r => ({
+      ...r.performanceReview,
+      employee: {
+        ...r.employee,
+        user: r.user
+      },
+      reviewer: r.reviewer
+    }));
   }
 
   async getPerformanceReview(id: string): Promise<(PerformanceReview & { employee: Employee & { user: User }; reviewer: User }) | undefined> {
     const db = await getDb();
     const [result] = await db
       .select({
-        id: performanceReviews.id,
-        employeeId: performanceReviews.employeeId,
-        reviewerId: performanceReviews.reviewerId,
-        reviewPeriod: performanceReviews.reviewPeriod,
-        startDate: performanceReviews.startDate,
-        endDate: performanceReviews.endDate,
-        overallRating: performanceReviews.overallRating,
-        goals: performanceReviews.goals,
-        achievements: performanceReviews.achievements,
-        areasForImprovement: performanceReviews.areasForImprovement,
-        reviewerComments: performanceReviews.reviewerComments,
-        employeeComments: performanceReviews.employeeComments,
-        status: performanceReviews.status,
-        completedAt: performanceReviews.completedAt,
-        createdAt: performanceReviews.createdAt,
-        updatedAt: performanceReviews.updatedAt,
-        employee: {
-          id: employees.id,
-          userId: employees.userId,
-          employeeNumber: employees.employeeNumber,
-          department: employees.department,
-          position: employees.position,
-          hireDate: employees.hireDate,
-          baseSalary: employees.baseSalary,
-          currency: employees.currency,
-          employmentStatus: employees.employmentStatus,
-          managerId: employees.managerId,
-          workSchedule: employees.workSchedule,
-          emergencyContactName: employees.emergencyContactName,
-          emergencyContactPhone: employees.emergencyContactPhone,
-          bankAccountNumber: employees.bankAccountNumber,
-          taxIdNumber: employees.taxIdNumber,
-          socialSecurityNumber: employees.socialSecurityNumber,
-          isActive: employees.isActive,
-          createdAt: employees.createdAt,
-          updatedAt: employees.updatedAt,
-          user: users,
-        },
+        performanceReview: performanceReviews,
+        employee: employees,
+        user: users,
         reviewer: sql<User>`reviewer_user.*`.as('reviewer'),
       })
       .from(performanceReviews)
@@ -2027,7 +1925,14 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(sql`${users} AS reviewer_user`, sql`reviewer_user.id = ${performanceReviews.reviewerId}`)
       .where(eq(performanceReviews.id, id));
 
-    return result || undefined;
+    return result ? {
+      ...result.performanceReview,
+      employee: {
+        ...result.employee,
+        user: result.user
+      },
+      reviewer: result.reviewer
+    } : undefined;
   }
 
   async createPerformanceReview(review: InsertPerformanceReview): Promise<PerformanceReview> {
