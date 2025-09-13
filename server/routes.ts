@@ -18,6 +18,11 @@ import {
   insertPosTerminalSchema,
   insertPosSessionSchema,
   insertCashMovementSchema,
+  insertEmployeeSchema,
+  insertTimeEntrySchema,
+  insertPayrollRunSchema,
+  insertPayrollItemSchema,
+  insertPerformanceReviewSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import type { RequestHandler } from "express";
@@ -52,6 +57,58 @@ const requireRole = (allowedRoles: string[]): RequestHandler => {
 
 // POS access middleware (admin, pos, sales roles only)
 const requirePosAccess = requireRole(['admin', 'pos', 'sales']);
+
+// HR access middleware (admin, hr roles only)
+const requireHrAccess = requireRole(['admin', 'hr']);
+
+// Time tracking access middleware - allows employees to manage their own entries
+const requireTimeTrackingAccess: RequestHandler = async (req, res, next) => {
+  try {
+    const userId = (req as any).user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Admin and HR have full access
+    if (user.role === 'admin' || user.role === 'hr') {
+      return next();
+    }
+
+    // Get employee record for current user
+    const employee = await storage.getEmployeeByUserId(userId);
+    if (!employee) {
+      return res.status(403).json({ message: "Employee record not found" });
+    }
+
+    // For employee access, check if they're accessing their own data
+    const employeeId = req.query.employeeId as string || req.body.employeeId;
+    const timeEntryId = req.params.id;
+
+    if (employeeId && employeeId !== employee.id) {
+      return res.status(403).json({ message: "Access denied. You can only access your own time entries." });
+    }
+
+    if (timeEntryId) {
+      // Check if the time entry belongs to this employee
+      const timeEntry = await storage.getTimeEntry(timeEntryId);
+      if (!timeEntry || timeEntry.employeeId !== employee.id) {
+        return res.status(403).json({ message: "Access denied. You can only access your own time entries." });
+      }
+    }
+
+    // Add employee info to request for convenience
+    (req as any).employee = employee;
+    next();
+  } catch (error) {
+    console.error("Error in time tracking access check:", error);
+    res.status(500).json({ message: "Authorization check failed" });
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint (no database required)
@@ -643,6 +700,336 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating cash movement:", error);
       res.status(400).json({ message: "Failed to create cash movement", error: error.message });
+    }
+  });
+
+  // ==== HR MODULE ROUTES ====
+  
+  // Employee Management Routes
+  app.get("/api/hr/employees", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const department = req.query.department as string;
+      const employees = await storage.getEmployees(limit, department);
+      res.json(employees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      res.status(500).json({ message: "Failed to fetch employees" });
+    }
+  });
+
+  app.get("/api/hr/employees/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const employee = await storage.getEmployee(req.params.id);
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      res.json(employee);
+    } catch (error) {
+      console.error("Error fetching employee:", error);
+      res.status(500).json({ message: "Failed to fetch employee" });
+    }
+  });
+
+  app.post("/api/hr/employees", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const employeeData = insertEmployeeSchema.parse(req.body);
+      const employee = await storage.createEmployee(employeeData);
+      res.status(201).json(employee);
+    } catch (error: any) {
+      console.error("Error creating employee:", error);
+      res.status(400).json({ message: "Failed to create employee", error: error.message });
+    }
+  });
+
+  app.patch("/api/hr/employees/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const employeeData = insertEmployeeSchema.partial().parse(req.body);
+      const employee = await storage.updateEmployee(req.params.id, employeeData);
+      res.json(employee);
+    } catch (error: any) {
+      console.error("Error updating employee:", error);
+      res.status(400).json({ message: "Failed to update employee", error: error.message });
+    }
+  });
+
+  app.delete("/api/hr/employees/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      await storage.deleteEmployee(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      res.status(500).json({ message: "Failed to delete employee" });
+    }
+  });
+
+  // Time Tracking Routes - with query parameter validation
+  app.get("/api/hr/time-entries", isAuthenticated, requireTimeTrackingAccess, async (req, res) => {
+    try {
+      // Query parameter validation
+      const querySchema = z.object({
+        employeeId: z.string().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 50),
+      });
+
+      const { employeeId, startDate, endDate, limit } = querySchema.parse(req.query);
+      
+      // For non-admin/hr users, ensure they can only see their own entries
+      const finalEmployeeId = employeeId || (req as any).employee?.id;
+      
+      const timeEntries = await storage.getTimeEntries(finalEmployeeId, startDate, endDate, limit);
+      res.json(timeEntries);
+    } catch (error: any) {
+      console.error("Error fetching time entries:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch time entries" });
+      }
+    }
+  });
+
+  app.get("/api/hr/time-entries/:id", isAuthenticated, requireTimeTrackingAccess, async (req, res) => {
+    try {
+      const timeEntry = await storage.getTimeEntry(req.params.id);
+      if (!timeEntry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      res.json(timeEntry);
+    } catch (error) {
+      console.error("Error fetching time entry:", error);
+      res.status(500).json({ message: "Failed to fetch time entry" });
+    }
+  });
+
+  app.post("/api/hr/time-entries", isAuthenticated, requireTimeTrackingAccess, async (req, res) => {
+    try {
+      const timeEntryData = insertTimeEntrySchema.parse(req.body);
+      
+      // For non-admin/hr users, ensure they can only create entries for themselves
+      const employee = (req as any).employee;
+      if (employee && timeEntryData.employeeId !== employee.id) {
+        return res.status(403).json({ message: "You can only create time entries for yourself" });
+      }
+
+      const timeEntry = await storage.createTimeEntry(timeEntryData);
+      res.status(201).json(timeEntry);
+    } catch (error: any) {
+      console.error("Error creating time entry:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid time entry data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create time entry", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/hr/time-entries/:id", isAuthenticated, requireTimeTrackingAccess, async (req, res) => {
+    try {
+      const timeEntryData = insertTimeEntrySchema.partial().parse(req.body);
+      const timeEntry = await storage.updateTimeEntry(req.params.id, timeEntryData);
+      res.json(timeEntry);
+    } catch (error: any) {
+      console.error("Error updating time entry:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid time entry data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update time entry", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/hr/time-entries/:id/approve", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const approverId = (req as any).user?.claims?.sub;
+      if (!approverId) {
+        return res.status(401).json({ message: "Unable to identify approving user" });
+      }
+      
+      const timeEntry = await storage.approveTimeEntry(req.params.id, approverId);
+      res.json(timeEntry);
+    } catch (error: any) {
+      console.error("Error approving time entry:", error);
+      res.status(400).json({ message: "Failed to approve time entry", error: error.message });
+    }
+  });
+
+  // Payroll Management Routes
+  app.get("/api/hr/payroll-runs", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const payrollRuns = await storage.getPayrollRuns();
+      res.json(payrollRuns);
+    } catch (error) {
+      console.error("Error fetching payroll runs:", error);
+      res.status(500).json({ message: "Failed to fetch payroll runs" });
+    }
+  });
+
+  app.get("/api/hr/payroll-runs/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const payrollRun = await storage.getPayrollRun(req.params.id);
+      if (!payrollRun) {
+        return res.status(404).json({ message: "Payroll run not found" });
+      }
+      res.json(payrollRun);
+    } catch (error) {
+      console.error("Error fetching payroll run:", error);
+      res.status(500).json({ message: "Failed to fetch payroll run" });
+    }
+  });
+
+  app.post("/api/hr/payroll-runs", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const payrollData = insertPayrollRunSchema.parse({
+        ...req.body,
+        processedBy: (req as any).user?.claims?.sub,
+      });
+      const payrollRun = await storage.createPayrollRun(payrollData);
+      res.status(201).json(payrollRun);
+    } catch (error: any) {
+      console.error("Error creating payroll run:", error);
+      res.status(400).json({ message: "Failed to create payroll run", error: error.message });
+    }
+  });
+
+  app.patch("/api/hr/payroll-runs/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const payrollData = insertPayrollRunSchema.partial().parse(req.body);
+      const payrollRun = await storage.updatePayrollRun(req.params.id, payrollData);
+      res.json(payrollRun);
+    } catch (error: any) {
+      console.error("Error updating payroll run:", error);
+      res.status(400).json({ message: "Failed to update payroll run", error: error.message });
+    }
+  });
+
+  app.patch("/api/hr/payroll-runs/:id/process", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const processedBy = (req as any).user?.claims?.sub;
+      if (!processedBy) {
+        return res.status(401).json({ message: "Unable to identify processing user" });
+      }
+      
+      const payrollRun = await storage.processPayroll(req.params.id, processedBy);
+      res.json(payrollRun);
+    } catch (error: any) {
+      console.error("Error processing payroll:", error);
+      res.status(400).json({ message: "Failed to process payroll", error: error.message });
+    }
+  });
+
+  app.get("/api/hr/payroll-items", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      // Query parameter validation
+      const querySchema = z.object({
+        payrollRunId: z.string().optional(),
+        employeeId: z.string().optional(),
+      });
+
+      const { payrollRunId, employeeId } = querySchema.parse(req.query);
+      const payrollItems = await storage.getPayrollItems(payrollRunId, employeeId);
+      res.json(payrollItems);
+    } catch (error: any) {
+      console.error("Error fetching payroll items:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch payroll items" });
+      }
+    }
+  });
+
+  app.post("/api/hr/payroll-items", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const payrollItemData = insertPayrollItemSchema.parse(req.body);
+      const payrollItem = await storage.createPayrollItem(payrollItemData);
+      res.status(201).json(payrollItem);
+    } catch (error: any) {
+      console.error("Error creating payroll item:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid payroll item data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create payroll item", error: error.message });
+      }
+    }
+  });
+
+  // Performance Review Routes
+  app.get("/api/hr/performance-reviews", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      // Query parameter validation
+      const querySchema = z.object({
+        employeeId: z.string().optional(),
+        reviewerId: z.string().optional(),
+        status: z.string().optional(),
+        limit: z.string().optional().transform((val) => val ? parseInt(val) : 50),
+      });
+
+      const { employeeId, reviewerId, status, limit } = querySchema.parse(req.query);
+      const reviews = await storage.getPerformanceReviews(employeeId, reviewerId, status, limit);
+      res.json(reviews);
+    } catch (error: any) {
+      console.error("Error fetching performance reviews:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to fetch performance reviews" });
+      }
+    }
+  });
+
+  app.get("/api/hr/performance-reviews/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const review = await storage.getPerformanceReview(req.params.id);
+      if (!review) {
+        return res.status(404).json({ message: "Performance review not found" });
+      }
+      res.json(review);
+    } catch (error) {
+      console.error("Error fetching performance review:", error);
+      res.status(500).json({ message: "Failed to fetch performance review" });
+    }
+  });
+
+  app.post("/api/hr/performance-reviews", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const reviewData = insertPerformanceReviewSchema.parse(req.body);
+      const review = await storage.createPerformanceReview(reviewData);
+      res.status(201).json(review);
+    } catch (error: any) {
+      console.error("Error creating performance review:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid performance review data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to create performance review", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/hr/performance-reviews/:id", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const reviewData = insertPerformanceReviewSchema.partial().parse(req.body);
+      const review = await storage.updatePerformanceReview(req.params.id, reviewData);
+      res.json(review);
+    } catch (error: any) {
+      console.error("Error updating performance review:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid performance review data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update performance review", error: error.message });
+      }
+    }
+  });
+
+  app.patch("/api/hr/performance-reviews/:id/complete", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const review = await storage.completePerformanceReview(req.params.id);
+      res.json(review);
+    } catch (error: any) {
+      console.error("Error completing performance review:", error);
+      res.status(400).json({ message: "Failed to complete performance review", error: error.message });
     }
   });
 

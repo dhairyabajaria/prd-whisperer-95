@@ -16,6 +16,11 @@ import {
   posReceipts,
   posPayments,
   cashMovements,
+  employees,
+  timeEntries,
+  payrollRuns,
+  payrollItems,
+  performanceReviews,
   type User,
   type UpsertUser,
   type Customer,
@@ -50,6 +55,16 @@ import {
   type InsertPosPayment,
   type CashMovement,
   type InsertCashMovement,
+  type Employee,
+  type InsertEmployee,
+  type TimeEntry,
+  type InsertTimeEntry,
+  type PayrollRun,
+  type InsertPayrollRun,
+  type PayrollItem,
+  type InsertPayrollItem,
+  type PerformanceReview,
+  type InsertPerformanceReview,
 } from "@shared/schema";
 import { getDb } from "./db";
 import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
@@ -184,6 +199,37 @@ export interface IStorage {
   // Cash movement operations
   getCashMovements(sessionId: string): Promise<(CashMovement & { user: User })[]>;
   createCashMovement(movement: InsertCashMovement): Promise<CashMovement>;
+  
+  // HR Module - Employee Management
+  getEmployees(limit?: number, department?: string): Promise<(Employee & { user: User; manager?: User })[]>;
+  getEmployee(id: string): Promise<(Employee & { user: User; manager?: User }) | undefined>;
+  createEmployee(employee: InsertEmployee): Promise<Employee>;
+  updateEmployee(id: string, employee: Partial<InsertEmployee>): Promise<Employee>;
+  deleteEmployee(id: string): Promise<void>;
+  getEmployeeByUserId(userId: string): Promise<Employee | undefined>;
+  
+  // HR Module - Time Tracking
+  getTimeEntries(employeeId?: string, startDate?: string, endDate?: string, limit?: number): Promise<(TimeEntry & { employee: Employee & { user: User }; approver?: User })[]>;
+  getTimeEntry(id: string): Promise<(TimeEntry & { employee: Employee & { user: User }; approver?: User }) | undefined>;
+  createTimeEntry(timeEntry: InsertTimeEntry): Promise<TimeEntry>;
+  updateTimeEntry(id: string, timeEntry: Partial<InsertTimeEntry>): Promise<TimeEntry>;
+  approveTimeEntry(id: string, approverId: string): Promise<TimeEntry>;
+  
+  // HR Module - Payroll Processing
+  getPayrollRuns(limit?: number): Promise<(PayrollRun & { processedBy?: User })[]>;
+  getPayrollRun(id: string): Promise<(PayrollRun & { processedBy?: User; payrollItems: (PayrollItem & { employee: Employee & { user: User } })[] }) | undefined>;
+  createPayrollRun(payrollRun: InsertPayrollRun): Promise<PayrollRun>;
+  updatePayrollRun(id: string, payrollRun: Partial<InsertPayrollRun>): Promise<PayrollRun>;
+  getPayrollItems(payrollRunId?: string, employeeId?: string): Promise<(PayrollItem & { employee: Employee & { user: User }; payrollRun: PayrollRun })[]>;
+  createPayrollItem(payrollItem: InsertPayrollItem): Promise<PayrollItem>;
+  processPayroll(payrollRunId: string, processedBy: string): Promise<{ payrollRun: PayrollRun; payrollItems: PayrollItem[] }>;
+  
+  // HR Module - Performance Reviews
+  getPerformanceReviews(employeeId?: string, reviewerId?: string, status?: string, limit?: number): Promise<(PerformanceReview & { employee: Employee & { user: User }; reviewer: User })[]>;
+  getPerformanceReview(id: string): Promise<(PerformanceReview & { employee: Employee & { user: User }; reviewer: User }) | undefined>;
+  createPerformanceReview(review: InsertPerformanceReview): Promise<PerformanceReview>;
+  updatePerformanceReview(id: string, review: Partial<InsertPerformanceReview>): Promise<PerformanceReview>;
+  completePerformanceReview(id: string): Promise<PerformanceReview>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1357,6 +1403,664 @@ export class DatabaseStorage implements IStorage {
       .values(movement)
       .returning();
     return newMovement;
+  }
+
+  // HR Module - Employee Management
+  async getEmployees(limit = 100, department?: string): Promise<(Employee & { user: User; manager?: User })[]> {
+    const db = await getDb();
+    let query = db
+      .select({
+        id: employees.id,
+        userId: employees.userId,
+        employeeNumber: employees.employeeNumber,
+        department: employees.department,
+        position: employees.position,
+        hireDate: employees.hireDate,
+        baseSalary: employees.baseSalary,
+        currency: employees.currency,
+        employmentStatus: employees.employmentStatus,
+        managerId: employees.managerId,
+        workSchedule: employees.workSchedule,
+        emergencyContactName: employees.emergencyContactName,
+        emergencyContactPhone: employees.emergencyContactPhone,
+        bankAccountNumber: employees.bankAccountNumber,
+        taxIdNumber: employees.taxIdNumber,
+        socialSecurityNumber: employees.socialSecurityNumber,
+        isActive: employees.isActive,
+        createdAt: employees.createdAt,
+        updatedAt: employees.updatedAt,
+        user: users,
+        manager: sql<User | null>`manager_user.*`.as('manager'),
+      })
+      .from(employees)
+      .innerJoin(users, eq(employees.userId, users.id))
+      .leftJoin(sql`${users} AS manager_user`, sql`manager_user.id = ${employees.managerId}`)
+      .where(eq(employees.isActive, true));
+
+    if (department) {
+      query = query.where(and(eq(employees.isActive, true), eq(employees.department, department)));
+    }
+
+    const results = await query
+      .limit(limit)
+      .orderBy(desc(employees.createdAt));
+
+    return results.map(r => ({
+      ...r,
+      manager: r.manager || undefined
+    }));
+  }
+
+  async getEmployee(id: string): Promise<(Employee & { user: User; manager?: User }) | undefined> {
+    const db = await getDb();
+    const [result] = await db
+      .select({
+        id: employees.id,
+        userId: employees.userId,
+        employeeNumber: employees.employeeNumber,
+        department: employees.department,
+        position: employees.position,
+        hireDate: employees.hireDate,
+        baseSalary: employees.baseSalary,
+        currency: employees.currency,
+        employmentStatus: employees.employmentStatus,
+        managerId: employees.managerId,
+        workSchedule: employees.workSchedule,
+        emergencyContactName: employees.emergencyContactName,
+        emergencyContactPhone: employees.emergencyContactPhone,
+        bankAccountNumber: employees.bankAccountNumber,
+        taxIdNumber: employees.taxIdNumber,
+        socialSecurityNumber: employees.socialSecurityNumber,
+        isActive: employees.isActive,
+        createdAt: employees.createdAt,
+        updatedAt: employees.updatedAt,
+        user: users,
+        manager: sql<User | null>`manager_user.*`.as('manager'),
+      })
+      .from(employees)
+      .innerJoin(users, eq(employees.userId, users.id))
+      .leftJoin(sql`${users} AS manager_user`, sql`manager_user.id = ${employees.managerId}`)
+      .where(and(eq(employees.id, id), eq(employees.isActive, true)));
+
+    return result ? {
+      ...result,
+      manager: result.manager || undefined
+    } : undefined;
+  }
+
+  async createEmployee(employee: InsertEmployee): Promise<Employee> {
+    const db = await getDb();
+    const [newEmployee] = await db
+      .insert(employees)
+      .values(employee)
+      .returning();
+    return newEmployee;
+  }
+
+  async updateEmployee(id: string, employee: Partial<InsertEmployee>): Promise<Employee> {
+    const db = await getDb();
+    const [updatedEmployee] = await db
+      .update(employees)
+      .set({ ...employee, updatedAt: new Date() })
+      .where(eq(employees.id, id))
+      .returning();
+    return updatedEmployee;
+  }
+
+  async deleteEmployee(id: string): Promise<void> {
+    const db = await getDb();
+    await db
+      .update(employees)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(employees.id, id));
+  }
+
+  async getEmployeeByUserId(userId: string): Promise<Employee | undefined> {
+    const db = await getDb();
+    const [employee] = await db
+      .select()
+      .from(employees)
+      .where(and(eq(employees.userId, userId), eq(employees.isActive, true)));
+    return employee;
+  }
+
+  // HR Module - Time Tracking
+  async getTimeEntries(employeeId?: string, startDate?: string, endDate?: string, limit = 100): Promise<(TimeEntry & { employee: Employee & { user: User }; approver?: User })[]> {
+    const db = await getDb();
+    let whereCondition = sql`1=1`;
+
+    if (employeeId) {
+      whereCondition = and(whereCondition, eq(timeEntries.employeeId, employeeId));
+    }
+
+    if (startDate) {
+      whereCondition = and(whereCondition, gte(timeEntries.date, startDate));
+    }
+
+    if (endDate) {
+      whereCondition = and(whereCondition, lte(timeEntries.date, endDate));
+    }
+
+    const results = await db
+      .select({
+        id: timeEntries.id,
+        employeeId: timeEntries.employeeId,
+        date: timeEntries.date,
+        clockIn: timeEntries.clockIn,
+        clockOut: timeEntries.clockOut,
+        totalHours: timeEntries.totalHours,
+        overtimeHours: timeEntries.overtimeHours,
+        entryType: timeEntries.entryType,
+        notes: timeEntries.notes,
+        approvedBy: timeEntries.approvedBy,
+        approvedAt: timeEntries.approvedAt,
+        createdAt: timeEntries.createdAt,
+        employee: {
+          id: employees.id,
+          userId: employees.userId,
+          employeeNumber: employees.employeeNumber,
+          department: employees.department,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          baseSalary: employees.baseSalary,
+          currency: employees.currency,
+          employmentStatus: employees.employmentStatus,
+          managerId: employees.managerId,
+          workSchedule: employees.workSchedule,
+          emergencyContactName: employees.emergencyContactName,
+          emergencyContactPhone: employees.emergencyContactPhone,
+          bankAccountNumber: employees.bankAccountNumber,
+          taxIdNumber: employees.taxIdNumber,
+          socialSecurityNumber: employees.socialSecurityNumber,
+          isActive: employees.isActive,
+          createdAt: employees.createdAt,
+          updatedAt: employees.updatedAt,
+          user: users,
+        },
+        approver: sql<User | null>`approver_user.*`.as('approver'),
+      })
+      .from(timeEntries)
+      .innerJoin(employees, eq(timeEntries.employeeId, employees.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .leftJoin(sql`${users} AS approver_user`, sql`approver_user.id = ${timeEntries.approvedBy}`)
+      .where(whereCondition)
+      .limit(limit)
+      .orderBy(desc(timeEntries.date));
+
+    return results.map(r => ({
+      ...r,
+      approver: r.approver || undefined
+    }));
+  }
+
+  async getTimeEntry(id: string): Promise<(TimeEntry & { employee: Employee & { user: User }; approver?: User }) | undefined> {
+    const db = await getDb();
+    const [result] = await db
+      .select({
+        id: timeEntries.id,
+        employeeId: timeEntries.employeeId,
+        date: timeEntries.date,
+        clockIn: timeEntries.clockIn,
+        clockOut: timeEntries.clockOut,
+        totalHours: timeEntries.totalHours,
+        overtimeHours: timeEntries.overtimeHours,
+        entryType: timeEntries.entryType,
+        notes: timeEntries.notes,
+        approvedBy: timeEntries.approvedBy,
+        approvedAt: timeEntries.approvedAt,
+        createdAt: timeEntries.createdAt,
+        employee: {
+          id: employees.id,
+          userId: employees.userId,
+          employeeNumber: employees.employeeNumber,
+          department: employees.department,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          baseSalary: employees.baseSalary,
+          currency: employees.currency,
+          employmentStatus: employees.employmentStatus,
+          managerId: employees.managerId,
+          workSchedule: employees.workSchedule,
+          emergencyContactName: employees.emergencyContactName,
+          emergencyContactPhone: employees.emergencyContactPhone,
+          bankAccountNumber: employees.bankAccountNumber,
+          taxIdNumber: employees.taxIdNumber,
+          socialSecurityNumber: employees.socialSecurityNumber,
+          isActive: employees.isActive,
+          createdAt: employees.createdAt,
+          updatedAt: employees.updatedAt,
+          user: users,
+        },
+        approver: sql<User | null>`approver_user.*`.as('approver'),
+      })
+      .from(timeEntries)
+      .innerJoin(employees, eq(timeEntries.employeeId, employees.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .leftJoin(sql`${users} AS approver_user`, sql`approver_user.id = ${timeEntries.approvedBy}`)
+      .where(eq(timeEntries.id, id));
+
+    return result ? {
+      ...result,
+      approver: result.approver || undefined
+    } : undefined;
+  }
+
+  async createTimeEntry(timeEntry: InsertTimeEntry): Promise<TimeEntry> {
+    const db = await getDb();
+    const [newEntry] = await db
+      .insert(timeEntries)
+      .values(timeEntry)
+      .returning();
+    return newEntry;
+  }
+
+  async updateTimeEntry(id: string, timeEntry: Partial<InsertTimeEntry>): Promise<TimeEntry> {
+    const db = await getDb();
+    const [updatedEntry] = await db
+      .update(timeEntries)
+      .set(timeEntry)
+      .where(eq(timeEntries.id, id))
+      .returning();
+    return updatedEntry;
+  }
+
+  async approveTimeEntry(id: string, approverId: string): Promise<TimeEntry> {
+    const db = await getDb();
+    const [approvedEntry] = await db
+      .update(timeEntries)
+      .set({
+        approvedBy: approverId,
+        approvedAt: new Date(),
+      })
+      .where(eq(timeEntries.id, id))
+      .returning();
+    return approvedEntry;
+  }
+
+  // HR Module - Payroll Processing
+  async getPayrollRuns(limit = 50): Promise<(PayrollRun & { processedBy?: User })[]> {
+    const db = await getDb();
+    const results = await db
+      .select({
+        id: payrollRuns.id,
+        payrollPeriod: payrollRuns.payrollPeriod,
+        startDate: payrollRuns.startDate,
+        endDate: payrollRuns.endDate,
+        status: payrollRuns.status,
+        totalGrossPay: payrollRuns.totalGrossPay,
+        totalDeductions: payrollRuns.totalDeductions,
+        totalNetPay: payrollRuns.totalNetPay,
+        currency: payrollRuns.currency,
+        processedBy: payrollRuns.processedBy,
+        processedAt: payrollRuns.processedAt,
+        createdAt: payrollRuns.createdAt,
+        processedByUser: users,
+      })
+      .from(payrollRuns)
+      .leftJoin(users, eq(payrollRuns.processedBy, users.id))
+      .limit(limit)
+      .orderBy(desc(payrollRuns.createdAt));
+
+    return results.map(r => ({
+      ...r,
+      processedBy: r.processedByUser || undefined
+    }));
+  }
+
+  async getPayrollRun(id: string): Promise<(PayrollRun & { processedBy?: User; payrollItems: (PayrollItem & { employee: Employee & { user: User } })[] }) | undefined> {
+    const db = await getDb();
+    const [payrollRunResult] = await db
+      .select({
+        id: payrollRuns.id,
+        payrollPeriod: payrollRuns.payrollPeriod,
+        startDate: payrollRuns.startDate,
+        endDate: payrollRuns.endDate,
+        status: payrollRuns.status,
+        totalGrossPay: payrollRuns.totalGrossPay,
+        totalDeductions: payrollRuns.totalDeductions,
+        totalNetPay: payrollRuns.totalNetPay,
+        currency: payrollRuns.currency,
+        processedBy: payrollRuns.processedBy,
+        processedAt: payrollRuns.processedAt,
+        createdAt: payrollRuns.createdAt,
+        processedByUser: users,
+      })
+      .from(payrollRuns)
+      .leftJoin(users, eq(payrollRuns.processedBy, users.id))
+      .where(eq(payrollRuns.id, id));
+
+    if (!payrollRunResult) return undefined;
+
+    // Get payroll items for this run
+    const payrollItemsResults = await db
+      .select({
+        id: payrollItems.id,
+        payrollRunId: payrollItems.payrollRunId,
+        employeeId: payrollItems.employeeId,
+        basePay: payrollItems.basePay,
+        overtimePay: payrollItems.overtimePay,
+        bonuses: payrollItems.bonuses,
+        grossPay: payrollItems.grossPay,
+        taxDeductions: payrollItems.taxDeductions,
+        socialSecurityDeductions: payrollItems.socialSecurityDeductions,
+        otherDeductions: payrollItems.otherDeductions,
+        totalDeductions: payrollItems.totalDeductions,
+        netPay: payrollItems.netPay,
+        currency: payrollItems.currency,
+        regularHours: payrollItems.regularHours,
+        overtimeHours: payrollItems.overtimeHours,
+        createdAt: payrollItems.createdAt,
+        employee: {
+          id: employees.id,
+          userId: employees.userId,
+          employeeNumber: employees.employeeNumber,
+          department: employees.department,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          baseSalary: employees.baseSalary,
+          currency: employees.currency,
+          employmentStatus: employees.employmentStatus,
+          managerId: employees.managerId,
+          workSchedule: employees.workSchedule,
+          emergencyContactName: employees.emergencyContactName,
+          emergencyContactPhone: employees.emergencyContactPhone,
+          bankAccountNumber: employees.bankAccountNumber,
+          taxIdNumber: employees.taxIdNumber,
+          socialSecurityNumber: employees.socialSecurityNumber,
+          isActive: employees.isActive,
+          createdAt: employees.createdAt,
+          updatedAt: employees.updatedAt,
+          user: users,
+        },
+      })
+      .from(payrollItems)
+      .innerJoin(employees, eq(payrollItems.employeeId, employees.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .where(eq(payrollItems.payrollRunId, id))
+      .orderBy(asc(employees.employeeNumber));
+
+    return {
+      ...payrollRunResult,
+      processedBy: payrollRunResult.processedByUser || undefined,
+      payrollItems: payrollItemsResults,
+    };
+  }
+
+  async createPayrollRun(payrollRun: InsertPayrollRun): Promise<PayrollRun> {
+    const db = await getDb();
+    const [newRun] = await db
+      .insert(payrollRuns)
+      .values(payrollRun)
+      .returning();
+    return newRun;
+  }
+
+  async updatePayrollRun(id: string, payrollRun: Partial<InsertPayrollRun>): Promise<PayrollRun> {
+    const db = await getDb();
+    const [updatedRun] = await db
+      .update(payrollRuns)
+      .set(payrollRun)
+      .where(eq(payrollRuns.id, id))
+      .returning();
+    return updatedRun;
+  }
+
+  async getPayrollItems(payrollRunId?: string, employeeId?: string): Promise<(PayrollItem & { employee: Employee & { user: User }; payrollRun: PayrollRun })[]> {
+    const db = await getDb();
+    let whereCondition = sql`1=1`;
+
+    if (payrollRunId) {
+      whereCondition = and(whereCondition, eq(payrollItems.payrollRunId, payrollRunId));
+    }
+
+    if (employeeId) {
+      whereCondition = and(whereCondition, eq(payrollItems.employeeId, employeeId));
+    }
+
+    return await db
+      .select({
+        id: payrollItems.id,
+        payrollRunId: payrollItems.payrollRunId,
+        employeeId: payrollItems.employeeId,
+        basePay: payrollItems.basePay,
+        overtimePay: payrollItems.overtimePay,
+        bonuses: payrollItems.bonuses,
+        grossPay: payrollItems.grossPay,
+        taxDeductions: payrollItems.taxDeductions,
+        socialSecurityDeductions: payrollItems.socialSecurityDeductions,
+        otherDeductions: payrollItems.otherDeductions,
+        totalDeductions: payrollItems.totalDeductions,
+        netPay: payrollItems.netPay,
+        currency: payrollItems.currency,
+        regularHours: payrollItems.regularHours,
+        overtimeHours: payrollItems.overtimeHours,
+        createdAt: payrollItems.createdAt,
+        employee: {
+          id: employees.id,
+          userId: employees.userId,
+          employeeNumber: employees.employeeNumber,
+          department: employees.department,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          baseSalary: employees.baseSalary,
+          currency: employees.currency,
+          employmentStatus: employees.employmentStatus,
+          managerId: employees.managerId,
+          workSchedule: employees.workSchedule,
+          emergencyContactName: employees.emergencyContactName,
+          emergencyContactPhone: employees.emergencyContactPhone,
+          bankAccountNumber: employees.bankAccountNumber,
+          taxIdNumber: employees.taxIdNumber,
+          socialSecurityNumber: employees.socialSecurityNumber,
+          isActive: employees.isActive,
+          createdAt: employees.createdAt,
+          updatedAt: employees.updatedAt,
+          user: users,
+        },
+        payrollRun: payrollRuns,
+      })
+      .from(payrollItems)
+      .innerJoin(employees, eq(payrollItems.employeeId, employees.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .innerJoin(payrollRuns, eq(payrollItems.payrollRunId, payrollRuns.id))
+      .where(whereCondition)
+      .orderBy(desc(payrollItems.createdAt));
+  }
+
+  async createPayrollItem(payrollItem: InsertPayrollItem): Promise<PayrollItem> {
+    const db = await getDb();
+    const [newItem] = await db
+      .insert(payrollItems)
+      .values(payrollItem)
+      .returning();
+    return newItem;
+  }
+
+  async processPayroll(payrollRunId: string, processedBy: string): Promise<{ payrollRun: PayrollRun; payrollItems: PayrollItem[] }> {
+    const db = await getDb();
+
+    // Get payroll items for totals
+    const items = await db
+      .select()
+      .from(payrollItems)
+      .where(eq(payrollItems.payrollRunId, payrollRunId));
+
+    const totals = items.reduce((acc, item) => {
+      acc.totalGrossPay += Number(item.grossPay || 0);
+      acc.totalDeductions += Number(item.totalDeductions || 0);
+      acc.totalNetPay += Number(item.netPay || 0);
+      return acc;
+    }, { totalGrossPay: 0, totalDeductions: 0, totalNetPay: 0 });
+
+    // Update payroll run status and totals
+    const [payrollRun] = await db
+      .update(payrollRuns)
+      .set({
+        status: 'completed',
+        totalGrossPay: totals.totalGrossPay.toFixed(2),
+        totalDeductions: totals.totalDeductions.toFixed(2),
+        totalNetPay: totals.totalNetPay.toFixed(2),
+        processedBy,
+        processedAt: new Date(),
+      })
+      .where(eq(payrollRuns.id, payrollRunId))
+      .returning();
+
+    return { payrollRun, payrollItems: items };
+  }
+
+  // HR Module - Performance Reviews
+  async getPerformanceReviews(employeeId?: string, reviewerId?: string, status?: string, limit = 50): Promise<(PerformanceReview & { employee: Employee & { user: User }; reviewer: User })[]> {
+    const db = await getDb();
+    let whereCondition = sql`1=1`;
+
+    if (employeeId) {
+      whereCondition = and(whereCondition, eq(performanceReviews.employeeId, employeeId));
+    }
+
+    if (reviewerId) {
+      whereCondition = and(whereCondition, eq(performanceReviews.reviewerId, reviewerId));
+    }
+
+    if (status) {
+      whereCondition = and(whereCondition, eq(performanceReviews.status, status));
+    }
+
+    return await db
+      .select({
+        id: performanceReviews.id,
+        employeeId: performanceReviews.employeeId,
+        reviewerId: performanceReviews.reviewerId,
+        reviewPeriod: performanceReviews.reviewPeriod,
+        startDate: performanceReviews.startDate,
+        endDate: performanceReviews.endDate,
+        overallRating: performanceReviews.overallRating,
+        goals: performanceReviews.goals,
+        achievements: performanceReviews.achievements,
+        areasForImprovement: performanceReviews.areasForImprovement,
+        reviewerComments: performanceReviews.reviewerComments,
+        employeeComments: performanceReviews.employeeComments,
+        status: performanceReviews.status,
+        completedAt: performanceReviews.completedAt,
+        createdAt: performanceReviews.createdAt,
+        updatedAt: performanceReviews.updatedAt,
+        employee: {
+          id: employees.id,
+          userId: employees.userId,
+          employeeNumber: employees.employeeNumber,
+          department: employees.department,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          baseSalary: employees.baseSalary,
+          currency: employees.currency,
+          employmentStatus: employees.employmentStatus,
+          managerId: employees.managerId,
+          workSchedule: employees.workSchedule,
+          emergencyContactName: employees.emergencyContactName,
+          emergencyContactPhone: employees.emergencyContactPhone,
+          bankAccountNumber: employees.bankAccountNumber,
+          taxIdNumber: employees.taxIdNumber,
+          socialSecurityNumber: employees.socialSecurityNumber,
+          isActive: employees.isActive,
+          createdAt: employees.createdAt,
+          updatedAt: employees.updatedAt,
+          user: users,
+        },
+        reviewer: sql<User>`reviewer_user.*`.as('reviewer'),
+      })
+      .from(performanceReviews)
+      .innerJoin(employees, eq(performanceReviews.employeeId, employees.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .innerJoin(sql`${users} AS reviewer_user`, sql`reviewer_user.id = ${performanceReviews.reviewerId}`)
+      .where(whereCondition)
+      .limit(limit)
+      .orderBy(desc(performanceReviews.createdAt));
+  }
+
+  async getPerformanceReview(id: string): Promise<(PerformanceReview & { employee: Employee & { user: User }; reviewer: User }) | undefined> {
+    const db = await getDb();
+    const [result] = await db
+      .select({
+        id: performanceReviews.id,
+        employeeId: performanceReviews.employeeId,
+        reviewerId: performanceReviews.reviewerId,
+        reviewPeriod: performanceReviews.reviewPeriod,
+        startDate: performanceReviews.startDate,
+        endDate: performanceReviews.endDate,
+        overallRating: performanceReviews.overallRating,
+        goals: performanceReviews.goals,
+        achievements: performanceReviews.achievements,
+        areasForImprovement: performanceReviews.areasForImprovement,
+        reviewerComments: performanceReviews.reviewerComments,
+        employeeComments: performanceReviews.employeeComments,
+        status: performanceReviews.status,
+        completedAt: performanceReviews.completedAt,
+        createdAt: performanceReviews.createdAt,
+        updatedAt: performanceReviews.updatedAt,
+        employee: {
+          id: employees.id,
+          userId: employees.userId,
+          employeeNumber: employees.employeeNumber,
+          department: employees.department,
+          position: employees.position,
+          hireDate: employees.hireDate,
+          baseSalary: employees.baseSalary,
+          currency: employees.currency,
+          employmentStatus: employees.employmentStatus,
+          managerId: employees.managerId,
+          workSchedule: employees.workSchedule,
+          emergencyContactName: employees.emergencyContactName,
+          emergencyContactPhone: employees.emergencyContactPhone,
+          bankAccountNumber: employees.bankAccountNumber,
+          taxIdNumber: employees.taxIdNumber,
+          socialSecurityNumber: employees.socialSecurityNumber,
+          isActive: employees.isActive,
+          createdAt: employees.createdAt,
+          updatedAt: employees.updatedAt,
+          user: users,
+        },
+        reviewer: sql<User>`reviewer_user.*`.as('reviewer'),
+      })
+      .from(performanceReviews)
+      .innerJoin(employees, eq(performanceReviews.employeeId, employees.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .innerJoin(sql`${users} AS reviewer_user`, sql`reviewer_user.id = ${performanceReviews.reviewerId}`)
+      .where(eq(performanceReviews.id, id));
+
+    return result || undefined;
+  }
+
+  async createPerformanceReview(review: InsertPerformanceReview): Promise<PerformanceReview> {
+    const db = await getDb();
+    const [newReview] = await db
+      .insert(performanceReviews)
+      .values(review)
+      .returning();
+    return newReview;
+  }
+
+  async updatePerformanceReview(id: string, review: Partial<InsertPerformanceReview>): Promise<PerformanceReview> {
+    const db = await getDb();
+    const [updatedReview] = await db
+      .update(performanceReviews)
+      .set({ ...review, updatedAt: new Date() })
+      .where(eq(performanceReviews.id, id))
+      .returning();
+    return updatedReview;
+  }
+
+  async completePerformanceReview(id: string): Promise<PerformanceReview> {
+    const db = await getDb();
+    const [completedReview] = await db
+      .update(performanceReviews)
+      .set({
+        status: 'completed',
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(performanceReviews.id, id))
+      .returning();
+    return completedReview;
   }
 }
 
