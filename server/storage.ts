@@ -11,6 +11,11 @@ import {
   purchaseOrderItems,
   invoices,
   stockMovements,
+  posTerminals,
+  posSessions,
+  posReceipts,
+  posPayments,
+  cashMovements,
   type User,
   type UpsertUser,
   type Customer,
@@ -35,6 +40,16 @@ import {
   type InsertInvoice,
   type StockMovement,
   type InsertStockMovement,
+  type PosTerminal,
+  type InsertPosTerminal,
+  type PosSession,
+  type InsertPosSession,
+  type PosReceipt,
+  type InsertPosReceipt,
+  type PosPayment,
+  type InsertPosPayment,
+  type CashMovement,
+  type InsertCashMovement,
 } from "@shared/schema";
 import { getDb } from "./db";
 import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
@@ -124,6 +139,51 @@ export interface IStorage {
     status: string;
     reference: string;
   }>>;
+  
+  // POS Terminal operations
+  getPosTerminals(): Promise<PosTerminal[]>;
+  getPosTerminal(id: string): Promise<PosTerminal | undefined>;
+  createPosTerminal(terminal: InsertPosTerminal): Promise<PosTerminal>;
+  updatePosTerminal(id: string, terminal: Partial<InsertPosTerminal>): Promise<PosTerminal>;
+  
+  // POS Session operations
+  getPosSessions(limit?: number): Promise<(PosSession & { terminal: PosTerminal; cashier: User })[]>;
+  getPosSession(id: string): Promise<(PosSession & { terminal: PosTerminal; cashier: User }) | undefined>;
+  getActivePosSession(terminalId: string): Promise<PosSession | undefined>;
+  openPosSession(session: InsertPosSession): Promise<PosSession>;
+  closePosSession(sessionId: string, actualCash: number, notes?: string): Promise<PosSession>;
+  
+  // POS Sales/Receipt operations
+  getPosReceipts(sessionId?: string, limit?: number): Promise<(PosReceipt & { session: PosSession; customer?: Customer })[]>;
+  getPosReceipt(id: string): Promise<(PosReceipt & { payments: PosPayment[] }) | undefined>;
+  createPosSale(saleData: {
+    sessionId: string;
+    customerId?: string;
+    items: Array<{
+      productId: string;
+      inventoryId?: string;
+      quantity: number;
+      unitPrice: number;
+    }>;
+    payments: Array<{
+      method: 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'check' | 'credit';
+      amount: number;
+      cardTransactionId?: string;
+      cardLast4?: string;
+      cardType?: string;
+      mobileMoneyNumber?: string;
+      mobileMoneyProvider?: string;
+      checkNumber?: string;
+      bankName?: string;
+      referenceNumber?: string;
+    }>;
+    taxRate?: number;
+    discountAmount?: number;
+  }): Promise<{ receipt: PosReceipt; payments: PosPayment[] }>;
+  
+  // Cash movement operations
+  getCashMovements(sessionId: string): Promise<(CashMovement & { user: User })[]>;
+  createCashMovement(movement: InsertCashMovement): Promise<CashMovement>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -869,6 +929,434 @@ export class DatabaseStorage implements IStorage {
     return transactions
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, limit);
+  }
+
+  // POS Terminal operations
+  async getPosTerminals(): Promise<PosTerminal[]> {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(posTerminals)
+      .where(eq(posTerminals.isActive, true))
+      .orderBy(asc(posTerminals.name));
+  }
+
+  async getPosTerminal(id: string): Promise<PosTerminal | undefined> {
+    const db = await getDb();
+    const [terminal] = await db
+      .select()
+      .from(posTerminals)
+      .where(and(eq(posTerminals.id, id), eq(posTerminals.isActive, true)));
+    return terminal;
+  }
+
+  async createPosTerminal(terminal: InsertPosTerminal): Promise<PosTerminal> {
+    const db = await getDb();
+    const [newTerminal] = await db
+      .insert(posTerminals)
+      .values(terminal)
+      .returning();
+    return newTerminal;
+  }
+
+  async updatePosTerminal(id: string, terminal: Partial<InsertPosTerminal>): Promise<PosTerminal> {
+    const db = await getDb();
+    const [updatedTerminal] = await db
+      .update(posTerminals)
+      .set({ ...terminal, updatedAt: new Date() })
+      .where(eq(posTerminals.id, id))
+      .returning();
+    return updatedTerminal;
+  }
+
+  // POS Session operations
+  async getPosSessions(limit = 50): Promise<(PosSession & { terminal: PosTerminal; cashier: User })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        id: posSessions.id,
+        terminalId: posSessions.terminalId,
+        cashierId: posSessions.cashierId,
+        sessionNumber: posSessions.sessionNumber,
+        startTime: posSessions.startTime,
+        endTime: posSessions.endTime,
+        startingCash: posSessions.startingCash,
+        expectedCash: posSessions.expectedCash,
+        actualCash: posSessions.actualCash,
+        cashVariance: posSessions.cashVariance,
+        totalSales: posSessions.totalSales,
+        totalTransactions: posSessions.totalTransactions,
+        currency: posSessions.currency,
+        status: posSessions.status,
+        notes: posSessions.notes,
+        createdAt: posSessions.createdAt,
+        terminal: posTerminals,
+        cashier: users,
+      })
+      .from(posSessions)
+      .innerJoin(posTerminals, eq(posSessions.terminalId, posTerminals.id))
+      .innerJoin(users, eq(posSessions.cashierId, users.id))
+      .limit(limit)
+      .orderBy(desc(posSessions.createdAt));
+  }
+
+  async getPosSession(id: string): Promise<(PosSession & { terminal: PosTerminal; cashier: User }) | undefined> {
+    const db = await getDb();
+    const [session] = await db
+      .select({
+        id: posSessions.id,
+        terminalId: posSessions.terminalId,
+        cashierId: posSessions.cashierId,
+        sessionNumber: posSessions.sessionNumber,
+        startTime: posSessions.startTime,
+        endTime: posSessions.endTime,
+        startingCash: posSessions.startingCash,
+        expectedCash: posSessions.expectedCash,
+        actualCash: posSessions.actualCash,
+        cashVariance: posSessions.cashVariance,
+        totalSales: posSessions.totalSales,
+        totalTransactions: posSessions.totalTransactions,
+        currency: posSessions.currency,
+        status: posSessions.status,
+        notes: posSessions.notes,
+        createdAt: posSessions.createdAt,
+        terminal: posTerminals,
+        cashier: users,
+      })
+      .from(posSessions)
+      .innerJoin(posTerminals, eq(posSessions.terminalId, posTerminals.id))
+      .innerJoin(users, eq(posSessions.cashierId, users.id))
+      .where(eq(posSessions.id, id));
+    return session;
+  }
+
+  async getActivePosSession(terminalId: string): Promise<PosSession | undefined> {
+    const db = await getDb();
+    const [session] = await db
+      .select()
+      .from(posSessions)
+      .where(and(eq(posSessions.terminalId, terminalId), eq(posSessions.status, 'open')));
+    return session;
+  }
+
+  async openPosSession(session: InsertPosSession): Promise<PosSession> {
+    const db = await getDb();
+    const [newSession] = await db
+      .insert(posSessions)
+      .values(session)
+      .returning();
+    return newSession;
+  }
+
+  async closePosSession(sessionId: string, actualCash: number, notes?: string): Promise<PosSession> {
+    const db = await getDb();
+    const [closedSession] = await db
+      .update(posSessions)
+      .set({
+        actualCash: actualCash.toString(),
+        cashVariance: sql`${actualCash} - ${posSessions.expectedCash}`,
+        endTime: new Date(),
+        status: 'closed',
+        notes: notes || null,
+      })
+      .where(eq(posSessions.id, sessionId))
+      .returning();
+    return closedSession;
+  }
+
+  // POS Sales/Receipt operations
+  async getPosReceipts(sessionId?: string, limit = 50): Promise<(PosReceipt & { session: PosSession; customer?: Customer })[]> {
+    const db = await getDb();
+    const baseQuery = sessionId 
+      ? db.select().from(posReceipts).where(eq(posReceipts.sessionId, sessionId))
+      : db.select().from(posReceipts);
+    
+    const receipts = await baseQuery
+      .limit(limit)
+      .orderBy(desc(posReceipts.createdAt));
+
+    const results = [];
+    for (const receipt of receipts) {
+      // Get session data
+      const [session] = await db
+        .select()
+        .from(posSessions)
+        .where(eq(posSessions.id, receipt.sessionId));
+
+      // Get customer data if exists
+      let customer = undefined;
+      if (receipt.customerId) {
+        const [customerData] = await db
+          .select()
+          .from(customers)
+          .where(eq(customers.id, receipt.customerId));
+        customer = customerData;
+      }
+
+      results.push({
+        ...receipt,
+        session,
+        customer,
+      });
+    }
+
+    return results;
+  }
+
+  async getPosReceipt(id: string): Promise<(PosReceipt & { payments: PosPayment[] }) | undefined> {
+    const db = await getDb();
+    const [receipt] = await db
+      .select()
+      .from(posReceipts)
+      .where(eq(posReceipts.id, id));
+
+    if (!receipt) return undefined;
+
+    const payments = await db
+      .select()
+      .from(posPayments)
+      .where(eq(posPayments.receiptId, id))
+      .orderBy(asc(posPayments.createdAt));
+
+    return { ...receipt, payments };
+  }
+
+  async createPosSale(saleData: {
+    sessionId: string;
+    customerId?: string;
+    items: Array<{
+      productId: string;
+      inventoryId?: string;
+      quantity: number;
+      unitPrice: number;
+    }>;
+    payments: Array<{
+      method: 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'check' | 'credit';
+      amount: number;
+      cardTransactionId?: string;
+      cardLast4?: string;
+      cardType?: string;
+      mobileMoneyNumber?: string;
+      mobileMoneyProvider?: string;
+      checkNumber?: string;
+      bankName?: string;
+      referenceNumber?: string;
+    }>;
+    taxRate?: number;
+    discountAmount?: number;
+  }): Promise<{ receipt: PosReceipt; payments: PosPayment[] }> {
+    const db = await getDb();
+
+    // Calculate totals
+    const subtotal = saleData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const taxAmount = (saleData.taxRate || 0) * subtotal / 100;
+    const discountAmount = saleData.discountAmount || 0;
+    const totalAmount = subtotal + taxAmount - discountAmount;
+
+    // Generate receipt number
+    const receiptNumber = `RCP-${Date.now()}`;
+
+    // Create receipt
+    const [receipt] = await db
+      .insert(posReceipts)
+      .values({
+        receiptNumber,
+        sessionId: saleData.sessionId,
+        customerId: saleData.customerId,
+        subtotal: subtotal.toFixed(2),
+        taxAmount: taxAmount.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        totalAmount: totalAmount.toFixed(2),
+        currency: 'AOA',
+        receiptData: {
+          items: saleData.items,
+          timestamp: new Date().toISOString(),
+        },
+        status: 'completed',
+      })
+      .returning();
+
+    // Create payments
+    const payments = [];
+    for (const paymentData of saleData.payments) {
+      const [payment] = await db
+        .insert(posPayments)
+        .values({
+          receiptId: receipt.id,
+          paymentMethod: paymentData.method,
+          amount: paymentData.amount.toFixed(2),
+          currency: 'AOA',
+          cardTransactionId: paymentData.cardTransactionId,
+          cardLast4: paymentData.cardLast4,
+          cardType: paymentData.cardType,
+          mobileMoneyNumber: paymentData.mobileMoneyNumber,
+          mobileMoneyProvider: paymentData.mobileMoneyProvider,
+          checkNumber: paymentData.checkNumber,
+          bankName: paymentData.bankName,
+          referenceNumber: paymentData.referenceNumber,
+          status: 'completed',
+        })
+        .returning();
+      payments.push(payment);
+    }
+
+    // Update inventory quantities and create stock movements with pharmaceutical compliance
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of day for comparison
+    
+    for (const item of saleData.items) {
+      let selectedInventoryRecords: Inventory[] = [];
+      let remainingQuantity = item.quantity;
+      
+      if (item.inventoryId) {
+        // Use specific inventory batch
+        const allInventoryRecords = await this.getInventoryByProduct(item.productId);
+        const specificRecord = allInventoryRecords.find(inv => inv.id === item.inventoryId);
+        
+        if (!specificRecord) {
+          throw new Error(`Inventory batch ${item.inventoryId} not found for product ${item.productId}`);
+        }
+        
+        // Check expiry date for specific batch
+        if (specificRecord.expiryDate) {
+          const expiryDate = new Date(specificRecord.expiryDate);
+          if (expiryDate < today) {
+            throw new Error(`Cannot sell expired product. Batch ${specificRecord.batchNumber} expired on ${expiryDate.toDateString()}`);
+          }
+        }
+        
+        if (specificRecord.quantity < item.quantity) {
+          throw new Error(`Insufficient stock in batch ${specificRecord.batchNumber}. Available: ${specificRecord.quantity}, Required: ${item.quantity}`);
+        }
+        
+        selectedInventoryRecords = [specificRecord];
+      } else {
+        // Use FEFO (First Expired, First Out) with expiry validation
+        const inventoryRecords = await this.getInventoryByProduct(item.productId);
+        
+        // Filter out expired products
+        const validInventoryRecords = inventoryRecords.filter(inv => {
+          if (!inv.expiryDate) return true; // No expiry date means no expiry
+          const expiryDate = new Date(inv.expiryDate);
+          return expiryDate >= today;
+        });
+        
+        if (validInventoryRecords.length === 0) {
+          throw new Error(`No valid (non-expired) inventory available for product ${item.productId}`);
+        }
+        
+        // Sort by expiry date (FEFO) - earliest expiry first, then by quantity
+        validInventoryRecords.sort((a, b) => {
+          if (!a.expiryDate && !b.expiryDate) return 0;
+          if (!a.expiryDate) return 1; // No expiry goes last
+          if (!b.expiryDate) return -1;
+          
+          const dateA = new Date(a.expiryDate);
+          const dateB = new Date(b.expiryDate);
+          
+          if (dateA.getTime() === dateB.getTime()) {
+            // Same expiry date, prefer larger quantities to minimize batch splits
+            return b.quantity - a.quantity;
+          }
+          
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        // Select inventory batches using FEFO
+        for (const invRecord of validInventoryRecords) {
+          if (remainingQuantity <= 0) break;
+          
+          if (invRecord.quantity > 0) {
+            const quantityToTake = Math.min(remainingQuantity, invRecord.quantity);
+            selectedInventoryRecords.push({
+              ...invRecord,
+              quantity: quantityToTake // Override with the quantity we're taking
+            });
+            remainingQuantity -= quantityToTake;
+          }
+        }
+        
+        if (remainingQuantity > 0) {
+          const totalAvailable = validInventoryRecords.reduce((sum, inv) => sum + inv.quantity, 0);
+          throw new Error(`Insufficient stock for product ${item.productId}. Required: ${item.quantity}, Available: ${totalAvailable}`);
+        }
+      }
+      
+      // Process the selected inventory records
+      for (const inventoryRecord of selectedInventoryRecords) {
+        const quantityToDeduct = inventoryRecord.quantity;
+        
+        // Get the actual current quantity from database (not the modified one)
+        const [currentRecord] = await (await getDb())
+          .select()
+          .from(inventory)
+          .where(eq(inventory.id, inventoryRecord.id));
+          
+        if (!currentRecord) {
+          throw new Error(`Inventory record ${inventoryRecord.id} not found`);
+        }
+        
+        // Update inventory
+        await this.updateInventory(inventoryRecord.id, {
+          quantity: currentRecord.quantity - quantityToDeduct,
+        });
+
+        // Create stock movement
+        await this.createStockMovement({
+          productId: item.productId,
+          warehouseId: inventoryRecord.warehouseId,
+          inventoryId: inventoryRecord.id,
+          movementType: 'out',
+          quantity: -quantityToDeduct, // negative for outbound
+          reference: receiptNumber,
+          notes: `POS sale - Receipt ${receiptNumber} - Batch: ${inventoryRecord.batchNumber || 'N/A'}`,
+          userId: saleData.customerId, // Will be set properly in API route
+        });
+      }
+    }
+
+    // Update session totals
+    await db
+      .update(posSessions)
+      .set({
+        totalSales: sql`${posSessions.totalSales} + ${totalAmount}`,
+        totalTransactions: sql`${posSessions.totalTransactions} + 1`,
+        expectedCash: sql`${posSessions.expectedCash} + ${saleData.payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0)}`,
+      })
+      .where(eq(posSessions.id, saleData.sessionId));
+
+    return { receipt, payments };
+  }
+
+  // Cash movement operations
+  async getCashMovements(sessionId: string): Promise<(CashMovement & { user: User })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        id: cashMovements.id,
+        sessionId: cashMovements.sessionId,
+        movementType: cashMovements.movementType,
+        amount: cashMovements.amount,
+        currency: cashMovements.currency,
+        reference: cashMovements.reference,
+        description: cashMovements.description,
+        userId: cashMovements.userId,
+        createdAt: cashMovements.createdAt,
+        user: users,
+      })
+      .from(cashMovements)
+      .innerJoin(users, eq(cashMovements.userId, users.id))
+      .where(eq(cashMovements.sessionId, sessionId))
+      .orderBy(asc(cashMovements.createdAt));
+  }
+
+  async createCashMovement(movement: InsertCashMovement): Promise<CashMovement> {
+    const db = await getDb();
+    const [newMovement] = await db
+      .insert(cashMovements)
+      .values(movement)
+      .returning();
+    return newMovement;
   }
 }
 

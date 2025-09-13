@@ -7,6 +7,7 @@ import {
   FileText, 
   ShoppingCart, 
   Calculator,
+  CreditCard,
   Bot,
   TrendingUp,
   Settings,
@@ -53,6 +54,12 @@ const navigation = [
     href: "/finance",
     icon: Calculator,
     roles: ['admin', 'finance']
+  },
+  {
+    name: "POS",
+    href: "/pos",
+    icon: CreditCard,
+    roles: ['admin', 'pos', 'sales']
   }
 ];
 

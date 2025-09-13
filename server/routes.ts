@@ -15,8 +15,43 @@ import {
   insertPurchaseOrderItemSchema,
   insertInvoiceSchema,
   insertStockMovementSchema,
+  insertPosTerminalSchema,
+  insertPosSessionSchema,
+  insertCashMovementSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import type { RequestHandler } from "express";
+
+// RBAC middleware to check user roles
+const requireRole = (allowedRoles: string[]): RequestHandler => {
+  return async (req, res, next) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      if (!user.role || !allowedRoles.includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Access denied. Required roles: " + allowedRoles.join(", ") + ". Your role: " + (user.role || 'none')
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error checking user role:", error);
+      res.status(500).json({ message: "Authorization check failed" });
+    }
+  };
+};
+
+// POS access middleware (admin, pos, sales roles only)
+const requirePosAccess = requireRole(['admin', 'pos', 'sales']);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint (no database required)
@@ -430,6 +465,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating AI insights:", error);
       res.status(500).json({ message: "Failed to generate AI insights" });
+    }
+  });
+
+  // POS Terminal routes
+  app.get("/api/pos/terminals", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const terminals = await storage.getPosTerminals();
+      res.json(terminals);
+    } catch (error) {
+      console.error("Error fetching POS terminals:", error);
+      res.status(500).json({ message: "Failed to fetch POS terminals" });
+    }
+  });
+
+  app.post("/api/pos/terminals", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const terminalData = insertPosTerminalSchema.parse(req.body);
+      const terminal = await storage.createPosTerminal(terminalData);
+      res.status(201).json(terminal);
+    } catch (error: any) {
+      console.error("Error creating POS terminal:", error);
+      res.status(400).json({ message: "Failed to create POS terminal", error: error.message });
+    }
+  });
+
+  app.patch("/api/pos/terminals/:id", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const terminalData = insertPosTerminalSchema.partial().parse(req.body);
+      const terminal = await storage.updatePosTerminal(req.params.id, terminalData);
+      res.json(terminal);
+    } catch (error: any) {
+      console.error("Error updating POS terminal:", error);
+      res.status(400).json({ message: "Failed to update POS terminal", error: error.message });
+    }
+  });
+
+  // POS Session routes
+  app.get("/api/pos/sessions", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const sessions = await storage.getPosSessions(limit);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching POS sessions:", error);
+      res.status(500).json({ message: "Failed to fetch POS sessions" });
+    }
+  });
+
+  app.get("/api/pos/sessions/active/:terminalId", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const session = await storage.getActivePosSession(req.params.terminalId);
+      if (!session) {
+        return res.status(404).json({ message: "No active session found for terminal" });
+      }
+      res.json(session);
+    } catch (error) {
+      console.error("Error fetching active POS session:", error);
+      res.status(500).json({ message: "Failed to fetch active POS session" });
+    }
+  });
+
+  app.post("/api/pos/sessions/open", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const sessionData = insertPosSessionSchema.parse({
+        ...req.body,
+        cashierId: (req as any).user?.claims?.sub,
+        sessionNumber: `SES-${Date.now()}`,
+        startTime: new Date(),
+        status: 'open',
+      });
+      const session = await storage.openPosSession(sessionData);
+      res.status(201).json(session);
+    } catch (error: any) {
+      console.error("Error opening POS session:", error);
+      res.status(400).json({ message: "Failed to open POS session", error: error.message });
+    }
+  });
+
+  app.patch("/api/pos/sessions/:id/close", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const closeSessionSchema = z.object({
+        actualCash: z.number().min(0),
+        notes: z.string().optional(),
+      });
+      
+      const { actualCash, notes } = closeSessionSchema.parse(req.body);
+      const session = await storage.closePosSession(req.params.id, actualCash, notes);
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error closing POS session:", error);
+      res.status(400).json({ message: "Failed to close POS session", error: error.message });
+    }
+  });
+
+  // POS Sales/Receipt routes
+  app.get("/api/pos/receipts", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const sessionId = req.query.sessionId as string;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const receipts = await storage.getPosReceipts(sessionId, limit);
+      res.json(receipts);
+    } catch (error) {
+      console.error("Error fetching POS receipts:", error);
+      res.status(500).json({ message: "Failed to fetch POS receipts" });
+    }
+  });
+
+  app.get("/api/pos/receipts/:id", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const receipt = await storage.getPosReceipt(req.params.id);
+      if (!receipt) {
+        return res.status(404).json({ message: "Receipt not found" });
+      }
+      res.json(receipt);
+    } catch (error) {
+      console.error("Error fetching POS receipt:", error);
+      res.status(500).json({ message: "Failed to fetch POS receipt" });
+    }
+  });
+
+  app.post("/api/pos/sales", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const saleSchema = z.object({
+        sessionId: z.string(),
+        customerId: z.string().optional(),
+        items: z.array(z.object({
+          productId: z.string(),
+          inventoryId: z.string().optional(),
+          quantity: z.number().min(1),
+          unitPrice: z.number().min(0),
+        })).min(1),
+        payments: z.array(z.object({
+          method: z.enum(['cash', 'card', 'mobile_money', 'bank_transfer', 'check', 'credit']),
+          amount: z.number().min(0),
+          cardTransactionId: z.string().optional(),
+          cardLast4: z.string().optional(),
+          cardType: z.string().optional(),
+          mobileMoneyNumber: z.string().optional(),
+          mobileMoneyProvider: z.string().optional(),
+          checkNumber: z.string().optional(),
+          bankName: z.string().optional(),
+          referenceNumber: z.string().optional(),
+        })).min(1),
+        taxRate: z.number().min(0).max(100).optional(),
+        discountAmount: z.number().min(0).optional(),
+      });
+
+      const saleData = saleSchema.parse(req.body);
+      const result = await storage.createPosSale(saleData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Error creating POS sale:", error);
+      res.status(400).json({ message: "Failed to create POS sale", error: error.message });
+    }
+  });
+
+  // Cash movement routes
+  app.get("/api/pos/sessions/:sessionId/cash-movements", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const movements = await storage.getCashMovements(req.params.sessionId);
+      res.json(movements);
+    } catch (error) {
+      console.error("Error fetching cash movements:", error);
+      res.status(500).json({ message: "Failed to fetch cash movements" });
+    }
+  });
+
+  app.post("/api/pos/cash-movements", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const movementData = insertCashMovementSchema.parse({
+        ...req.body,
+        userId: (req as any).user?.claims?.sub,
+      });
+      const movement = await storage.createCashMovement(movementData);
+      res.status(201).json(movement);
+    } catch (error: any) {
+      console.error("Error creating cash movement:", error);
+      res.status(400).json({ message: "Failed to create cash movement", error: error.message });
     }
   });
 
