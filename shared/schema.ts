@@ -1411,3 +1411,44 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertRecallNotice = z.infer<typeof insertRecallNoticeSchema>;
 export type RecallNotice = typeof recallNotices.$inferSelect;
+
+// POS Request Schemas - for API endpoints
+export const openSessionRequestSchema = z.object({
+  terminalId: z.string().min(1, "Terminal is required"),
+  startingCash: z.coerce.number().min(0, "Starting cash must be positive"),
+});
+
+export const closeSessionRequestSchema = z.object({
+  actualCash: z.coerce.number().min(0, "Actual cash must be positive"),
+  notes: z.string().optional(),
+});
+
+export const createPosSaleRequestSchema = z.object({
+  sessionId: z.string(),
+  customerId: z.string().optional(),
+  items: z.array(z.object({
+    productId: z.string(),
+    inventoryId: z.string().optional(),
+    quantity: z.number().min(1),
+    unitPrice: z.number().min(0),
+  })).min(1),
+  payments: z.array(z.object({
+    method: z.enum(['cash', 'card', 'mobile_money', 'bank_transfer', 'check', 'credit']),
+    amount: z.number().min(0),
+    cardTransactionId: z.string().optional(),
+    cardLast4: z.string().optional(),
+    cardType: z.string().optional(),
+    mobileMoneyNumber: z.string().optional(),
+    mobileMoneyProvider: z.string().optional(),
+    checkNumber: z.string().optional(),
+    bankName: z.string().optional(),
+    referenceNumber: z.string().optional(),
+  })).min(1),
+  taxRate: z.number().min(0).max(100).optional(),
+  discountAmount: z.number().min(0).optional(),
+});
+
+// POS Request Types
+export type OpenSessionRequest = z.infer<typeof openSessionRequestSchema>;
+export type CloseSessionRequest = z.infer<typeof closeSessionRequestSchema>;
+export type CreatePosSaleRequest = z.infer<typeof createPosSaleRequestSchema>;

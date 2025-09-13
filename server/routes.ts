@@ -23,6 +23,9 @@ import {
   insertPayrollRunSchema,
   insertPayrollItemSchema,
   insertPerformanceReviewSchema,
+  openSessionRequestSchema,
+  closeSessionRequestSchema,
+  createPosSaleRequestSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import type { RequestHandler } from "express";
@@ -585,8 +588,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/pos/sessions/open", isAuthenticated, requirePosAccess, async (req, res) => {
     try {
+      // Validate request using proper request schema
+      const requestData = openSessionRequestSchema.parse(req.body);
+      
+      // Build full session data with computed fields
       const sessionData = insertPosSessionSchema.parse({
-        ...req.body,
+        terminalId: requestData.terminalId,
+        startingCash: requestData.startingCash,
+        expectedCash: requestData.startingCash, // Initial expected cash equals starting cash
+        actualCash: 0, // Will be set when session is closed
+        totalSales: 0, // Initial sales is 0
+        totalTransactions: 0, // Initial transactions is 0
         cashierId: (req as any).user?.claims?.sub,
         sessionNumber: `SES-${Date.now()}`,
         startTime: new Date(),
@@ -602,12 +614,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/pos/sessions/:id/close", isAuthenticated, requirePosAccess, async (req, res) => {
     try {
-      const closeSessionSchema = z.object({
-        actualCash: z.number().min(0),
-        notes: z.string().optional(),
-      });
-      
-      const { actualCash, notes } = closeSessionSchema.parse(req.body);
+      // Use shared close session request schema
+      const { actualCash, notes } = closeSessionRequestSchema.parse(req.body);
       const session = await storage.closePosSession(req.params.id, actualCash, notes);
       res.json(session);
     } catch (error: any) {
@@ -644,32 +652,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/pos/sales", isAuthenticated, requirePosAccess, async (req, res) => {
     try {
-      const saleSchema = z.object({
-        sessionId: z.string(),
-        customerId: z.string().optional(),
-        items: z.array(z.object({
-          productId: z.string(),
-          inventoryId: z.string().optional(),
-          quantity: z.number().min(1),
-          unitPrice: z.number().min(0),
-        })).min(1),
-        payments: z.array(z.object({
-          method: z.enum(['cash', 'card', 'mobile_money', 'bank_transfer', 'check', 'credit']),
-          amount: z.number().min(0),
-          cardTransactionId: z.string().optional(),
-          cardLast4: z.string().optional(),
-          cardType: z.string().optional(),
-          mobileMoneyNumber: z.string().optional(),
-          mobileMoneyProvider: z.string().optional(),
-          checkNumber: z.string().optional(),
-          bankName: z.string().optional(),
-          referenceNumber: z.string().optional(),
-        })).min(1),
-        taxRate: z.number().min(0).max(100).optional(),
-        discountAmount: z.number().min(0).optional(),
-      });
-
-      const saleData = saleSchema.parse(req.body);
+      // Use shared sale request schema
+      const saleData = createPosSaleRequestSchema.parse(req.body);
       const result = await storage.createPosSale(saleData);
       res.status(201).json(result);
     } catch (error: any) {
