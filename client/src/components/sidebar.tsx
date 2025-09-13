@@ -13,7 +13,8 @@ import {
   TrendingUp,
   Settings,
   Pill,
-  Bell
+  Bell,
+  Target
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -67,6 +68,12 @@ const navigation = [
     href: "/hr",
     icon: UserCheck,
     roles: ['admin', 'hr']
+  },
+  {
+    name: "Marketing",
+    href: "/marketing",
+    icon: Target,
+    roles: ['admin', 'marketing']
   }
 ];
 
