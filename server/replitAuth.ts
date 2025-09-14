@@ -7,7 +7,6 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import MemoryStore from "memorystore";
-import { storage } from "./storage";
 
 // Don't validate environment variables at import time
 // This allows the server to start in development without full config
@@ -230,6 +229,34 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   try {
+    // Development bypass for in-memory storage
+    if (process.env.NODE_ENV === 'development') {
+      // Auto-provision a dev user if not authenticated
+      const devUser = {
+        claims: {
+          sub: 'dev-user-1',
+          email: 'dev@pharma.com',
+          first_name: 'Dev',
+          last_name: 'User'
+        },
+        expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+      };
+      
+      // Ensure dev user exists in storage
+      const { storage } = await import("./storage");
+      await storage.upsertUser({
+        id: devUser.claims.sub,
+        email: devUser.claims.email,
+        firstName: devUser.claims.first_name,
+        lastName: devUser.claims.last_name,
+        profileImageUrl: null,
+      });
+      
+      // Attach user to request
+      (req as any).user = devUser;
+      return next();
+    }
+    
     const user = req.user as any;
 
     if (!req.isAuthenticated() || !user?.expires_at) {
