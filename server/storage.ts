@@ -50,6 +50,8 @@ import {
   // Marketing Module tables
   campaigns,
   campaignMembers,
+  // Sentiment Analysis table
+  sentimentAnalyses,
   // Compliance tables
   licenses,
   regulatoryReports,
@@ -97,6 +99,8 @@ import {
   type InsertLead,
   type Communication,
   type InsertCommunication,
+  type SentimentAnalysis,
+  type InsertSentimentAnalysis,
   type PosTerminal,
   type InsertPosTerminal,
   type PosSession,
@@ -454,10 +458,31 @@ export interface IStorage {
   deleteLead(id: string): Promise<void>;
   convertLeadToCustomer(leadId: string, customerData: InsertCustomer): Promise<{ lead: Lead; customer: Customer }>;
   
-  // CRM Module - Lead Communication operations
+  // CRM Module - Communication operations
+  getCommunication(id: string): Promise<Communication | undefined>;
+  getCustomerCommunications(customerId: string, limit?: number): Promise<Communication[]>;
   getLeadCommunications(leadId: string, limit?: number): Promise<(Communication & { user: User })[]>;
   createLeadCommunication(communication: InsertCommunication): Promise<Communication>;
   updateLeadCommunication(id: string, communication: Partial<InsertCommunication>): Promise<Communication>;
+
+  // Sentiment Analysis operations
+  upsertSentiment(sentiment: InsertSentimentAnalysis): Promise<SentimentAnalysis>;
+  getSentimentByCommunication(communicationId: string): Promise<SentimentAnalysis | undefined>;
+  listSentimentsByCustomer(customerId: string, limit?: number): Promise<(SentimentAnalysis & { communication: Communication })[]>;
+  getCustomerSentimentSummary(customerId: string): Promise<{
+    totalCommunications: number;
+    averageScore: number;
+    sentimentDistribution: { negative: number; neutral: number; positive: number };
+    recentTrend: 'improving' | 'declining' | 'stable';
+    lastAnalyzedAt: Date | null;
+  }>;
+  getGlobalSentimentSummary(): Promise<{
+    totalCommunications: number;
+    averageScore: number;
+    sentimentDistribution: { negative: number; neutral: number; positive: number };
+    topNegativeCustomers: { customerId: string; customerName: string; averageScore: number }[];
+    topPositiveCustomers: { customerId: string; customerName: string; averageScore: number }[];
+  }>;
 
   // Enhanced Dashboard metrics for CRM
   getCrmDashboardMetrics(): Promise<{
@@ -3976,6 +4001,202 @@ export class DatabaseStorage implements IStorage {
       .where(eq(communications.id, id))
       .returning();
     return communication;
+  }
+
+  // Sentiment Analysis operations
+  async upsertSentiment(sentimentData: InsertSentimentAnalysis): Promise<SentimentAnalysis> {
+    const db = await getDb();
+    
+    // Check if sentiment analysis already exists for this communication
+    const existing = await db
+      .select()
+      .from(sentimentAnalyses)
+      .where(eq(sentimentAnalyses.communicationId, sentimentData.communicationId))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      // Update existing
+      const [sentiment] = await db
+        .update(sentimentAnalyses)
+        .set({
+          ...sentimentData,
+          analyzedAt: new Date()
+        })
+        .where(eq(sentimentAnalyses.communicationId, sentimentData.communicationId))
+        .returning();
+      return sentiment;
+    } else {
+      // Insert new
+      const [sentiment] = await db.insert(sentimentAnalyses).values(sentimentData).returning();
+      return sentiment;
+    }
+  }
+
+  async getSentimentByCommunication(communicationId: string): Promise<SentimentAnalysis | undefined> {
+    const db = await getDb();
+    const [sentiment] = await db
+      .select()
+      .from(sentimentAnalyses)
+      .where(eq(sentimentAnalyses.communicationId, communicationId))
+      .limit(1);
+    return sentiment;
+  }
+
+  async listSentimentsByCustomer(customerId: string, limit = 50): Promise<(SentimentAnalysis & { communication: Communication })[]> {
+    const db = await getDb();
+    return await db
+      .select({
+        sentiment: sentimentAnalyses,
+        communication: communications,
+      })
+      .from(sentimentAnalyses)
+      .leftJoin(communications, eq(sentimentAnalyses.communicationId, communications.id))
+      .where(eq(sentimentAnalyses.customerId, customerId))
+      .limit(limit)
+      .orderBy(desc(sentimentAnalyses.analyzedAt))
+      .then(rows => rows.map(row => ({
+        ...row.sentiment,
+        communication: row.communication!,
+      })));
+  }
+
+  async getCustomerSentimentSummary(customerId: string): Promise<{
+    totalCommunications: number;
+    averageScore: number;
+    sentimentDistribution: { negative: number; neutral: number; positive: number };
+    recentTrend: 'improving' | 'declining' | 'stable';
+    lastAnalyzedAt: Date | null;
+  }> {
+    const db = await getDb();
+    
+    // Get overall metrics
+    const [metrics] = await db
+      .select({
+        totalCommunications: sql<number>`COUNT(*)`.as('totalCommunications'),
+        averageScore: sql<number>`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`.as('averageScore'),
+        negativeCount: sql<number>`COUNT(CASE WHEN ${sentimentAnalyses.label} = 'negative' THEN 1 END)`.as('negativeCount'),
+        neutralCount: sql<number>`COUNT(CASE WHEN ${sentimentAnalyses.label} = 'neutral' THEN 1 END)`.as('neutralCount'),
+        positiveCount: sql<number>`COUNT(CASE WHEN ${sentimentAnalyses.label} = 'positive' THEN 1 END)`.as('positiveCount'),
+        lastAnalyzedAt: sql<Date>`MAX(${sentimentAnalyses.analyzedAt})`.as('lastAnalyzedAt'),
+      })
+      .from(sentimentAnalyses)
+      .where(eq(sentimentAnalyses.customerId, customerId));
+
+    // Get recent trend (compare last 30 days vs previous 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const [recentAvg] = await db
+      .select({
+        avgScore: sql<number>`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`.as('avgScore'),
+      })
+      .from(sentimentAnalyses)
+      .where(and(
+        eq(sentimentAnalyses.customerId, customerId),
+        gte(sentimentAnalyses.analyzedAt, thirtyDaysAgo)
+      ));
+
+    const [previousAvg] = await db
+      .select({
+        avgScore: sql<number>`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`.as('avgScore'),
+      })
+      .from(sentimentAnalyses)
+      .where(and(
+        eq(sentimentAnalyses.customerId, customerId),
+        gte(sentimentAnalyses.analyzedAt, sixtyDaysAgo),
+        lte(sentimentAnalyses.analyzedAt, thirtyDaysAgo)
+      ));
+
+    // Determine trend
+    let recentTrend: 'improving' | 'declining' | 'stable' = 'stable';
+    if (recentAvg?.avgScore && previousAvg?.avgScore) {
+      const difference = recentAvg.avgScore - previousAvg.avgScore;
+      if (difference > 0.1) recentTrend = 'improving';
+      else if (difference < -0.1) recentTrend = 'declining';
+    }
+
+    return {
+      totalCommunications: metrics?.totalCommunications || 0,
+      averageScore: metrics?.averageScore || 0,
+      sentimentDistribution: {
+        negative: metrics?.negativeCount || 0,
+        neutral: metrics?.neutralCount || 0,
+        positive: metrics?.positiveCount || 0,
+      },
+      recentTrend,
+      lastAnalyzedAt: metrics?.lastAnalyzedAt || null,
+    };
+  }
+
+  async getGlobalSentimentSummary(): Promise<{
+    totalCommunications: number;
+    averageScore: number;
+    sentimentDistribution: { negative: number; neutral: number; positive: number };
+    topNegativeCustomers: { customerId: string; customerName: string; averageScore: number }[];
+    topPositiveCustomers: { customerId: string; customerName: string; averageScore: number }[];
+  }> {
+    const db = await getDb();
+    
+    // Get overall metrics
+    const [metrics] = await db
+      .select({
+        totalCommunications: sql<number>`COUNT(*)`.as('totalCommunications'),
+        averageScore: sql<number>`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`.as('averageScore'),
+        negativeCount: sql<number>`COUNT(CASE WHEN ${sentimentAnalyses.label} = 'negative' THEN 1 END)`.as('negativeCount'),
+        neutralCount: sql<number>`COUNT(CASE WHEN ${sentimentAnalyses.label} = 'neutral' THEN 1 END)`.as('neutralCount'),
+        positiveCount: sql<number>`COUNT(CASE WHEN ${sentimentAnalyses.label} = 'positive' THEN 1 END)`.as('positiveCount'),
+      })
+      .from(sentimentAnalyses);
+
+    // Get top negative customers
+    const topNegativeCustomers = await db
+      .select({
+        customerId: sentimentAnalyses.customerId,
+        customerName: customers.name,
+        averageScore: sql<number>`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`.as('averageScore'),
+      })
+      .from(sentimentAnalyses)
+      .leftJoin(customers, eq(sentimentAnalyses.customerId, customers.id))
+      .groupBy(sentimentAnalyses.customerId, customers.name)
+      .having(sql`COUNT(*) >= 3`) // At least 3 communications
+      .orderBy(asc(sql`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`))
+      .limit(5);
+
+    // Get top positive customers
+    const topPositiveCustomers = await db
+      .select({
+        customerId: sentimentAnalyses.customerId,
+        customerName: customers.name,
+        averageScore: sql<number>`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`.as('averageScore'),
+      })
+      .from(sentimentAnalyses)
+      .leftJoin(customers, eq(sentimentAnalyses.customerId, customers.id))
+      .groupBy(sentimentAnalyses.customerId, customers.name)
+      .having(sql`COUNT(*) >= 3`) // At least 3 communications
+      .orderBy(desc(sql`AVG(CAST(${sentimentAnalyses.score} AS FLOAT))`))
+      .limit(5);
+
+    return {
+      totalCommunications: metrics?.totalCommunications || 0,
+      averageScore: metrics?.averageScore || 0,
+      sentimentDistribution: {
+        negative: metrics?.negativeCount || 0,
+        neutral: metrics?.neutralCount || 0,
+        positive: metrics?.positiveCount || 0,
+      },
+      topNegativeCustomers: topNegativeCustomers.map(row => ({
+        customerId: row.customerId,
+        customerName: row.customerName || 'Unknown Customer',
+        averageScore: row.averageScore || 0,
+      })),
+      topPositiveCustomers: topPositiveCustomers.map(row => ({
+        customerId: row.customerId,
+        customerName: row.customerName || 'Unknown Customer',
+        averageScore: row.averageScore || 0,
+      })),
+    };
   }
 
   // Enhanced Dashboard metrics for CRM

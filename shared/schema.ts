@@ -331,6 +331,13 @@ export const settingCategoryEnum = pgEnum('setting_category', [
   'security'
 ]);
 
+// Sentiment analysis enum
+export const sentimentLabelEnum = pgEnum('sentiment_label', [
+  'negative',
+  'neutral',
+  'positive'
+]);
+
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
@@ -1091,6 +1098,23 @@ export const communications = pgTable("communications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Sentiment Analysis table
+export const sentimentAnalyses = pgTable("sentiment_analyses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  communicationId: varchar("communication_id").references(() => communications.id).notNull(),
+  customerId: varchar("customer_id").references(() => customers.id).notNull(),
+  score: decimal("score", { precision: 3, scale: 2 }).notNull(), // -1.00 to 1.00
+  label: sentimentLabelEnum("label").notNull(),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).notNull(), // 0.00 to 1.00
+  aspects: text("aspects").array(), // identified aspects/topics
+  analyzedAt: timestamp("analyzed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_sentiment_customer").on(table.customerId),
+  index("idx_sentiment_communication").on(table.communicationId),
+  index("idx_sentiment_label_date").on(table.label, table.analyzedAt),
+]);
+
 // Advanced Reporting Module Tables
 
 // Report definitions table
@@ -1728,7 +1752,7 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
   communications: many(communications),
 }));
 
-export const communicationsRelations = relations(communications, ({ one }) => ({
+export const communicationsRelations = relations(communications, ({ one, many }) => ({
   customer: one(customers, {
     fields: [communications.customerId],
     references: [customers.id],
@@ -1745,6 +1769,18 @@ export const communicationsRelations = relations(communications, ({ one }) => ({
     fields: [communications.userId],
     references: [users.id],
     relationName: "sender",
+  }),
+  sentimentAnalyses: many(sentimentAnalyses),
+}));
+
+export const sentimentAnalysesRelations = relations(sentimentAnalyses, ({ one }) => ({
+  communication: one(communications, {
+    fields: [sentimentAnalyses.communicationId],
+    references: [communications.id],
+  }),
+  customer: one(customers, {
+    fields: [sentimentAnalyses.customerId],
+    references: [customers.id],
   }),
 }));
 
@@ -2091,6 +2127,12 @@ export const insertCommunicationSchema = createInsertSchema(communications).omit
   createdAt: true,
 });
 
+export const insertSentimentAnalysisSchema = createInsertSchema(sentimentAnalyses).omit({
+  id: true,
+  analyzedAt: true,
+  createdAt: true,
+});
+
 // CRM Module Insert Schemas
 export const insertQuotationSchema = createInsertSchema(quotations).omit({
   id: true,
@@ -2312,6 +2354,8 @@ export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
 export type Communication = typeof communications.$inferSelect;
+export type InsertSentimentAnalysis = z.infer<typeof insertSentimentAnalysisSchema>;
+export type SentimentAnalysis = typeof sentimentAnalyses.$inferSelect;
 
 // CRM Module Types
 export type InsertQuotation = z.infer<typeof insertQuotationSchema>;

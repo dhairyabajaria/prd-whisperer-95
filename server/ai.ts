@@ -44,7 +44,260 @@ export interface AIInsight {
   data?: any;
 }
 
+export interface SentimentResult {
+  score: number; // -1.00 to 1.00
+  label: 'negative' | 'neutral' | 'positive';
+  confidence: number; // 0.00 to 1.00
+  aspects: string[]; // identified aspects/topics
+  processingTime?: number;
+}
+
+export interface CommunicationForAnalysis {
+  id: string;
+  customerId: string;
+  content: string;
+  communicationType: string;
+  direction: 'inbound' | 'outbound';
+  createdAt: Date;
+}
+
 export class AIService {
+  // PII redaction method to clean text before sending to OpenAI
+  private redactPII(text: string): string {
+    if (!text) return text;
+    
+    // Redact email addresses
+    let cleanedText = text.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
+    
+    // Redact phone numbers (various formats)
+    cleanedText = cleanedText.replace(/(\+?\d{1,4}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[PHONE_REDACTED]');
+    cleanedText = cleanedText.replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '[PHONE_REDACTED]');
+    
+    // Redact order numbers (assuming they follow patterns like ORD123456, SO-2024-001, etc.)
+    cleanedText = cleanedText.replace(/\b(ORD|ORDER|SO|PO|INV|QUOTE)[-_]?\d{4,}\b/gi, '[ORDER_NUM_REDACTED]');
+    
+    // Redact potential customer IDs (alphanumeric strings that look like IDs)
+    cleanedText = cleanedText.replace(/\b[A-Z0-9]{8,}\b/g, '[ID_REDACTED]');
+    
+    // Redact credit card numbers (basic pattern)
+    cleanedText = cleanedText.replace(/\b\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{4}\b/g, '[CARD_REDACTED]');
+    
+    // Redact addresses (basic pattern for street addresses)
+    cleanedText = cleanedText.replace(/\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)\b/gi, '[ADDRESS_REDACTED]');
+    
+    return cleanedText;
+  }
+
+  // Generate deterministic sentiment fallback based on content analysis
+  private generateFallbackSentiment(text: string): SentimentResult {
+    if (!text || text.trim().length === 0) {
+      return {
+        score: 0,
+        label: 'neutral',
+        confidence: 0.5,
+        aspects: [],
+        processingTime: 1
+      };
+    }
+
+    const cleanText = text.toLowerCase();
+    
+    // Define keyword lists for sentiment analysis
+    const positiveKeywords = [
+      'excellent', 'great', 'good', 'satisfied', 'happy', 'pleased', 'thank', 'thanks',
+      'appreciate', 'wonderful', 'amazing', 'fantastic', 'love', 'perfect', 'best',
+      'recommend', 'quality', 'fast', 'quick', 'helpful', 'professional', 'reliable'
+    ];
+    
+    const negativeKeywords = [
+      'bad', 'terrible', 'awful', 'horrible', 'disappointed', 'unsatisfied', 'angry',
+      'upset', 'frustrated', 'complaint', 'problem', 'issue', 'delay', 'late', 'slow',
+      'poor', 'worst', 'hate', 'refuse', 'unacceptable', 'damaged', 'broken', 'wrong'
+    ];
+    
+    const neutralKeywords = [
+      'inquiry', 'question', 'information', 'update', 'status', 'confirm', 'schedule',
+      'order', 'delivery', 'payment', 'invoice', 'request', 'need', 'want'
+    ];
+
+    // Count keyword occurrences
+    let positiveScore = 0;
+    let negativeScore = 0;
+    let neutralScore = 0;
+    const foundAspects: string[] = [];
+
+    positiveKeywords.forEach(keyword => {
+      const matches = (cleanText.match(new RegExp(keyword, 'g')) || []).length;
+      positiveScore += matches;
+      if (matches > 0) foundAspects.push(`positive_${keyword}`);
+    });
+
+    negativeKeywords.forEach(keyword => {
+      const matches = (cleanText.match(new RegExp(keyword, 'g')) || []).length;
+      negativeScore += matches;
+      if (matches > 0) foundAspects.push(`negative_${keyword}`);
+    });
+
+    neutralKeywords.forEach(keyword => {
+      const matches = (cleanText.match(new RegExp(keyword, 'g')) || []).length;
+      neutralScore += matches;
+      if (matches > 0) foundAspects.push(`neutral_${keyword}`);
+    });
+
+    // Calculate sentiment score
+    const totalScore = positiveScore + negativeScore + neutralScore;
+    let score = 0;
+    let label: 'negative' | 'neutral' | 'positive' = 'neutral';
+    let confidence = 0.6; // Base confidence for fallback
+
+    if (totalScore > 0) {
+      score = (positiveScore - negativeScore) / Math.max(totalScore, 1);
+      
+      if (score > 0.2) {
+        label = 'positive';
+        confidence = Math.min(0.8, 0.6 + (score * 0.2));
+      } else if (score < -0.2) {
+        label = 'negative';
+        confidence = Math.min(0.8, 0.6 + (Math.abs(score) * 0.2));
+      } else {
+        label = 'neutral';
+        confidence = 0.65;
+      }
+    }
+
+    // Normalize score to -1 to 1 range
+    score = Math.max(-1, Math.min(1, score));
+
+    return {
+      score: Math.round(score * 100) / 100, // Round to 2 decimal places
+      label,
+      confidence: Math.round(confidence * 100) / 100,
+      aspects: foundAspects.slice(0, 5), // Limit to top 5 aspects
+      processingTime: 2
+    };
+  }
+
+  // Analyze text sentiment with OpenAI integration and fallback
+  async analyzeTextSentiment(text: string): Promise<SentimentResult> {
+    const startTime = Date.now();
+    
+    // Return fallback if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, using fallback sentiment analysis');
+      return this.generateFallbackSentiment(text);
+    }
+
+    try {
+      // Redact PII before sending to OpenAI
+      const cleanedText = this.redactPII(text);
+      
+      if (!cleanedText || cleanedText.trim().length === 0) {
+        return this.generateFallbackSentiment(text);
+      }
+
+      const prompt = `
+        Analyze the sentiment of the following customer communication text from a pharmaceutical distribution context.
+        
+        Text to analyze:
+        "${cleanedText}"
+        
+        Provide a detailed sentiment analysis including:
+        1. Overall sentiment score from -1.00 (very negative) to 1.00 (very positive)
+        2. Sentiment label: "negative", "neutral", or "positive"
+        3. Confidence level from 0.00 to 1.00
+        4. Key aspects or topics mentioned (up to 5)
+        
+        Consider pharmaceutical industry context:
+        - Product quality concerns
+        - Delivery and logistics issues
+        - Pricing and payment topics
+        - Customer service interactions
+        - Regulatory compliance matters
+        
+        Return the analysis in JSON format with fields:
+        - score: number (-1.00 to 1.00)
+        - label: "negative" | "neutral" | "positive"
+        - confidence: number (0.00 to 1.00)
+        - aspects: string[] (key topics/aspects identified)
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert sentiment analysis AI specialized in pharmaceutical industry communications. Provide accurate, nuanced sentiment analysis with pharmaceutical business context."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3, // Low temperature for consistency
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const processingTime = Date.now() - startTime;
+      
+      // Validate and normalize the response
+      const normalizedResult: SentimentResult = {
+        score: Math.max(-1, Math.min(1, result.score || 0)),
+        label: ['negative', 'neutral', 'positive'].includes(result.label) ? result.label : 'neutral',
+        confidence: Math.max(0, Math.min(1, result.confidence || 0.5)),
+        aspects: Array.isArray(result.aspects) ? result.aspects.slice(0, 5) : [],
+        processingTime
+      };
+
+      return normalizedResult;
+    } catch (error) {
+      console.error('Error analyzing text sentiment with OpenAI:', error);
+      // Return fallback analysis on error
+      return this.generateFallbackSentiment(text);
+    }
+  }
+
+  // Batch analyze multiple communications
+  async batchAnalyzeCommunications(communications: CommunicationForAnalysis[]): Promise<Map<string, SentimentResult>> {
+    const results = new Map<string, SentimentResult>();
+    
+    if (!communications || communications.length === 0) {
+      return results;
+    }
+
+    // Process communications in parallel but with rate limiting
+    const batchSize = 5; // Process 5 at a time to avoid rate limits
+    const batches = [];
+    
+    for (let i = 0; i < communications.length; i += batchSize) {
+      batches.push(communications.slice(i, i + batchSize));
+    }
+
+    for (const batch of batches) {
+      const promises = batch.map(async (comm) => {
+        try {
+          const sentiment = await this.analyzeTextSentiment(comm.content);
+          return { id: comm.id, sentiment };
+        } catch (error) {
+          console.error(`Error analyzing sentiment for communication ${comm.id}:`, error);
+          return { id: comm.id, sentiment: this.generateFallbackSentiment(comm.content) };
+        }
+      });
+
+      const batchResults = await Promise.all(promises);
+      batchResults.forEach(({ id, sentiment }) => {
+        results.set(id, sentiment);
+      });
+
+      // Small delay between batches to respect rate limits
+      if (batches.length > 1 && isOpenAIConfigured()) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    return results;
+  }
+
   // Fallback data generators for when AI is unavailable
   private generateFallbackInventoryRecommendations(inventoryData: Array<{
     productId: string;

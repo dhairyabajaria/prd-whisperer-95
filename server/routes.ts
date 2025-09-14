@@ -35,6 +35,7 @@ import {
   insertCreditOverrideSchema,
   insertLeadSchema,
   insertCommunicationSchema,
+  insertSentimentAnalysisSchema,
   insertPosTerminalSchema,
   insertPosSessionSchema,
   insertCashMovementSchema,
@@ -112,6 +113,9 @@ const requirePurchaseAccess = requireRole(['admin', 'finance', 'inventory']);
 
 // Purchase approval middleware (admin, finance roles with management level)
 const requirePurchaseApproval = requireRole(['admin', 'finance']);
+
+// Sentiment analysis access middleware (admin, sales, marketing roles only)
+const requireSentimentAccess = requireRole(['admin', 'sales', 'marketing']);
 
 // Time tracking access middleware - allows employees to manage their own entries
 const requireTimeTrackingAccess: RequestHandler = async (req, res, next) => {
@@ -2838,6 +2842,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching AI recommendations:", error);
       res.status(500).json({ message: "Failed to fetch AI recommendations" });
+    }
+  });
+
+  // =============================================================================
+  // SENTIMENT ANALYSIS MODULE ROUTES
+  // =============================================================================
+
+  // Analyze sentiment for a specific communication
+  app.post("/api/ai/sentiment/communications/:id", isAuthenticated, requireSentimentAccess, async (req, res) => {
+    try {
+      const communicationId = req.params.id;
+      
+      // Get the communication from the database
+      const communication = await storage.getCommunication(communicationId);
+      if (!communication) {
+        return res.status(404).json({ message: "Communication not found" });
+      }
+
+      // Analyze sentiment using AI service
+      const sentimentResult = await aiService.analyzeTextSentiment(communication.content || '');
+      
+      // Store the sentiment analysis result
+      const sentimentData = {
+        communicationId: communication.id,
+        customerId: communication.customerId || communication.leadId || '', // Handle both customer and lead communications
+        score: sentimentResult.score.toString(),
+        label: sentimentResult.label,
+        confidence: sentimentResult.confidence.toString(),
+        aspects: sentimentResult.aspects || []
+      };
+
+      const sentiment = await storage.upsertSentiment(sentimentData);
+      
+      res.json({
+        sentiment,
+        analysis: sentimentResult,
+        communication: {
+          id: communication.id,
+          type: communication.communicationType,
+          direction: communication.direction
+        }
+      });
+    } catch (error: any) {
+      console.error("Error analyzing communication sentiment:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to analyze sentiment", error: error.message });
+      }
+    }
+  });
+
+  // Batch recompute sentiment for all communications of a customer
+  app.post("/api/ai/sentiment/customers/:id/batch", isAuthenticated, requireSentimentAccess, async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      
+      // Verify customer exists
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get all communications for this customer
+      const communications = await storage.getCustomerCommunications(customerId);
+      
+      if (communications.length === 0) {
+        return res.json({ 
+          message: "No communications found for customer",
+          processed: 0,
+          skipped: 0
+        });
+      }
+
+      // Prepare communications for batch analysis
+      const communicationsForAnalysis = communications.map(comm => ({
+        id: comm.id,
+        customerId: customerId,
+        content: comm.content || '',
+        communicationType: comm.communicationType,
+        direction: comm.direction || 'inbound',
+        createdAt: comm.createdAt || new Date()
+      }));
+
+      // Batch analyze sentiments
+      const sentimentResults = await aiService.batchAnalyzeCommunications(communicationsForAnalysis);
+      
+      let processed = 0;
+      let skipped = 0;
+
+      // Store all sentiment analysis results
+      for (const [commId, sentimentResult] of sentimentResults.entries()) {
+        try {
+          const sentimentData = {
+            communicationId: commId,
+            customerId: customerId,
+            score: sentimentResult.score.toString(),
+            label: sentimentResult.label,
+            confidence: sentimentResult.confidence.toString(),
+            aspects: sentimentResult.aspects || []
+          };
+          
+          await storage.upsertSentiment(sentimentData);
+          processed++;
+        } catch (error) {
+          console.error(`Error storing sentiment for communication ${commId}:`, error);
+          skipped++;
+        }
+      }
+
+      res.json({
+        message: "Batch sentiment analysis completed",
+        customer: { id: customer.id, name: customer.name },
+        totalCommunications: communications.length,
+        processed,
+        skipped,
+        processingTime: Date.now()
+      });
+    } catch (error: any) {
+      console.error("Error in batch sentiment analysis:", error);
+      res.status(500).json({ message: "Failed to process batch sentiment analysis", error: error.message });
+    }
+  });
+
+  // Get sentiment summary for a specific customer
+  app.get("/api/ai/sentiment/customers/:id/summary", isAuthenticated, requireSentimentAccess, async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      
+      // Verify customer exists
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get sentiment summary
+      const sentimentSummary = await storage.getCustomerSentimentSummary(customerId);
+      
+      // Get recent sentiment history for trend analysis
+      const recentSentiments = await storage.listSentimentsByCustomer(customerId, 10);
+      
+      res.json({
+        customer: { id: customer.id, name: customer.name },
+        summary: sentimentSummary,
+        recentSentiments: recentSentiments.map(s => ({
+          id: s.id,
+          score: s.score,
+          label: s.label,
+          confidence: s.confidence,
+          analyzedAt: s.analyzedAt,
+          communicationType: s.communication?.communicationType,
+          communicationDirection: s.communication?.direction
+        }))
+      });
+    } catch (error: any) {
+      console.error("Error fetching customer sentiment summary:", error);
+      res.status(500).json({ message: "Failed to fetch sentiment summary", error: error.message });
+    }
+  });
+
+  // Get global sentiment distribution summary
+  app.get("/api/ai/sentiment/summary", isAuthenticated, requireSentimentAccess, async (req, res) => {
+    try {
+      // Get global sentiment summary
+      const globalSummary = await storage.getGlobalSentimentSummary();
+      
+      res.json({
+        global: globalSummary,
+        generatedAt: new Date().toISOString(),
+        aiConfigured: isOpenAIConfigured()
+      });
+    } catch (error: any) {
+      console.error("Error fetching global sentiment summary:", error);
+      res.status(500).json({ message: "Failed to fetch global sentiment summary", error: error.message });
     }
   });
 

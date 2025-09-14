@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Users, Search, Plus, Edit, Trash2, DollarSign, Calendar, Phone, Mail, MapPin, FileText, CreditCard, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Users, Search, Plus, Edit, Trash2, DollarSign, Calendar, Phone, Mail, MapPin, FileText, CreditCard, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus, Brain, RefreshCw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema, type Customer, type InsertCustomer } from "@shared/schema";
@@ -57,6 +57,31 @@ export default function Customers() {
       });
       
       const results = await Promise.all(creditPromises);
+      return results.reduce((acc, item) => ({ ...acc, ...item }), {});
+    },
+    enabled: !!customers?.length,
+  });
+
+  // Fetch sentiment summaries for each customer
+  const { data: sentimentMap, isLoading: isSentimentLoading } = useQuery({
+    queryKey: ["/api/ai/sentiment/customers/summaries"],
+    queryFn: async () => {
+      if (!customers?.length) return {};
+      
+      const sentimentPromises = customers.map(async (customer) => {
+        try {
+          const response = await fetch(`/api/ai/sentiment/customers/${customer.id}/summary`);
+          if (response.ok) {
+            const sentimentSummary = await response.json();
+            return { [customer.id]: sentimentSummary.summary };
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch sentiment for customer ${customer.id}:`, error);
+        }
+        return { [customer.id]: null };
+      });
+      
+      const results = await Promise.all(sentimentPromises);
       return results.reduce((acc, item) => ({ ...acc, ...item }), {});
     },
     enabled: !!customers?.length,
@@ -140,22 +165,20 @@ export default function Customers() {
 
   // Utility functions for CRM features
   const getSentimentIndicator = (customer: Customer) => {
-    // Mock sentiment analysis based on payment behavior and credit utilization
-    const creditInfo = creditInfoMap?.[customer.id];
-    if (!creditInfo) return { icon: Minus, color: "text-muted-foreground", label: "Unknown" };
+    const sentimentSummary = sentimentMap?.[customer.id];
+    
+    if (!sentimentSummary || sentimentSummary.totalCommunications === 0) {
+      return { icon: Minus, color: "text-muted-foreground", label: "No Data", score: null };
+    }
 
-    const creditUtilization = creditInfo.creditLimit > 0 
-      ? (creditInfo.outstandingAmount / creditInfo.creditLimit) * 100 
-      : 0;
-
-    if (creditUtilization < 30) {
-      return { icon: CheckCircle, color: "text-green-600", label: "Excellent" };
-    } else if (creditUtilization < 60) {
-      return { icon: TrendingUp, color: "text-blue-600", label: "Good" };
-    } else if (creditUtilization < 90) {
-      return { icon: AlertTriangle, color: "text-orange-600", label: "Caution" };
+    const avgScore = sentimentSummary.averageScore;
+    
+    if (avgScore >= 0.3) {
+      return { icon: CheckCircle, color: "text-green-600", label: "Positive", score: avgScore };
+    } else if (avgScore >= -0.3) {
+      return { icon: TrendingUp, color: "text-blue-600", label: "Neutral", score: avgScore };
     } else {
-      return { icon: XCircle, color: "text-red-600", label: "High Risk" };
+      return { icon: XCircle, color: "text-red-600", label: "Negative", score: avgScore };
     }
   };
 
@@ -170,6 +193,39 @@ export default function Customers() {
       outstanding: creditInfo.outstandingAmount
     };
   };
+
+  // Sentiment analysis mutation
+  const recalculateSentimentMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("POST", `/api/ai/sentiment/customers/${customerId}/batch`, {});
+      return await response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai/sentiment/customers/summaries"] });
+      toast({
+        title: "Success",
+        description: `Sentiment analysis completed for ${result.processed} communications`,
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to recalculate sentiment",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Quick action mutations
   const createQuotationMutation = useMutation({
@@ -462,8 +518,10 @@ export default function Customers() {
                             const sentiment = getSentimentIndicator(customer);
                             const SentimentIcon = sentiment.icon;
                             return (
-                              <div className={`flex items-center space-x-1 ${sentiment.color}`} title={`Credit Health: ${sentiment.label}`}>
-                                <SentimentIcon className="w-4 h-4" />
+                              <div className={`flex items-center space-x-1 ${sentiment.color}`} 
+                                   title={`Sentiment: ${sentiment.label}${sentiment.score !== null ? ` (${sentiment.score.toFixed(2)})` : ''}`}>
+                                <Brain className="w-3 h-3" />
+                                <SentimentIcon className="w-4 h-4" data-testid={`icon-sentiment-${customer.id}`} />
                               </div>
                             );
                           })()}
@@ -492,14 +550,34 @@ export default function Customers() {
                         </Badge>
                         {(() => {
                           const sentiment = getSentimentIndicator(customer);
+                          const sentimentSummary = sentimentMap?.[customer.id];
+                          
+                          if (isSentimentLoading) {
+                            return (
+                              <Badge variant="outline" className="text-xs animate-pulse">
+                                Loading...
+                              </Badge>
+                            );
+                          }
+                          
                           return (
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${sentiment.color} border-current`}
-                              data-testid={`badge-sentiment-${customer.id}`}
-                            >
-                              {sentiment.label}
-                            </Badge>
+                            <div className="flex flex-col items-end space-y-1">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${sentiment.color} border-current`}
+                                data-testid={`badge-sentiment-${customer.id}`}
+                              >
+                                {sentiment.label}
+                                {sentiment.score !== null && (
+                                  <span className="ml-1 opacity-75">({sentiment.score.toFixed(2)})</span>
+                                )}
+                              </Badge>
+                              {sentimentSummary && sentimentSummary.totalCommunications > 0 && (
+                                <span className="text-xs text-muted-foreground" data-testid={`text-sentiment-count-${customer.id}`}>
+                                  {sentimentSummary.totalCommunications} comm.
+                                </span>
+                              )}
+                            </div>
                           );
                         })()}
                       </div>
@@ -598,6 +676,18 @@ export default function Customers() {
                       >
                         <CreditCard className="w-4 h-4 mr-1" />
                         Credit
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => recalculateSentimentMutation.mutate(customer.id)}
+                        disabled={recalculateSentimentMutation.isPending}
+                        data-testid={`button-recalculate-sentiment-${customer.id}`}
+                        title="Recalculate sentiment analysis for this customer"
+                      >
+                        <RefreshCw className={`w-4 h-4 mr-1 ${recalculateSentimentMutation.isPending ? "animate-spin" : ""}`} />
+                        {recalculateSentimentMutation.isPending ? "Analyzing..." : "Sentiment"}
                       </Button>
                     </div>
 
