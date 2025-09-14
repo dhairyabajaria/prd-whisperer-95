@@ -35,13 +35,38 @@ export function getSession(): RequestHandler {
     const hasDatabaseUrl = !!process.env.DATABASE_URL;
     const hasSessionSecret = !!process.env.SESSION_SECRET;
 
-    // Validate session secret
+    // Validate session secret with security requirements
+    const sessionSecret = process.env.SESSION_SECRET;
+    
     if (!hasSessionSecret) {
       if (isProduction) {
         console.error('SESSION_SECRET is required in production');
         throw new Error('SESSION_SECRET is required in production');
       } else {
-        console.warn('SESSION_SECRET not set, using default for development (not secure)');
+        console.warn('SESSION_SECRET not set, using generated secret for development (not secure)');
+      }
+    } else {
+      // Validate session secret strength
+      if (sessionSecret && sessionSecret.length < 32) {
+        const message = 'SESSION_SECRET must be at least 32 characters long for security';
+        if (isProduction) {
+          console.error(message);
+          throw new Error(message);
+        } else {
+          console.warn(message + ' - using in development but should be fixed');
+        }
+      }
+      
+      // Check for common weak secrets
+      const weakSecrets = ['secret', 'password', 'dev-secret', 'change-me', 'session-secret'];
+      if (sessionSecret && weakSecrets.some(weak => sessionSecret.toLowerCase().includes(weak))) {
+        const message = 'SESSION_SECRET appears to use weak/default values';
+        if (isProduction) {
+          console.error(message);
+          throw new Error(message);
+        } else {
+          console.warn(message + ' - acceptable in development but should use strong secret in production');
+        }
       }
     }
 
@@ -74,8 +99,16 @@ export function getSession(): RequestHandler {
       console.log('Using memory session store (development only)');
     }
     
+    // Generate a secure random secret for development if none provided
+    const getSessionSecret = () => {
+      if (sessionSecret) return sessionSecret;
+      // Generate a cryptographically secure random secret for development
+      const crypto = require('crypto');
+      return crypto.randomBytes(32).toString('hex');
+    };
+    
     sessionMiddleware = session({
-      secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+      secret: getSessionSecret(),
       store: sessionStore,
       resave: false,
       saveUninitialized: false,

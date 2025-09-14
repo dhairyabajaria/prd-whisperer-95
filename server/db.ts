@@ -25,19 +25,28 @@ export async function getDb() {
     throw new Error("Database temporarily unavailable; retry later");
   }
 
-  // Try different possible environment variable names for DATABASE_URL
+  // Try different possible environment variable names for PostgreSQL DATABASE_URL
   const databaseUrl = process.env.DATABASE_URL || 
-                     process.env.REPLIT_DB_URL || 
                      process.env.NEON_DATABASE_URL || 
                      process.env.DB_URL ||
                      process.env.POSTGRES_URL;
   
-  console.log('Available env vars:', Object.keys(process.env).filter(key => 
+  // Helper function to safely log database connection info without credentials
+  const getSafeDbInfo = (url: string | undefined) => {
+    if (!url) return 'not set';
+    try {
+      const urlObj = new URL(url);
+      return `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? ':' + urlObj.port : ''}${urlObj.pathname}`;
+    } catch {
+      return 'present but invalid format';
+    }
+  };
+  
+  console.log('Available DB env vars:', Object.keys(process.env).filter(key => 
     key.includes('DATABASE') || key.includes('DB') || key.includes('POSTGRES') || key.includes('NEON')
   ));
-  console.log('DATABASE_URL value:', process.env.DATABASE_URL);
-  console.log('PGDATABASE value:', process.env.PGDATABASE);
-  console.log('Selected databaseUrl:', databaseUrl);
+  console.log('DATABASE_URL:', getSafeDbInfo(process.env.DATABASE_URL));
+  console.log('Selected database:', getSafeDbInfo(databaseUrl));
   
   if (!databaseUrl) {
     throw new Error(
