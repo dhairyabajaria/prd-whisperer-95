@@ -96,7 +96,7 @@ interface PurchaseOrderWithDetails extends PurchaseOrder {
 interface GoodsReceiptWithDetails extends GoodsReceipt {
   purchaseOrder: PurchaseOrder & { supplier: Supplier };
   warehouse: Warehouse;
-  receivedBy: User;
+  receivedByUser: User;
   items: Array<{
     id: string;
     productId: string;
@@ -111,7 +111,7 @@ interface GoodsReceiptWithDetails extends GoodsReceipt {
 interface VendorBillWithDetails extends VendorBill {
   supplier: Supplier;
   purchaseOrder?: PurchaseOrder;
-  createdBy: User;
+  createdByUser: User;
   items: Array<{
     id: string;
     productId?: string;
@@ -257,7 +257,6 @@ export default function Purchases() {
     defaultValues: {
       price: "0",
       currency: "USD",
-      collectedAt: new Date(),
       isActive: true,
     },
   });
@@ -339,6 +338,59 @@ export default function Purchases() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fx/rates"] });
       toast({ title: "Success", description: "FX rates refreshed successfully" });
+    },
+    onError: handleMutationError,
+  });
+
+  // Purchase Order status management mutations
+  const sendPOMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PUT", `/api/purchases/orders/${id}`, { status: "sent" });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      toast({ title: "Success", description: "Purchase order sent to supplier" });
+    },
+    onError: handleMutationError,
+  });
+
+  const confirmPOMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PUT", `/api/purchases/orders/${id}`, { status: "confirmed" });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      toast({ title: "Success", description: "Purchase order confirmed" });
+    },
+    onError: handleMutationError,
+  });
+
+  const receivePOMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PUT", `/api/purchases/orders/${id}`, { status: "received" });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      toast({ title: "Success", description: "Purchase order marked as received" });
+    },
+    onError: handleMutationError,
+  });
+
+  const cancelPOMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PUT", `/api/purchases/orders/${id}`, { status: "cancelled" });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      toast({ title: "Success", description: "Purchase order cancelled" });
     },
     onError: handleMutationError,
   });
@@ -624,7 +676,7 @@ export default function Purchases() {
                       <FormItem>
                         <FormLabel>Total Amount</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} data-testid="input-pr-total" />
+                          <Input type="number" step="0.01" {...field} value={field.value || ""} data-testid="input-pr-total" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -728,13 +780,13 @@ export default function Purchases() {
                           <div className="font-mono text-sm">{pr.prNumber}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="font-medium">{pr.requester.name}</div>
+                          <div className="font-medium">{pr.requester.firstName && pr.requester.lastName ? `${pr.requester.firstName} ${pr.requester.lastName}` : pr.requester.email}</div>
                         </td>
                         <td className="px-6 py-4">
                           <div>{pr.supplier?.name || 'TBD'}</div>
                         </td>
                         <td className="px-6 py-4 font-medium">
-                          {formatCurrency(pr.totalAmount || 0, pr.currency)}
+                          {formatCurrency(pr.totalAmount || 0, pr.currency || 'USD')}
                         </td>
                         <td className="px-6 py-4">
                           <Badge className={getStatusColor(pr.status || 'draft')}>
@@ -778,6 +830,376 @@ export default function Purchases() {
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                       No purchase requests found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  // Purchase Orders Tab Component
+  const PurchaseOrdersTab = () => (
+    <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search purchase orders..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-80"
+              data-testid="input-search-orders"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-48" data-testid="select-status-filter-po">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="sent">Sent</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="received">Received</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <Dialog open={isCreatePOModalOpen} onOpenChange={setIsCreatePOModalOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-purchase-order">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Purchase Order
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Purchase Order</DialogTitle>
+            </DialogHeader>
+            <Form {...poForm}>
+              <form onSubmit={poForm.handleSubmit((data) => createPOMutation.mutate(data))} className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={poForm.control}
+                    name="orderNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PO Number *</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-po-number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={poForm.control}
+                    name="supplierId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-supplier-po">
+                              <SelectValue placeholder="Select supplier" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {suppliers?.map((supplier) => (
+                              <SelectItem key={supplier.id} value={supplier.id}>
+                                {supplier.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={poForm.control}
+                    name="orderDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Date *</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} data-testid="input-po-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={poForm.control}
+                    name="expectedDeliveryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expected Delivery Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} value={field.value || ""} data-testid="input-po-delivery-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={poForm.control}
+                    name="paymentTerms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Terms (Days)</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} value={field.value || ""} data-testid="input-po-payment-terms" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={poForm.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Currency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-currency-po">
+                              <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="AOA">AOA</SelectItem>
+                            <SelectItem value="BRL">BRL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={poForm.control}
+                    name="incoterm"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Incoterm</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-incoterm">
+                              <SelectValue placeholder="Select incoterm" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="EXW">EXW - Ex Works</SelectItem>
+                            <SelectItem value="FCA">FCA - Free Carrier</SelectItem>
+                            <SelectItem value="FOB">FOB - Free on Board</SelectItem>
+                            <SelectItem value="CIF">CIF - Cost, Insurance & Freight</SelectItem>
+                            <SelectItem value="DDP">DDP - Delivered Duty Paid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={poForm.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Amount</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} value={field.value || ""} data-testid="input-po-total" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={poForm.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} value={field.value || ""} data-testid="textarea-po-notes" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-3">
+                  <Button type="button" variant="outline" onClick={() => setIsCreatePOModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createPOMutation.isPending} data-testid="button-submit-po">
+                    {createPOMutation.isPending ? "Creating..." : "Create Purchase Order"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Purchase Orders Table */}
+      <Card data-testid="card-purchase-orders">
+        <CardHeader>
+          <CardTitle>Purchase Orders</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr className="text-left">
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">PO Number</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Supplier</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Order Date</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {isPOLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-8 w-16" /></td>
+                    </tr>
+                  ))
+                ) : purchaseOrders && purchaseOrders.length > 0 ? (
+                  purchaseOrders
+                    .filter(po => {
+                      const matchesSearch = po.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        po.supplier.name.toLowerCase().includes(searchTerm.toLowerCase());
+                      const matchesStatus = statusFilter === "all" || po.status === statusFilter;
+                      return matchesSearch && matchesStatus;
+                    })
+                    .map((po) => (
+                      <tr key={po.id} data-testid={`row-purchase-order-${po.id}`}>
+                        <td className="px-6 py-4">
+                          <div className="font-mono text-sm">{po.orderNumber}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{po.supplier.name}</div>
+                          <div className="text-sm text-muted-foreground">{po.supplier.email}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>{format(new Date(po.orderDate), 'MMM dd, yyyy')}</div>
+                          {po.expectedDeliveryDate && (
+                            <div className="text-sm text-muted-foreground">
+                              Exp: {format(new Date(po.expectedDeliveryDate), 'MMM dd')}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium">
+                          {formatCurrency(po.totalAmount || 0, po.currency || 'USD')}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge className={getStatusColor(po.status || 'draft')}>
+                            {getStatusText(po.status || 'draft')}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            {po.status === 'draft' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => sendPOMutation.mutate(po.id)}
+                                  disabled={sendPOMutation.isPending}
+                                  data-testid={`button-send-po-${po.id}`}
+                                >
+                                  <Truck className="w-4 h-4 mr-1" />
+                                  {sendPOMutation.isPending ? "Sending..." : "Send"}
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => cancelPOMutation.mutate(po.id)}
+                                  disabled={cancelPOMutation.isPending}
+                                  data-testid={`button-cancel-po-${po.id}`}
+                                >
+                                  <X className="w-4 h-4 mr-1" />
+                                  Cancel
+                                </Button>
+                              </>
+                            )}
+                            {po.status === 'sent' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => confirmPOMutation.mutate(po.id)}
+                                  disabled={confirmPOMutation.isPending}
+                                  data-testid={`button-confirm-po-${po.id}`}
+                                >
+                                  <Check className="w-4 h-4 mr-1" />
+                                  {confirmPOMutation.isPending ? "Confirming..." : "Confirm"}
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => cancelPOMutation.mutate(po.id)}
+                                  disabled={cancelPOMutation.isPending}
+                                  data-testid={`button-cancel-po-${po.id}`}
+                                >
+                                  <X className="w-4 h-4 mr-1" />
+                                  Cancel
+                                </Button>
+                              </>
+                            )}
+                            {po.status === 'confirmed' && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => receivePOMutation.mutate(po.id)}
+                                disabled={receivePOMutation.isPending}
+                                data-testid={`button-receive-po-${po.id}`}
+                              >
+                                <Package className="w-4 h-4 mr-1" />
+                                {receivePOMutation.isPending ? "Processing..." : "Mark Received"}
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" data-testid={`button-view-po-${po.id}`}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            {['draft', 'sent'].includes(po.status || '') && (
+                              <Button size="sm" variant="outline" data-testid={`button-edit-po-${po.id}`}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                      No purchase orders found
                     </td>
                   </tr>
                 )}
@@ -842,9 +1264,7 @@ export default function Purchases() {
             </TabsContent>
 
             <TabsContent value="orders" className="mt-6">
-              <div className="flex items-center justify-center h-64">
-                <p className="text-muted-foreground">Purchase Orders tab - Coming soon</p>
-              </div>
+              <PurchaseOrdersTab />
             </TabsContent>
 
             <TabsContent value="receipts" className="mt-6">

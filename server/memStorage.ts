@@ -252,7 +252,15 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const newCustomer: Customer = {
       id,
-      ...customer,
+      name: customer.name,
+      email: customer.email ?? null,
+      phone: customer.phone ?? null,
+      address: customer.address ?? null,
+      taxId: customer.taxId ?? null,
+      creditLimit: customer.creditLimit ?? null,
+      paymentTerms: customer.paymentTerms ?? null,
+      assignedSalesRep: customer.assignedSalesRep ?? null,
+      isActive: customer.isActive ?? true,
       createdAt: now,
       updatedAt: now,
     };
@@ -292,7 +300,14 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const newSupplier: Supplier = {
       id,
-      ...supplier,
+      name: supplier.name,
+      email: supplier.email ?? null,
+      phone: supplier.phone ?? null,
+      address: supplier.address ?? null,
+      country: supplier.country ?? null,
+      creditDays: supplier.creditDays ?? null,
+      currency: supplier.currency ?? null,
+      isActive: supplier.isActive ?? true,
       createdAt: now,
       updatedAt: now,
     };
@@ -331,7 +346,11 @@ export class MemStorage implements IStorage {
     const id = this.generateId();
     const newWarehouse: Warehouse = {
       id,
-      ...warehouse,
+      name: warehouse.name,
+      location: warehouse.location ?? null,
+      type: warehouse.type ?? null,
+      capacity: warehouse.capacity ?? null,
+      isActive: warehouse.isActive ?? true,
       createdAt: new Date(),
     };
     this.warehouses.set(id, newWarehouse);
@@ -369,7 +388,16 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const newProduct: Product = {
       id,
-      ...product,
+      name: product.name,
+      sku: product.sku,
+      description: product.description ?? null,
+      category: product.category ?? null,
+      manufacturer: product.manufacturer ?? null,
+      unitPrice: product.unitPrice ?? null,
+      minStockLevel: product.minStockLevel ?? null,
+      requiresBatchTracking: product.requiresBatchTracking ?? null,
+      shelfLifeDays: product.shelfLifeDays ?? null,
+      isActive: product.isActive ?? true,
       createdAt: now,
       updatedAt: now,
     };
@@ -449,7 +477,7 @@ export class MemStorage implements IStorage {
     }> = [];
 
     // Add sales orders as transactions
-    for (const order of this.salesOrders.values()) {
+    for (const order of Array.from(this.salesOrders.values())) {
       const customer = this.customers.get(order.customerId);
       transactions.push({
         id: order.id,
@@ -463,7 +491,7 @@ export class MemStorage implements IStorage {
     }
 
     // Add invoices as payment transactions
-    for (const invoice of this.invoices.values()) {
+    for (const invoice of Array.from(this.invoices.values())) {
       const customer = this.customers.get(invoice.customerId);
       if (parseFloat(invoice.paidAmount) > 0) {
         transactions.push({
@@ -489,7 +517,7 @@ export class MemStorage implements IStorage {
     
     const expiringInventory: (Inventory & { product: Product; warehouse: Warehouse })[] = [];
     
-    for (const inv of this.inventory.values()) {
+    for (const inv of Array.from(this.inventory.values())) {
       const expiryDate = new Date(inv.expiryDate!);
       if (expiryDate <= cutoffDate && inv.quantity > 0) {
         const product = this.products.get(inv.productId);
@@ -532,7 +560,13 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const newInventory: Inventory = {
       id,
-      ...inventory,
+      productId: inventory.productId,
+      warehouseId: inventory.warehouseId,
+      batchNumber: inventory.batchNumber ?? null,
+      quantity: inventory.quantity ?? 0,
+      manufactureDate: inventory.manufactureDate ?? null,
+      expiryDate: inventory.expiryDate ?? null,
+      costPerUnit: inventory.costPerUnit ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -602,7 +636,16 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const newOrder: SalesOrder = {
       id,
-      ...order,
+      orderNumber: order.orderNumber,
+      customerId: order.customerId,
+      orderDate: order.orderDate,
+      deliveryDate: order.deliveryDate ?? null,
+      status: order.status ?? null,
+      subtotal: order.subtotal ?? null,
+      taxAmount: order.taxAmount ?? null,
+      totalAmount: order.totalAmount ?? null,
+      salesRepId: order.salesRepId ?? null,
+      notes: order.notes ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -628,7 +671,12 @@ export class MemStorage implements IStorage {
     const id = this.generateId();
     const newItem: SalesOrderItem = {
       id,
-      ...item,
+      orderId: item.orderId,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      inventoryId: item.inventoryId ?? null,
       createdAt: new Date(),
     };
     this.salesOrderItems.set(id, newItem);
@@ -819,4 +867,52 @@ export class MemStorage implements IStorage {
   async generateReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async exportReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async scheduleReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing AI methods
+  async getAiChatSession(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async closeAiChatSession(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getAiInsight(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async reviewAiInsight(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async applyAiInsight(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getAiModelMetrics(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async createAiModelMetric(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getAiModelPerformanceStats(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing Campaign methods
+  async getCampaign(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async launchCampaign(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async pauseCampaign(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async completeCampaign(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async addCampaignMember(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async removeCampaignMember(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getCampaignAnalytics(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing License methods
+  async getLicense(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async renewLicense(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getExpiringLicenses(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing Regulatory methods
+  async getRegulatoryReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async submitRegulatoryReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async reviewRegulatoryReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async approveRegulatoryReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async rejectRegulatoryReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing Recall methods
+  async getRecallNotice(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async initiateRecall(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async completeRecall(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing Report methods
+  async getReportDefinition(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getSavedReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async updateSavedReport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getReportExport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async updateReportExport(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async markReportExportComplete(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async markReportExportFailed(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+
+  // Missing Dashboard method
+  async getRecentTransactions(): Promise<any> { return []; }
 }

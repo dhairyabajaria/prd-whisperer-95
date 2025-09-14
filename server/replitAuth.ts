@@ -136,6 +136,7 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  const { storage } = await import("./storage");
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
