@@ -17,7 +17,8 @@ import {
   Target,
   Building2,
   Warehouse,
-  Receipt
+  Receipt,
+  DollarSign
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -71,6 +72,12 @@ const navigation = [
     href: "/quotations",
     icon: Receipt,
     roles: ['admin', 'sales']
+  },
+  {
+    name: "Commissions",
+    href: "/commissions",
+    icon: DollarSign,
+    roles: ['admin', 'sales', 'finance']
   },
   {
     name: "Purchases", 

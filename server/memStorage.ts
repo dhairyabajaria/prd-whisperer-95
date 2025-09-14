@@ -50,6 +50,8 @@ import type {
   InsertQuotation,
   QuotationItem,
   InsertQuotationItem,
+  CommissionEntry,
+  InsertCommissionEntry,
 } from "@shared/schema";
 
 // In-memory storage implementation for development
@@ -85,6 +87,9 @@ export class MemStorage implements IStorage {
   // CRM quotation collections
   private quotations = new Map<string, Quotation>();
   private quotationItems = new Map<string, QuotationItem>();
+  
+  // CRM commission collections
+  private commissionEntries = new Map<string, CommissionEntry>();
 
   constructor() {
     this.seedData();
@@ -122,6 +127,34 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
     this.users.set(devUser.id, devUser);
+
+    // Seed sales rep user
+    const salesUser: User = {
+      id: "sales-1",
+      email: "sales@pharma.com",
+      firstName: "John",
+      lastName: "Smith",
+      profileImageUrl: null,
+      role: "sales",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(salesUser.id, salesUser);
+
+    // Seed finance user
+    const financeUser: User = {
+      id: "finance-1",
+      email: "finance@pharma.com",
+      firstName: "Jane",
+      lastName: "Doe",
+      profileImageUrl: null,
+      role: "finance",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(financeUser.id, financeUser);
 
     // Seed warehouses
     const mainWarehouse: Warehouse = {
@@ -328,6 +361,58 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
     this.invoices.set(invoice1.id, invoice1);
+
+    // Seed commission entries
+    const commission1: CommissionEntry = {
+      id: "comm-1",
+      invoiceId: invoice1.id,
+      salesRepId: salesUser.id,
+      basisAmount: "550.00",
+      commissionPercent: "5.00",
+      commissionAmount: "27.50",
+      currency: "USD",
+      status: "accrued",
+      approvedBy: null,
+      approvedAt: null,
+      paidAt: null,
+      notes: "Commission for City Hospital order",
+      createdAt: new Date(),
+    };
+    this.commissionEntries.set(commission1.id, commission1);
+
+    const commission2: CommissionEntry = {
+      id: "comm-2",
+      invoiceId: "inv-2",
+      salesRepId: salesUser.id,
+      basisAmount: "1200.00",
+      commissionPercent: "4.50",
+      commissionAmount: "54.00",
+      currency: "USD",
+      status: "approved",
+      approvedBy: financeUser.id,
+      approvedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+      paidAt: null,
+      notes: "Approved commission entry",
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    };
+    this.commissionEntries.set(commission2.id, commission2);
+
+    const commission3: CommissionEntry = {
+      id: "comm-3",
+      invoiceId: "inv-3",
+      salesRepId: salesUser.id,
+      basisAmount: "800.00",
+      commissionPercent: "3.75",
+      commissionAmount: "30.00",
+      currency: "USD",
+      status: "paid",
+      approvedBy: financeUser.id,
+      approvedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+      paidAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+      notes: "Paid commission entry",
+      createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
+    };
+    this.commissionEntries.set(commission3.id, commission3);
   }
 
   // User operations
@@ -336,22 +421,23 @@ export class MemStorage implements IStorage {
   }
 
   async upsertUser(user: UpsertUser): Promise<User> {
+    if (!user.id) throw new Error('User ID is required');
     const existingUser = this.users.get(user.id);
     const now = new Date();
     
     const newUser: User = {
       id: user.id,
-      email: user.email || existingUser?.email || null,
-      firstName: user.firstName || existingUser?.firstName || null,
-      lastName: user.lastName || existingUser?.lastName || null,
-      profileImageUrl: user.profileImageUrl || existingUser?.profileImageUrl || null,
+      email: user.email ?? existingUser?.email ?? null,
+      firstName: user.firstName ?? existingUser?.firstName ?? null,
+      lastName: user.lastName ?? existingUser?.lastName ?? null,
+      profileImageUrl: user.profileImageUrl ?? existingUser?.profileImageUrl ?? null,
       role: existingUser?.role ?? "sales",
       isActive: existingUser?.isActive ?? true,
       createdAt: existingUser?.createdAt ?? now,
       updatedAt: now,
     };
     
-    this.users.set(user.id, newUser);
+    this.users.set(newUser.id, newUser);
     return newUser;
   }
 
@@ -610,7 +696,7 @@ export class MemStorage implements IStorage {
     // Add invoices as payment transactions
     for (const invoice of Array.from(this.invoices.values())) {
       const customer = this.customers.get(invoice.customerId);
-      if (parseFloat(invoice.paidAmount) > 0) {
+      if (parseFloat(invoice.paidAmount || '0') > 0) {
         transactions.push({
           id: invoice.id,
           date: invoice.invoiceDate,
@@ -923,7 +1009,16 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
       convertedToOrderId: null,
       convertedAt: null,
-      ...quotationData
+      ...quotationData,
+      salesRepId: quotationData.salesRepId ?? null,
+      status: quotationData.status ?? null,
+      currency: quotationData.currency ?? null,
+      fxRate: quotationData.fxRate ?? null,
+      subtotal: quotationData.subtotal ?? null,
+      discountAmount: quotationData.discountAmount ?? null,
+      taxAmount: quotationData.taxAmount ?? null,
+      totalAmount: quotationData.totalAmount ?? null,
+      notes: quotationData.notes ?? null
     };
     
     this.quotations.set(quotation.id, quotation);
@@ -957,7 +1052,9 @@ export class MemStorage implements IStorage {
     const item: QuotationItem = {
       id: this.generateId(),
       createdAt: new Date(),
-      ...itemData
+      ...itemData,
+      discount: itemData.discount ?? null,
+      tax: itemData.tax ?? null
     };
     
     this.quotationItems.set(item.id, item);
@@ -996,12 +1093,151 @@ export class MemStorage implements IStorage {
   async createReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async updateReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async allocateReceiptToInvoice(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getCommissionEntries(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getCommissionEntry(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async createCommissionEntry(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async updateCommissionEntry(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async approveCommission(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getSalesRepCommissionSummary(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async getCommissionEntries(salesRepId?: string, status?: string, limit = 100): Promise<(CommissionEntry & { invoice: Invoice & { customer: Customer }; salesRep: User; approvedByUser?: User })[]> {
+    let entries = Array.from(this.commissionEntries.values());
+    
+    // Apply filters
+    if (salesRepId) {
+      entries = entries.filter(entry => entry.salesRepId === salesRepId);
+    }
+    if (status) {
+      entries = entries.filter(entry => entry.status === status);
+    }
+    
+    // Limit results
+    entries = entries.slice(0, limit);
+    
+    // Enrich with related data
+    return entries.map(entry => {
+      const invoice = this.invoices.get(entry.invoiceId);
+      const customer = invoice ? this.customers.get("cust-1") : null; // Simplified for demo
+      const salesRep = this.users.get(entry.salesRepId)!;
+      const approvedByUser = entry.approvedBy ? this.users.get(entry.approvedBy) : undefined;
+      
+      return {
+        ...entry,
+        invoice: {
+          ...invoice!,
+          customer: customer!
+        },
+        salesRep,
+        approvedByUser
+      };
+    });
+  }
+
+  async getCommissionEntry(id: string): Promise<(CommissionEntry & { invoice: Invoice & { customer: Customer }; salesRep: User; approvedByUser?: User }) | undefined> {
+    const entry = this.commissionEntries.get(id);
+    if (!entry) return undefined;
+    
+    const invoice = this.invoices.get(entry.invoiceId);
+    const customer = invoice ? this.customers.get("cust-1") : null; // Simplified for demo
+    const salesRep = this.users.get(entry.salesRepId)!;
+    const approvedByUser = entry.approvedBy ? this.users.get(entry.approvedBy) : undefined;
+    
+    return {
+      ...entry,
+      invoice: {
+        ...invoice!,
+        customer: customer!
+      },
+      salesRep,
+      approvedByUser
+    };
+  }
+
+  async createCommissionEntry(commission: InsertCommissionEntry): Promise<CommissionEntry> {
+    const id = this.generateId();
+    const newCommission: CommissionEntry = {
+      id,
+      ...commission,
+      status: commission.status ?? null,
+      notes: commission.notes ?? null,
+      approvedBy: commission.approvedBy ?? null,
+      approvedAt: commission.approvedAt ?? null,
+      paidAt: commission.paidAt ?? null,
+      currency: commission.currency ?? null,
+      createdAt: new Date()
+    };
+    
+    this.commissionEntries.set(id, newCommission);
+    return newCommission;
+  }
+
+  async updateCommissionEntry(id: string, commission: Partial<InsertCommissionEntry>): Promise<CommissionEntry> {
+    const existing = this.commissionEntries.get(id);
+    if (!existing) throw new Error("Commission entry not found");
+    
+    const updated: CommissionEntry = {
+      ...existing,
+      ...commission
+    };
+    
+    this.commissionEntries.set(id, updated);
+    return updated;
+  }
+
+  async approveCommission(id: string, approverId: string): Promise<CommissionEntry> {
+    const commission = this.commissionEntries.get(id);
+    if (!commission) throw new Error("Commission entry not found");
+    if (commission.status !== 'accrued') throw new Error("Commission must be in accrued status to approve");
+    
+    const approved: CommissionEntry = {
+      ...commission,
+      status: 'approved',
+      approvedBy: approverId,
+      approvedAt: new Date()
+    };
+    
+    this.commissionEntries.set(id, approved);
+    return approved;
+  }
+
+  async getSalesRepCommissionSummary(salesRepId: string, startDate?: string, endDate?: string): Promise<{
+    totalAccrued: number;
+    totalApproved: number;
+    totalPaid: number;
+    entries: (CommissionEntry & { invoice: Invoice })[];
+  }> {
+    let entries = Array.from(this.commissionEntries.values())
+      .filter(entry => entry.salesRepId === salesRepId);
+    
+    // Apply date filters if provided
+    if (startDate) {
+      const start = new Date(startDate);
+      entries = entries.filter(entry => entry.createdAt && entry.createdAt >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      entries = entries.filter(entry => entry.createdAt && entry.createdAt <= end);
+    }
+    
+    // Calculate totals
+    const totalAccrued = entries
+      .filter(entry => entry.status === 'accrued')
+      .reduce((sum, entry) => sum + parseFloat(entry.commissionAmount), 0);
+    
+    const totalApproved = entries
+      .filter(entry => entry.status === 'approved')
+      .reduce((sum, entry) => sum + parseFloat(entry.commissionAmount), 0);
+    
+    const totalPaid = entries
+      .filter(entry => entry.status === 'paid')
+      .reduce((sum, entry) => sum + parseFloat(entry.commissionAmount), 0);
+    
+    // Enrich entries with invoice data
+    const enrichedEntries = entries.map(entry => {
+      const invoice = this.invoices.get(entry.invoiceId)!;
+      return { ...entry, invoice };
+    });
+    
+    return {
+      totalAccrued,
+      totalApproved,
+      totalPaid,
+      entries: enrichedEntries
+    };
+  }
   async getCreditOverrides(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getCreditOverride(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async createCreditOverride(): Promise<any> { throw new Error("Not implemented in memory storage"); }
@@ -1176,14 +1412,14 @@ export class MemStorage implements IStorage {
     this.purchaseRequests.set(id, updatedPr);
 
     // Find applicable approval rules based on amount and currency
-    const amount = parseFloat(pr.totalAmount);
+    const amount = parseFloat(pr.totalAmount || '0');
     const applicableRules = Array.from(this.approvalRules.values())
       .filter(rule => 
         rule.entityType === 'purchase_request' && 
         rule.isActive &&
-        rule.currency === pr.currency &&
-        amount >= parseFloat(rule.amountRangeMin) &&
-        (rule.amountRangeMax === null || amount <= parseFloat(rule.amountRangeMax))
+        rule.currency === (pr.currency || 'USD') &&
+        amount >= parseFloat(rule.amountRangeMin || '0') &&
+        (rule.amountRangeMax === null || amount <= parseFloat(rule.amountRangeMax || '0'))
       )
       .sort((a, b) => a.level - b.level);
 
@@ -1548,7 +1784,7 @@ export class MemStorage implements IStorage {
     }
     
     return notifications
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
       .slice(0, limit);
   }
 

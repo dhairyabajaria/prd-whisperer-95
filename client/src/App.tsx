@@ -14,6 +14,7 @@ import Warehouses from "@/pages/warehouses";
 import Inventory from "@/pages/inventory";
 import Sales from "@/pages/sales";
 import Quotations from "@/pages/quotations";
+import Commissions from "./pages/commissions";
 import Purchases from "@/pages/purchases";
 import Finance from "@/pages/finance";
 import POS from "@/pages/pos";
@@ -38,6 +39,7 @@ function Router() {
           <Route path="/inventory" component={Inventory} />
           <Route path="/sales" component={Sales} />
           <Route path="/quotations" component={Quotations} />
+          <Route path="/commissions" component={Commissions} />
           <Route path="/purchases" component={Purchases} />
           <Route path="/finance" component={Finance} />
           <Route path="/pos" component={POS} />
