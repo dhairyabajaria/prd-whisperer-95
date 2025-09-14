@@ -46,6 +46,10 @@ import type {
   InsertVendorBillItem,
   CompetitorPrice,
   InsertCompetitorPrice,
+  Quotation,
+  InsertQuotation,
+  QuotationItem,
+  InsertQuotationItem,
 } from "@shared/schema";
 
 // In-memory storage implementation for development
@@ -77,6 +81,10 @@ export class MemStorage implements IStorage {
   private vendorBills = new Map<string, VendorBill>();
   private vendorBillItems = new Map<string, VendorBillItem>();
   private competitorPrices = new Map<string, CompetitorPrice>();
+  
+  // CRM quotation collections
+  private quotations = new Map<string, Quotation>();
+  private quotationItems = new Map<string, QuotationItem>();
 
   constructor() {
     this.seedData();
@@ -858,13 +866,130 @@ export class MemStorage implements IStorage {
   async getProductDemandAnalysis(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getPriceOptimizationData(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   
-  // All other CRM and specialized methods - stub implementations
-  async getQuotations(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getQuotation(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async createQuotation(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async updateQuotation(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async deleteQuotation(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async createQuotationItem(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  // CRM Module - Quotation operations
+  async getQuotations(limit = 100, status?: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
+    let quotationsArray = Array.from(this.quotations.values());
+    
+    if (status) {
+      quotationsArray = quotationsArray.filter(q => q.status === status);
+    }
+    
+    quotationsArray = quotationsArray.slice(0, limit);
+    
+    return quotationsArray.map(quotation => {
+      const customer = this.customers.get(quotation.customerId)!;
+      const salesRep = quotation.salesRepId ? this.users.get(quotation.salesRepId) : undefined;
+      const items = Array.from(this.quotationItems.values())
+        .filter(item => item.quotationId === quotation.id)
+        .map(item => ({
+          ...item,
+          product: this.products.get(item.productId)!
+        }));
+      
+      return {
+        ...quotation,
+        customer,
+        salesRep,
+        items
+      };
+    });
+  }
+
+  async getQuotation(id: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }) | undefined> {
+    const quotation = this.quotations.get(id);
+    if (!quotation) return undefined;
+    
+    const customer = this.customers.get(quotation.customerId)!;
+    const salesRep = quotation.salesRepId ? this.users.get(quotation.salesRepId) : undefined;
+    const items = Array.from(this.quotationItems.values())
+      .filter(item => item.quotationId === quotation.id)
+      .map(item => ({
+        ...item,
+        product: this.products.get(item.productId)!
+      }));
+    
+    return {
+      ...quotation,
+      customer,
+      salesRep,
+      items
+    };
+  }
+
+  async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
+    const quotation: Quotation = {
+      id: this.generateId(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      convertedToOrderId: null,
+      convertedAt: null,
+      ...quotationData
+    };
+    
+    this.quotations.set(quotation.id, quotation);
+    return quotation;
+  }
+
+  async updateQuotation(id: string, quotationData: Partial<InsertQuotation>): Promise<Quotation> {
+    const quotation = this.quotations.get(id);
+    if (!quotation) throw new Error("Quotation not found");
+    
+    const updated = {
+      ...quotation,
+      ...quotationData,
+      updatedAt: new Date()
+    };
+    
+    this.quotations.set(id, updated);
+    return updated;
+  }
+
+  async deleteQuotation(id: string): Promise<void> {
+    // Delete all quotation items first
+    Array.from(this.quotationItems.values())
+      .filter(item => item.quotationId === id)
+      .forEach(item => this.quotationItems.delete(item.id));
+    
+    this.quotations.delete(id);
+  }
+
+  async createQuotationItem(itemData: InsertQuotationItem): Promise<QuotationItem> {
+    const item: QuotationItem = {
+      id: this.generateId(),
+      createdAt: new Date(),
+      ...itemData
+    };
+    
+    this.quotationItems.set(item.id, item);
+    return item;
+  }
+
+  async getQuotationItems(quotationId: string): Promise<(QuotationItem & { product: Product })[]> {
+    return Array.from(this.quotationItems.values())
+      .filter(item => item.quotationId === quotationId)
+      .map(item => ({
+        ...item,
+        product: this.products.get(item.productId)!
+      }));
+  }
+
+  async updateQuotationItem(id: string, itemData: Partial<InsertQuotationItem>): Promise<QuotationItem> {
+    const item = this.quotationItems.get(id);
+    if (!item) throw new Error("Quotation item not found");
+    
+    const updated = {
+      ...item,
+      ...itemData
+    };
+    
+    this.quotationItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteQuotationItem(id: string): Promise<void> {
+    this.quotationItems.delete(id);
+  }
+
   async convertQuotationToOrder(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getReceipts(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }

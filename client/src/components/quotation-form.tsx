@@ -69,6 +69,14 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
     queryKey: ["/api/users", { role: "sales" }],
   });
 
+  // Fetch quotation items when editing
+  const { data: quotationItems } = useQuery<Array<QuotationItemWithProduct & { id: string }>>(
+    {
+      queryKey: ["/api/crm/quotations", quotation?.id, "items"],
+      enabled: !!quotation?.id && isOpen,
+    }
+  );
+
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationFormSchema),
     defaultValues: {
@@ -106,6 +114,15 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
   // Load quotation data for editing
   useEffect(() => {
     if (quotation && isOpen) {
+      // Convert quotation items to form format
+      const formItems = quotationItems?.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: parseFloat(String(item.unitPrice || '0')),
+        discount: parseFloat(String(item.discount || '0')),
+        tax: parseFloat(String(item.tax || '0')),
+      })) || [];
+
       form.reset({
         quotationNumber: quotation.quotationNumber,
         customerId: quotation.customerId,
@@ -120,12 +137,12 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
         discountAmount: quotation.discountAmount,
         totalAmount: quotation.totalAmount,
         notes: quotation.notes || "",
-        items: []
+        items: formItems
       });
       setSelectedCurrency(quotation.currency || 'USD');
       setFxRate(parseFloat(quotation.fxRate || '1'));
     }
-  }, [quotation, isOpen, form]);
+  }, [quotation, quotationItems, isOpen, form]);
 
   const createQuotationMutation = useMutation({
     mutationFn: async (data: QuotationFormData) => {
@@ -192,7 +209,34 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       
       const { items, ...quotationOnly } = quotationData;
       
-      return apiRequest(`/api/crm/quotations/${quotation?.id}`, "PATCH", quotationOnly);
+      // Update quotation first
+      const response = await apiRequest(`/api/crm/quotations/${quotation?.id}`, "PATCH", quotationOnly);
+      
+      // Delete existing items and add new ones
+      const existingItems = quotationItems || [];
+      
+      // Delete all existing items
+      for (const existingItem of existingItems) {
+        await apiRequest(`/api/crm/quotations/${quotation?.id}/items/${existingItem.id}`, "DELETE");
+      }
+      
+      // Add new items
+      if (items && items.length > 0) {
+        for (const item of items) {
+          const lineTotal = item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.tax / 100);
+          await apiRequest(`/api/crm/quotations/${quotation?.id}/items`, "POST", {
+            quotationId: quotation?.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice.toString(),
+            lineTotal: lineTotal.toString(),
+            discount: item.discount.toString(),
+            tax: item.tax.toString(),
+          });
+        }
+      }
+      
+      return response;
     },
     onSuccess: () => {
       toast({
@@ -200,6 +244,7 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
         description: "Quotation updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/quotations", quotation?.id, "items"] });
       onSuccess?.();
       onClose();
     },

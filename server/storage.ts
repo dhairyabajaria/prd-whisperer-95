@@ -407,6 +407,9 @@ export interface IStorage {
   updateQuotation(id: string, quotation: Partial<InsertQuotation>): Promise<Quotation>;
   deleteQuotation(id: string): Promise<void>;
   createQuotationItem(item: InsertQuotationItem): Promise<QuotationItem>;
+  getQuotationItems(quotationId: string): Promise<(QuotationItem & { product: Product })[]>;
+  updateQuotationItem(id: string, item: Partial<InsertQuotationItem>): Promise<QuotationItem>;
+  deleteQuotationItem(id: string): Promise<void>;
   convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder>;
 
   // CRM Module - Receipt operations
@@ -3370,6 +3373,35 @@ export class DatabaseStorage implements IStorage {
     const db = await getDb();
     const [item] = await db.insert(quotationItems).values(itemData).returning();
     return item;
+  }
+
+  async getQuotationItems(quotationId: string): Promise<(QuotationItem & { product: Product })[]> {
+    const db = await getDb();
+    const items = await db
+      .select({
+        quotationItem: quotationItems,
+        product: products,
+      })
+      .from(quotationItems)
+      .leftJoin(products, eq(quotationItems.productId, products.id))
+      .where(eq(quotationItems.quotationId, quotationId));
+
+    return items.map(item => ({ ...item.quotationItem, product: item.product! }));
+  }
+
+  async updateQuotationItem(id: string, itemData: Partial<InsertQuotationItem>): Promise<QuotationItem> {
+    const db = await getDb();
+    const [item] = await db
+      .update(quotationItems)
+      .set(itemData)
+      .where(eq(quotationItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteQuotationItem(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete(quotationItems).where(eq(quotationItems.id, id));
   }
 
   async convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder> {

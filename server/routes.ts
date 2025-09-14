@@ -1860,6 +1860,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/crm/quotations/:id/items", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const items = await storage.getQuotationItems(req.params.id);
+      res.json(items);
+    } catch (error: any) {
+      console.error("Error fetching quotation items:", error);
+      res.status(500).json({ message: "Failed to fetch quotation items", error: error.message });
+    }
+  });
+
   app.post("/api/crm/quotations/:id/items", isAuthenticated, requireSalesAccess, async (req, res) => {
     try {
       const itemData = insertQuotationItemSchema.parse(req.body);
@@ -1872,6 +1882,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(400).json({ message: "Failed to create quotation item", error: error.message });
       }
+    }
+  });
+
+  app.patch("/api/crm/quotations/:quotationId/items/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const itemData = insertQuotationItemSchema.partial().parse(req.body);
+      const item = await storage.updateQuotationItem(req.params.id, itemData);
+      res.json(item);
+    } catch (error: any) {
+      console.error("Error updating quotation item:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid quotation item data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update quotation item", error: error.message });
+      }
+    }
+  });
+
+  app.delete("/api/crm/quotations/:quotationId/items/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      await storage.deleteQuotationItem(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting quotation item:", error);
+      res.status(500).json({ message: "Failed to delete quotation item", error: error.message });
     }
   });
 
