@@ -4,6 +4,15 @@ This is an AI-powered ERP & CRM system specifically designed for pharmaceutical 
 
 # Recent Changes
 
+## 2025-09-14: Quotation Line Items Display Completed ✅
+- **COMPLETED**: Enhanced quotation detail modal with comprehensive line items display
+- **IMPLEMENTED**: Professional responsive table showing product details, quantities, prices, discounts, taxes, and totals
+- **ADDED**: Proper loading states with skeleton animations and error handling
+- **FIXED**: Critical API integration issues with query key format and type alignment
+- **ENHANCED**: User experience with proper formatting, hover effects, and data-testid attributes
+- **VERIFIED**: End-to-end functionality working correctly with real-time updates
+- **RESULT**: Complete quotation management system now fully functional for pharmaceutical distribution
+
 ## 2025-09-14: Sales & CRM Enhancement Phase Started ✅
 - **ANALYSIS COMPLETE**: Comprehensive audit of Sales & CRM module implementation
 - **IDENTIFIED**: Backend infrastructure is solid with complete API endpoints and database schema
