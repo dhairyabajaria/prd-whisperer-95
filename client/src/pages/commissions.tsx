@@ -70,7 +70,7 @@ export default function Commissions() {
   const summaryLoading = isLoading;
 
   const { data: salesReps, isLoading: salesRepsLoading } = useQuery<UserType[]>({
-    queryKey: ["/api/users", { role: "sales" }],
+    queryKey: ["/api/users?role=sales"],
   });
 
   const approveMutation = useMutation({
@@ -97,8 +97,8 @@ export default function Commissions() {
   const filteredCommissions = commissions?.filter(commission => {
     const matchesSearch = 
       commission.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      commission.invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${commission.salesRep.firstName} ${commission.salesRep.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+      (commission.invoice?.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${commission.salesRep?.firstName || ''} ${commission.salesRep?.lastName || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || commission.status === statusFilter;
     const matchesSalesRep = salesRepFilter === "all" || commission.salesRepId === salesRepFilter;
