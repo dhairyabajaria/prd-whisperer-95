@@ -649,6 +649,12 @@ export class AIService {
     summary: string;
     recommendations: string[];
   }>> {
+    // Return empty array if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning empty customer sentiment analysis');
+      return [];
+    }
+
     try {
       const prompt = `
         Analyze customer sentiment for pharmaceutical distribution customers based on their interactions and payment history.
@@ -722,6 +728,15 @@ export class AIService {
     confidence?: number;
     error?: string;
   }> {
+    // Return error if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, OCR processing unavailable');
+      return {
+        success: false,
+        error: 'AI services are not configured. OCR processing is unavailable.'
+      };
+    }
+
     try {
       let prompt = `
         Extract structured data from this vendor bill/invoice text for pharmaceutical ERP system.
@@ -832,6 +847,12 @@ export class AIService {
       competitiveAdvantage: string;
     };
   }>> {
+    // Return empty array if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning empty competitor price analysis');
+      return [];
+    }
+
     try {
       const prompt = `
         Analyze competitor pricing data for pharmaceutical products and provide strategic pricing recommendations.
@@ -902,6 +923,12 @@ export class AIService {
       averageProcessingTime: number;
     }
   ): Promise<AIInsight[]> {
+    // Return empty array if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning empty purchase insights');
+      return [];
+    }
+
     try {
       const prompt = `
         Analyze purchasing data for a pharmaceutical distribution company and generate actionable insights.
@@ -970,6 +997,12 @@ export class AIService {
     recommendedActions: string[];
     priorityScore: number;
   }>> {
+    // Return empty array if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning empty purchase risk analysis');
+      return [];
+    }
+
     try {
       const prompt = `
         Analyze purchase order risk factors for pharmaceutical distribution operations.
