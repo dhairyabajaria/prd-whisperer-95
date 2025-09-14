@@ -46,9 +46,9 @@ interface QuotationFormProps {
 interface QuotationItemWithProduct {
   productId: string;
   quantity: number;
-  unitPrice: number;
-  discount: number;
-  tax: number;
+  unitPrice: string;
+  discount: string;
+  tax: string;
   product?: Product;
 }
 
@@ -72,7 +72,7 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
   // Fetch quotation items when editing
   const { data: quotationItems } = useQuery<Array<QuotationItemWithProduct & { id: string }>>(
     {
-      queryKey: ["/api/crm/quotations", quotation?.id, "items"],
+      queryKey: [`/api/crm/quotations/${quotation?.id}/items`],
       enabled: !!quotation?.id && isOpen,
     }
   );
@@ -118,9 +118,9 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       const formItems = quotationItems?.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: parseFloat(String(item.unitPrice || '0')),
-        discount: parseFloat(String(item.discount || '0')),
-        tax: parseFloat(String(item.tax || '0')),
+        unitPrice: parseFloat(item.unitPrice || '0'),
+        discount: parseFloat(item.discount || '0'),
+        tax: parseFloat(item.tax || '0'),
       })) || [];
 
       form.reset({
@@ -244,7 +244,7 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
         description: "Quotation updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/quotations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/quotations", quotation?.id, "items"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/crm/quotations/${quotation?.id}/items`] });
       onSuccess?.();
       onClose();
     },

@@ -12,15 +12,27 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileText, Search, Plus, DollarSign, Calendar, User, Eye, Edit, ArrowRight } from "lucide-react";
+import { FileText, Search, Plus, DollarSign, Calendar, User, Eye, Edit, ArrowRight, Package } from "lucide-react";
 import { format } from "date-fns";
-import { type Quotation, type Customer, type User as UserType } from "@shared/schema";
+import { type Quotation, type Customer, type User as UserType, type Product } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface QuotationWithRelations extends Quotation {
   customer: Customer;
   salesRep?: UserType;
+}
+
+interface QuotationItemWithProduct {
+  id: string;
+  quotationId: string;
+  productId: string;
+  quantity: number;
+  unitPrice: string;
+  lineTotal: string;
+  discount: string;
+  tax: string;
+  product: Product;
 }
 
 export default function Quotations() {
@@ -34,6 +46,12 @@ export default function Quotations() {
 
   const { data: quotations, isLoading, error } = useQuery<QuotationWithRelations[]>({
     queryKey: ["/api/crm/quotations"],
+  });
+
+  // Fetch quotation items when viewing quotation details
+  const { data: quotationItems, isLoading: isLoadingItems, error: itemsError } = useQuery<QuotationItemWithProduct[]>({
+    queryKey: [`/api/crm/quotations/${selectedQuotation?.id}/items`],
+    enabled: !!selectedQuotation?.id && showQuotationDetail,
   });
 
   const convertToOrderMutation = useMutation({
@@ -467,6 +485,116 @@ export default function Quotations() {
                   </p>
                 </div>
               )}
+
+              {/* Quotation Line Items */}
+              <div>
+                <h4 className="font-medium mb-4 flex items-center">
+                  <Package className="w-4 h-4 mr-2" />
+                  Line Items
+                </h4>
+                
+                {isLoadingItems ? (
+                  <div className="space-y-2" data-testid="loading-quotation-items">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="flex items-center space-x-4 py-2">
+                        <Skeleton className="h-4 w-48" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                ) : itemsError ? (
+                  <div className="text-center py-6 text-muted-foreground" data-testid="error-quotation-items">
+                    <p>Failed to load quotation items</p>
+                  </div>
+                ) : !quotationItems || quotationItems.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground" data-testid="empty-quotation-items">
+                    <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No items found in this quotation</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden" data-testid="table-quotation-items">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="text-left py-3 px-4 font-medium">Product</th>
+                            <th className="text-right py-3 px-4 font-medium">Quantity</th>
+                            <th className="text-right py-3 px-4 font-medium">Unit Price</th>
+                            <th className="text-right py-3 px-4 font-medium">Discount</th>
+                            <th className="text-right py-3 px-4 font-medium">Tax</th>
+                            <th className="text-right py-3 px-4 font-medium">Line Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {quotationItems.map((item, index) => (
+                            <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/25">
+                              <td className="py-3 px-4">
+                                <div data-testid={`item-product-${index}`}>
+                                  <p className="font-medium">{item.product.name}</p>
+                                  <p className="text-sm text-muted-foreground">SKU: {item.product.sku}</p>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-right" data-testid={`item-quantity-${index}`}>
+                                {item.quantity.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 text-right" data-testid={`item-unit-price-${index}`}>
+                                {formatCurrency(item.unitPrice)}
+                              </td>
+                              <td className="py-3 px-4 text-right" data-testid={`item-discount-${index}`}>
+                                {parseFloat(item.discount || '0') > 0 ? `${item.discount}%` : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-right" data-testid={`item-tax-${index}`}>
+                                {parseFloat(item.tax || '0') > 0 ? `${item.tax}%` : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-right font-medium" data-testid={`item-line-total-${index}`}>
+                                {formatCurrency(item.lineTotal)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/25">
+                          <tr>
+                            <td colSpan={4} className="py-3 px-4 font-medium">Subtotal</td>
+                            <td className="py-3 px-4 text-right font-medium" data-testid="subtotal-amount">
+                              {formatCurrency(selectedQuotation.subtotal || 0)}
+                            </td>
+                            <td className="py-3 px-4"></td>
+                          </tr>
+                          {parseFloat(selectedQuotation.discountAmount || '0') > 0 && (
+                            <tr>
+                              <td colSpan={4} className="py-2 px-4 text-muted-foreground">Discount</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground" data-testid="discount-amount">
+                                -{formatCurrency(selectedQuotation.discountAmount || 0)}
+                              </td>
+                              <td className="py-2 px-4"></td>
+                            </tr>
+                          )}
+                          {parseFloat(selectedQuotation.taxAmount || '0') > 0 && (
+                            <tr>
+                              <td colSpan={4} className="py-2 px-4 text-muted-foreground">Tax</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground" data-testid="tax-amount">
+                                {formatCurrency(selectedQuotation.taxAmount || 0)}
+                              </td>
+                              <td className="py-2 px-4"></td>
+                            </tr>
+                          )}
+                          <tr className="border-t">
+                            <td colSpan={4} className="py-3 px-4 font-bold">Total Amount</td>
+                            <td className="py-3 px-4 text-right font-bold text-lg" data-testid="total-amount">
+                              {formatCurrency(selectedQuotation.totalAmount || 0)}
+                            </td>
+                            <td className="py-3 px-4"></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-2">
                 <Button 
