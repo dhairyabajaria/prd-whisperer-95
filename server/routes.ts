@@ -874,6 +874,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/purchases/receipts/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const receiptData = req.body;
+      const receipt = await storage.updateGoodsReceipt(req.params.id, receiptData);
+      res.json(receipt);
+    } catch (error: any) {
+      console.error("Error updating goods receipt:", error);
+      res.status(400).json({ message: "Failed to update goods receipt", error: error.message });
+    }
+  });
+
+  app.delete("/api/purchases/receipts/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      await storage.deleteGoodsReceipt(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting goods receipt:", error);
+      res.status(500).json({ message: "Failed to delete goods receipt" });
+    }
+  });
+
   app.post("/api/purchases/receipts/:id/post", isAuthenticated, requirePurchaseAccess, async (req, res) => {
     try {
       const receipt = await storage.postGoodsReceipt(req.params.id);
@@ -932,6 +953,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error posting vendor bill:", error);
       res.status(500).json({ message: "Failed to post vendor bill" });
+    }
+  });
+
+  app.put("/api/purchases/bills/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const billData = req.body;
+      const bill = await storage.updateVendorBill(req.params.id, billData);
+      res.json(bill);
+    } catch (error: any) {
+      console.error("Error updating vendor bill:", error);
+      res.status(400).json({ message: "Failed to update vendor bill", error: error.message });
+    }
+  });
+
+  app.delete("/api/purchases/bills/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      await storage.deleteVendorBill(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting vendor bill:", error);
+      res.status(500).json({ message: "Failed to delete vendor bill" });
+    }
+  });
+
+  app.post("/api/purchases/bills/ocr-extract", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const { ocrRaw, billImageBase64 } = req.body;
+      
+      if (!ocrRaw && !billImageBase64) {
+        return res.status(400).json({ message: "Either ocrRaw text or billImageBase64 is required" });
+      }
+
+      const extractionResult = await aiService.processVendorBillOCR(ocrRaw || '', billImageBase64);
+      res.json(extractionResult);
+    } catch (error) {
+      console.error("Error processing OCR extraction:", error);
+      res.status(500).json({ message: "Failed to process OCR extraction" });
     }
   });
 
@@ -1042,6 +1100,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error upserting competitor price:", error);
       res.status(400).json({ message: "Failed to upsert competitor price", error: error.message });
+    }
+  });
+
+  app.delete("/api/purchases/competitor-prices/:id", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      await storage.deleteCompetitorPrice(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting competitor price:", error);
+      res.status(500).json({ message: "Failed to delete competitor price" });
     }
   });
 

@@ -515,6 +515,7 @@ export interface IStorage {
   getGoodsReceipt(id: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined>;
   createGoodsReceipt(receipt: InsertGoodsReceipt, items: InsertGoodsReceiptItem[]): Promise<GoodsReceipt>;
   updateGoodsReceipt(id: string, receipt: Partial<InsertGoodsReceipt>): Promise<GoodsReceipt>;
+  deleteGoodsReceipt(id: string): Promise<void>;
   postGoodsReceipt(id: string): Promise<GoodsReceipt>; // posts to inventory
 
   // Vendor Bill operations
@@ -522,6 +523,7 @@ export interface IStorage {
   getVendorBill(id: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined>;
   createVendorBill(bill: InsertVendorBill, items: InsertVendorBillItem[]): Promise<VendorBill>;
   updateVendorBill(id: string, bill: Partial<InsertVendorBill>): Promise<VendorBill>;
+  deleteVendorBill(id: string): Promise<void>;
   postVendorBill(id: string): Promise<VendorBill>; // finalizes the bill
   processOCRBill(billId: string, ocrRaw: string, ocrExtract: any): Promise<VendorBill>;
 
@@ -539,6 +541,7 @@ export interface IStorage {
   // Competitor Price operations
   getCompetitorPrices(productId?: string, competitor?: string): Promise<(CompetitorPrice & { product: Product })[]>;
   upsertCompetitorPrice(price: InsertCompetitorPrice): Promise<CompetitorPrice>;
+  deleteCompetitorPrice(id: string): Promise<void>;
   getCompetitorAnalysis(productId?: string): Promise<Array<{
     productId: string;
     productName: string;

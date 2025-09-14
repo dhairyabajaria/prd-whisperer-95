@@ -36,6 +36,16 @@ import type {
   InsertPurchaseRequestApproval,
   Notification,
   InsertNotification,
+  GoodsReceipt,
+  InsertGoodsReceipt,
+  GoodsReceiptItem,
+  InsertGoodsReceiptItem,
+  VendorBill,
+  InsertVendorBill,
+  VendorBillItem,
+  InsertVendorBillItem,
+  CompetitorPrice,
+  InsertCompetitorPrice,
 } from "@shared/schema";
 
 // In-memory storage implementation for development
@@ -60,6 +70,13 @@ export class MemStorage implements IStorage {
   private approvalRules = new Map<string, ApprovalRule>();
   private purchaseRequestApprovals = new Map<string, PurchaseRequestApproval>();
   private notifications = new Map<string, Notification>();
+  
+  // Additional purchase workflow collections
+  private goodsReceipts = new Map<string, GoodsReceipt>();
+  private goodsReceiptItems = new Map<string, GoodsReceiptItem>();
+  private vendorBills = new Map<string, VendorBill>();
+  private vendorBillItems = new Map<string, VendorBillItem>();
+  private competitorPrices = new Map<string, CompetitorPrice>();
 
   constructor() {
     this.seedData();
@@ -83,6 +100,20 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
     this.users.set(adminUser.id, adminUser);
+
+    // Seed development user with admin role for testing
+    const devUser: User = {
+      id: "dev-user-1",
+      email: "dev@pharma.com",
+      firstName: "Dev",
+      lastName: "User",
+      profileImageUrl: null,
+      role: "admin",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(devUser.id, devUser);
 
     // Seed warehouses
     const mainWarehouse: Warehouse = {
@@ -1482,11 +1513,27 @@ export class MemStorage implements IStorage {
   async getGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async createGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async updateGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async deleteGoodsReceipt(id: string): Promise<void> {
+    // Delete associated items first
+    const itemsToDelete = Array.from(this.goodsReceiptItems.values()).filter(item => item.grId === id);
+    itemsToDelete.forEach(item => this.goodsReceiptItems.delete(item.id));
+    
+    // Delete the goods receipt
+    this.goodsReceipts.delete(id);
+  }
   async postGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getVendorBills(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getVendorBill(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async createVendorBill(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async updateVendorBill(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async deleteVendorBill(id: string): Promise<void> {
+    // Delete associated items first
+    const itemsToDelete = Array.from(this.vendorBillItems.values()).filter(item => item.billId === id);
+    itemsToDelete.forEach(item => this.vendorBillItems.delete(item.id));
+    
+    // Delete the vendor bill
+    this.vendorBills.delete(id);
+  }
   async postVendorBill(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async processOCRBill(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getMatchResults(): Promise<any> { throw new Error("Not implemented in memory storage"); }
@@ -1498,6 +1545,9 @@ export class MemStorage implements IStorage {
   async refreshFxRates(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getCompetitorPrices(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async upsertCompetitorPrice(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  async deleteCompetitorPrice(id: string): Promise<void> {
+    this.competitorPrices.delete(id);
+  }
   async getCompetitorAnalysis(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getPurchaseDashboardMetrics(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   
