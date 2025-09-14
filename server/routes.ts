@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { aiService, isOpenAIConfigured } from "./ai";
 import { externalIntegrationsService } from "./external-integrations";
+import { fxRateScheduler } from "./scheduler";
 import { 
   insertCustomerSchema,
   insertSupplierSchema,
@@ -1080,6 +1081,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error refreshing FX rates:", error);
       res.status(500).json({ message: "Failed to refresh FX rates" });
+    }
+  });
+
+  // FX Rate Scheduler control endpoints
+  app.get("/api/fx/scheduler/status", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const status = fxRateScheduler.getStatus();
+      const statistics = fxRateScheduler.getStatistics();
+      res.json({ 
+        ...status,
+        statistics
+      });
+    } catch (error) {
+      console.error("Error getting scheduler status:", error);
+      res.status(500).json({ message: "Failed to get scheduler status" });
+    }
+  });
+
+  app.post("/api/fx/scheduler/start", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const started = fxRateScheduler.start();
+      if (started) {
+        res.json({ message: "FX Rate Scheduler started successfully", status: fxRateScheduler.getStatus() });
+      } else {
+        res.status(400).json({ message: "Scheduler is already running or disabled by configuration" });
+      }
+    } catch (error) {
+      console.error("Error starting scheduler:", error);
+      res.status(500).json({ message: "Failed to start scheduler" });
+    }
+  });
+
+  app.post("/api/fx/scheduler/stop", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const stopped = fxRateScheduler.stop();
+      if (stopped) {
+        res.json({ message: "FX Rate Scheduler stopped successfully", status: fxRateScheduler.getStatus() });
+      } else {
+        res.status(400).json({ message: "Scheduler is not running" });
+      }
+    } catch (error) {
+      console.error("Error stopping scheduler:", error);
+      res.status(500).json({ message: "Failed to stop scheduler" });
+    }
+  });
+
+  app.post("/api/fx/scheduler/trigger", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const success = await fxRateScheduler.triggerImmediateRefresh();
+      if (success) {
+        res.json({ message: "FX rate refresh triggered successfully", status: fxRateScheduler.getStatus() });
+      } else {
+        res.status(500).json({ message: "Failed to refresh FX rates" });
+      }
+    } catch (error) {
+      console.error("Error triggering scheduler refresh:", error);
+      res.status(500).json({ message: "Failed to trigger refresh" });
+    }
+  });
+
+  app.post("/api/fx/scheduler/config", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const { refreshIntervalHours, retryAttempts, retryDelayMs, enabled } = req.body;
+      
+      // Validate input
+      const configUpdate: any = {};
+      if (refreshIntervalHours !== undefined) {
+        if (typeof refreshIntervalHours !== 'number' || refreshIntervalHours <= 0) {
+          return res.status(400).json({ message: "refreshIntervalHours must be a positive number" });
+        }
+        configUpdate.refreshIntervalHours = refreshIntervalHours;
+      }
+      
+      if (retryAttempts !== undefined) {
+        if (typeof retryAttempts !== 'number' || retryAttempts < 0) {
+          return res.status(400).json({ message: "retryAttempts must be a non-negative number" });
+        }
+        configUpdate.retryAttempts = retryAttempts;
+      }
+      
+      if (retryDelayMs !== undefined) {
+        if (typeof retryDelayMs !== 'number' || retryDelayMs < 0) {
+          return res.status(400).json({ message: "retryDelayMs must be a non-negative number" });
+        }
+        configUpdate.retryDelayMs = retryDelayMs;
+      }
+      
+      if (enabled !== undefined) {
+        if (typeof enabled !== 'boolean') {
+          return res.status(400).json({ message: "enabled must be a boolean" });
+        }
+        configUpdate.enabled = enabled;
+      }
+
+      const updated = fxRateScheduler.updateConfig(configUpdate);
+      if (updated) {
+        res.json({ message: "Scheduler configuration updated successfully", status: fxRateScheduler.getStatus() });
+      } else {
+        res.status(500).json({ message: "Failed to update scheduler configuration" });
+      }
+    } catch (error) {
+      console.error("Error updating scheduler config:", error);
+      res.status(500).json({ message: "Failed to update scheduler configuration" });
     }
   });
 

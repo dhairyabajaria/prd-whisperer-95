@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { fxRateScheduler } from "./scheduler";
 
 const app = express();
 app.use(express.json());
@@ -68,5 +69,17 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start FX rate scheduler after server is ready
+    try {
+      const schedulerStarted = fxRateScheduler.start();
+      if (schedulerStarted) {
+        log('FX Rate Scheduler started successfully');
+      } else {
+        log('FX Rate Scheduler startup skipped (may be disabled or already running)');
+      }
+    } catch (error) {
+      log(`Warning: Failed to start FX Rate Scheduler: ${error}`);
+    }
   });
 })();
