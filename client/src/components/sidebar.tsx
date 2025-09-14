@@ -16,7 +16,8 @@ import {
   Bell,
   Target,
   Building2,
-  Warehouse
+  Warehouse,
+  Receipt
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -63,6 +64,12 @@ const navigation = [
     name: "Sales",
     href: "/sales",
     icon: FileText,
+    roles: ['admin', 'sales']
+  },
+  {
+    name: "Quotations", 
+    href: "/quotations",
+    icon: Receipt,
     roles: ['admin', 'sales']
   },
   {
