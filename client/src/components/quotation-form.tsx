@@ -157,14 +157,14 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       const { items, ...quotationOnly } = quotationData;
       
       // Create quotation first
-      const response = await apiRequest("/api/crm/quotations", "POST", quotationOnly);
+      const response = await apiRequest("POST", "/api/crm/quotations", quotationOnly);
       const createdQuotation = await response.json();
 
       // Then add items
       if (items && items.length > 0) {
         for (const item of items) {
           const lineTotal = item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.tax / 100);
-          await apiRequest(`/api/crm/quotations/${createdQuotation.id}/items`, "POST", {
+          await apiRequest("POST", `/api/crm/quotations/${createdQuotation.id}/items`, {
             quotationId: createdQuotation.id,
             productId: item.productId,
             quantity: item.quantity,
@@ -210,21 +210,21 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       const { items, ...quotationOnly } = quotationData;
       
       // Update quotation first
-      const response = await apiRequest(`/api/crm/quotations/${quotation?.id}`, "PATCH", quotationOnly);
+      const response = await apiRequest("PATCH", `/api/crm/quotations/${quotation?.id}`, quotationOnly);
       
       // Delete existing items and add new ones
       const existingItems = quotationItems || [];
       
       // Delete all existing items
       for (const existingItem of existingItems) {
-        await apiRequest(`/api/crm/quotations/${quotation?.id}/items/${existingItem.id}`, "DELETE");
+        await apiRequest("DELETE", `/api/crm/quotations/${quotation?.id}/items/${existingItem.id}`);
       }
       
       // Add new items
       if (items && items.length > 0) {
         for (const item of items) {
           const lineTotal = item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.tax / 100);
-          await apiRequest(`/api/crm/quotations/${quotation?.id}/items`, "POST", {
+          await apiRequest("POST", `/api/crm/quotations/${quotation?.id}/items`, {
             quotationId: quotation?.id,
             productId: item.productId,
             quantity: item.quantity,
@@ -401,14 +401,14 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Sales Representative</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-sales-rep">
                                 <SelectValue placeholder="Select sales rep" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="none">None</SelectItem>
                               {salesReps?.map((rep) => (
                                 <SelectItem key={rep.id} value={rep.id}>
                                   {rep.firstName && rep.lastName
