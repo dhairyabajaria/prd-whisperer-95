@@ -18,7 +18,8 @@ import {
   Building2,
   Warehouse,
   Receipt,
-  DollarSign
+  DollarSign,
+  Brain
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -123,6 +124,12 @@ const aiTools = [
     href: "/ai-assistant",
     icon: Bot,
     roles: ['admin', 'sales', 'inventory', 'finance']
+  },
+  {
+    name: "Sentiment Analytics",
+    href: "/sentiment-analytics",
+    icon: Brain,
+    roles: ['admin', 'sales', 'marketing']
   },
   {
     name: "Predictions",

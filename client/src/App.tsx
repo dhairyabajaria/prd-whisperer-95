@@ -22,6 +22,7 @@ import Finance from "@/pages/finance";
 import POS from "@/pages/pos";
 import HR from "@/pages/hr";
 import Marketing from "@/pages/marketing";
+import SentimentAnalytics from "@/pages/sentiment-analytics";
 import Settings from "@/pages/settings";
 
 function Router() {
@@ -49,6 +50,7 @@ function Router() {
           <Route path="/pos" component={POS} />
           <Route path="/hr" component={HR} />
           <Route path="/marketing" component={Marketing} />
+          <Route path="/sentiment-analytics" component={SentimentAnalytics} />
           <Route path="/settings" component={Settings} />
         </>
       )}
