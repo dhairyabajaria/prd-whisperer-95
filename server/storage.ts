@@ -452,11 +452,43 @@ export interface IStorage {
 
   // CRM Module - Lead operations
   getLeads(limit?: number, status?: string, assignedTo?: string): Promise<(Lead & { assignee?: User; campaign?: any; communications: Communication[] })[]>;
+  getLeadsByPipelineStage(stage?: string, assignedTo?: string): Promise<(Lead & { assignee?: User; activities: LeadActivity[]; scoreHistory: LeadScoringHistory[] })[]>;
   getLead(id: string): Promise<(Lead & { assignee?: User; campaign?: any; communications: Communication[] }) | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead>;
+  updateLeadPipelineStage(leadId: string, newStage: string, movedBy: string, reason?: string): Promise<Lead>;
+  updateLeadScore(leadId: string, score: number, criteria: string, reason?: string, triggeredBy?: string): Promise<Lead>;
   deleteLead(id: string): Promise<void>;
   convertLeadToCustomer(leadId: string, customerData: InsertCustomer): Promise<{ lead: Lead; customer: Customer }>;
+
+  // Lead Pipeline Management operations
+  getPipelineConfiguration(): Promise<PipelineConfiguration[]>;
+  updatePipelineConfiguration(configs: InsertPipelineConfiguration[]): Promise<PipelineConfiguration[]>;
+  getLeadActivities(leadId: string, limit?: number): Promise<LeadActivity[]>;
+  createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity>;
+  getLeadScoringHistory(leadId: string, limit?: number): Promise<LeadScoringHistory[]>;
+  getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]>;
+  
+  // Lead Scoring operations
+  getLeadScoringRules(): Promise<LeadScoringRule[]>;
+  createLeadScoringRule(rule: InsertLeadScoringRule): Promise<LeadScoringRule>;
+  updateLeadScoringRule(id: string, rule: Partial<InsertLeadScoringRule>): Promise<LeadScoringRule>;
+  deleteLeadScoringRule(id: string): Promise<void>;
+  calculateLeadScore(leadId: string): Promise<{ totalScore: number; breakdown: Record<string, number> }>;
+  batchCalculateLeadScores(leadIds?: string[]): Promise<void>;
+
+  // Pipeline Analytics
+  getPipelineAnalytics(startDate?: Date, endDate?: Date, assignedTo?: string): Promise<{
+    pipelineValue: number;
+    averageTimeInStage: Record<string, number>;
+    conversionRates: Record<string, number>;
+    stageDistribution: Record<string, { count: number; value: number }>;
+    topPerformers: { userId: string; userName: string; leadsConverted: number; totalValue: number }[];
+    leadSources: Record<string, { count: number; conversionRate: number }>;
+    velocityMetrics: { averageCycleTime: number; fastestDeals: number; slowestDeals: number };
+  }>;
+  getLeadSourcePerformance(): Promise<Array<{ source: string; totalLeads: number; convertedLeads: number; conversionRate: number; avgScore: number }>>;
+  getPipelineVelocity(stage?: string): Promise<{ averageDays: number; medianDays: number; trends: Array<{ date: string; averageDays: number }> }>;
   
   // CRM Module - Communication operations
   getCommunication(id: string): Promise<Communication | undefined>;

@@ -52,6 +52,20 @@ import type {
   InsertQuotationItem,
   CommissionEntry,
   InsertCommissionEntry,
+  Lead,
+  InsertLead,
+  LeadActivity,
+  InsertLeadActivity,
+  LeadScoringHistory,
+  InsertLeadScoringHistory,
+  LeadStageHistory,
+  InsertLeadStageHistory,
+  LeadScoringRule,
+  InsertLeadScoringRule,
+  PipelineConfiguration,
+  InsertPipelineConfiguration,
+  Communication,
+  InsertCommunication,
 } from "@shared/schema";
 
 // In-memory storage implementation for development

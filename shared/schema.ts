@@ -83,6 +83,48 @@ export const leadStatusEnum = pgEnum('lead_status', [
   'nurturing'
 ]);
 
+// Enhanced pipeline stages for comprehensive lead management
+export const pipelineStageEnum = pgEnum('pipeline_stage', [
+  'new_lead',
+  'initial_contact',
+  'qualified',
+  'needs_analysis', 
+  'proposal_sent',
+  'negotiation',
+  'closed_won',
+  'closed_lost',
+  'on_hold'
+]);
+
+// Lead scoring criteria enum
+export const leadScoringCriteriaEnum = pgEnum('lead_scoring_criteria', [
+  'demographic',
+  'behavioral', 
+  'engagement',
+  'firmographic',
+  'intent',
+  'product_fit'
+]);
+
+// Lead activity type for comprehensive tracking
+export const leadActivityTypeEnum = pgEnum('lead_activity_type', [
+  'email_opened',
+  'email_clicked',
+  'website_visit',
+  'form_submission',
+  'phone_call',
+  'meeting_scheduled',
+  'meeting_attended',
+  'proposal_viewed',
+  'quote_requested',
+  'demo_requested',
+  'content_downloaded',
+  'price_inquiry',
+  'competitor_mentioned',
+  'budget_confirmed',
+  'timeline_confirmed'
+]);
+
 export const communicationTypeEnum = pgEnum('communication_type', [
   'email',
   'phone',
@@ -1052,7 +1094,7 @@ export const campaignMembers = pgTable("campaign_members", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Leads table
+// Leads table - Enhanced with pipeline and scoring features
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   firstName: varchar("first_name").notNull(),
@@ -1065,18 +1107,64 @@ export const leads = pgTable("leads", {
   source: varchar("source"), // website, referral, campaign, trade_show, etc.
   campaignId: varchar("campaign_id").references(() => campaigns.id),
   leadStatus: leadStatusEnum("lead_status").default('new'),
+  
+  // Enhanced Pipeline Management
+  pipelineStage: pipelineStageEnum("pipeline_stage").default('new_lead'),
+  stageChangedAt: timestamp("stage_changed_at").defaultNow(),
+  stageHistory: jsonb("stage_history"), // Track stage transitions with timestamps
+  pipelinePosition: integer("pipeline_position").default(0), // For drag-drop ordering within stage
+  
+  // Enhanced Lead Scoring
   leadScore: integer("lead_score").default(0), // 0-100 scoring system
+  scoringBreakdown: jsonb("scoring_breakdown"), // Detailed score by criteria
+  lastScoredAt: timestamp("last_scored_at"),
+  demographicScore: integer("demographic_score").default(0),
+  behavioralScore: integer("behavioral_score").default(0),
+  engagementScore: integer("engagement_score").default(0),
+  firmographicScore: integer("firmographic_score").default(0),
+  
+  // Lead Qualification & Management
+  qualificationScore: integer("qualification_score").default(0), // BANT scoring
+  budget: varchar("budget"),
+  authority: varchar("authority"),
+  need: text("need"),
+  timeline: varchar("timeline"),
+  
   assignedTo: varchar("assigned_to").references(() => users.id),
   notes: text("notes"),
   estimatedValue: decimal("estimated_value", { precision: 12, scale: 2 }).default('0'),
   currency: varchar("currency", { length: 3 }).default('AOA'),
+  
+  // Enhanced Activity Tracking
   lastContactedAt: timestamp("last_contacted_at"),
+  lastActivityAt: timestamp("last_activity_at"),
+  totalActivities: integer("total_activities").default(0),
+  
+  // Conversion Tracking
   convertedAt: timestamp("converted_at"),
   convertedToCustomerId: varchar("converted_to_customer_id").references(() => customers.id),
+  conversionProbability: decimal("conversion_probability", { precision: 3, scale: 2 }).default('0'), // 0.00 to 1.00
+  
+  // Pipeline Analytics
+  daysInStage: integer("days_in_stage").default(0),
+  totalDaysInPipeline: integer("total_days_in_pipeline").default(0),
+  
+  // Lead Enrichment
+  industry: varchar("industry"),
+  companySize: varchar("company_size"),
+  annualRevenue: varchar("annual_revenue"),
+  decisionMakers: jsonb("decision_makers"), // Array of decision makers
+  competitorInfo: jsonb("competitor_info"),
+  
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_leads_pipeline_stage").on(table.pipelineStage),
+  index("idx_leads_assigned_to").on(table.assignedTo),
+  index("idx_leads_score").on(table.leadScore),
+  index("idx_leads_stage_position").on(table.pipelineStage, table.pipelinePosition),
+]);
 
 // Communications table
 export const communications = pgTable("communications", {
@@ -1113,6 +1201,118 @@ export const sentimentAnalyses = pgTable("sentiment_analyses", {
   index("idx_sentiment_customer").on(table.customerId),
   index("idx_sentiment_communication").on(table.communicationId),
   index("idx_sentiment_label_date").on(table.label, table.analyzedAt),
+]);
+
+// Lead Activity Tracking table
+export const leadActivities = pgTable("lead_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  activityType: leadActivityTypeEnum("activity_type").notNull(),
+  activityData: jsonb("activity_data"), // Activity-specific data (email subject, page visited, etc.)
+  pointsAwarded: integer("points_awarded").default(0), // Scoring points for this activity
+  source: varchar("source"), // website, email, phone, etc.
+  userId: varchar("user_id").references(() => users.id), // User who recorded the activity
+  deviceInfo: jsonb("device_info"), // Device and browser info for web activities
+  location: varchar("location"), // Geographic location if available
+  sessionId: varchar("session_id"), // For grouping related activities
+  duration: integer("duration"), // Activity duration in seconds
+  metadata: jsonb("metadata"), // Additional activity context
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_lead_activities_lead_id").on(table.leadId),
+  index("idx_lead_activities_type").on(table.activityType),
+  index("idx_lead_activities_date").on(table.createdAt),
+  index("idx_lead_activities_lead_date").on(table.leadId, table.createdAt),
+]);
+
+// Lead Scoring History table
+export const leadScoringHistory = pgTable("lead_scoring_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  previousScore: integer("previous_score").default(0),
+  newScore: integer("new_score").notNull(),
+  scoreDelta: integer("score_delta").notNull(),
+  criteria: leadScoringCriteriaEnum("criteria").notNull(),
+  reason: text("reason"), // What caused the score change
+  triggeredBy: varchar("triggered_by"), // activity_id, user_id, or 'system'
+  scoringRuleId: varchar("scoring_rule_id"), // Reference to scoring rule if applicable
+  metadata: jsonb("metadata"), // Additional scoring context
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_scoring_history_lead").on(table.leadId),
+  index("idx_scoring_history_criteria").on(table.criteria),
+  index("idx_scoring_history_date").on(table.createdAt),
+]);
+
+// Lead Pipeline Stage History table
+export const leadStageHistory = pgTable("lead_stage_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  fromStage: pipelineStageEnum("from_stage"),
+  toStage: pipelineStageEnum("to_stage").notNull(),
+  daysInPreviousStage: integer("days_in_previous_stage").default(0),
+  movedBy: varchar("moved_by").references(() => users.id),
+  reason: text("reason"), // Why the lead was moved
+  notes: text("notes"),
+  probability: decimal("probability", { precision: 3, scale: 2 }), // Conversion probability at this stage
+  estimatedValue: decimal("estimated_value", { precision: 12, scale: 2 }),
+  expectedCloseDate: date("expected_close_date"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_stage_history_lead").on(table.leadId),
+  index("idx_stage_history_stage").on(table.toStage),
+  index("idx_stage_history_date").on(table.createdAt),
+]);
+
+// Lead Scoring Rules table for automated scoring configuration
+export const leadScoringRules = pgTable("lead_scoring_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  criteria: leadScoringCriteriaEnum("criteria").notNull(),
+  activityType: leadActivityTypeEnum("activity_type"), // Optional: specific activity type
+  condition: jsonb("condition").notNull(), // Condition definition (field, operator, value)
+  pointsAwarded: integer("points_awarded").notNull(),
+  maxPoints: integer("max_points"), // Maximum points per lead from this rule
+  frequency: varchar("frequency").default('unlimited'), // once, daily, unlimited
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0), // Rule execution priority
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
+  createdBy: varchar("created_by").references(() => users.id),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_scoring_rules_criteria").on(table.criteria),
+  index("idx_scoring_rules_active").on(table.isActive),
+]);
+
+// Pipeline Configuration table for customizable pipeline stages
+export const pipelineConfiguration = pgTable("pipeline_configuration", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  stage: pipelineStageEnum("stage").notNull(),
+  displayName: varchar("display_name", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }).default('#6B7280'), // Hex color
+  position: integer("position").notNull(),
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
+  automaticRules: jsonb("automatic_rules"), // Rules for automatic stage transitions
+  requiredFields: text("required_fields").array(), // Required fields to move to this stage
+  permissions: jsonb("permissions"), // Who can move leads to this stage
+  slaHours: integer("sla_hours"), // Expected hours to spend in this stage
+  conversionProbability: decimal("conversion_probability", { precision: 3, scale: 2 }), // Expected conversion rate from this stage
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pipeline_stage").on(table.stage),
+  index("idx_pipeline_position").on(table.position),
+  index("idx_pipeline_active").on(table.isActive),
 ]);
 
 // Advanced Reporting Module Tables
@@ -2133,6 +2333,34 @@ export const insertSentimentAnalysisSchema = createInsertSchema(sentimentAnalyse
   createdAt: true,
 });
 
+// Lead Pipeline Management Insert Schemas
+export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLeadScoringHistorySchema = createInsertSchema(leadScoringHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLeadStageHistorySchema = createInsertSchema(leadStageHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLeadScoringRuleSchema = createInsertSchema(leadScoringRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPipelineConfigurationSchema = createInsertSchema(pipelineConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // CRM Module Insert Schemas
 export const insertQuotationSchema = createInsertSchema(quotations).omit({
   id: true,
@@ -2356,6 +2584,18 @@ export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
 export type Communication = typeof communications.$inferSelect;
 export type InsertSentimentAnalysis = z.infer<typeof insertSentimentAnalysisSchema>;
 export type SentimentAnalysis = typeof sentimentAnalyses.$inferSelect;
+
+// Lead Pipeline Management Types
+export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
+export type LeadActivity = typeof leadActivities.$inferSelect;
+export type InsertLeadScoringHistory = z.infer<typeof insertLeadScoringHistorySchema>;
+export type LeadScoringHistory = typeof leadScoringHistory.$inferSelect;
+export type InsertLeadStageHistory = z.infer<typeof insertLeadStageHistorySchema>;
+export type LeadStageHistory = typeof leadStageHistory.$inferSelect;
+export type InsertLeadScoringRule = z.infer<typeof insertLeadScoringRuleSchema>;
+export type LeadScoringRule = typeof leadScoringRules.$inferSelect;
+export type InsertPipelineConfiguration = z.infer<typeof insertPipelineConfigurationSchema>;
+export type PipelineConfiguration = typeof pipelineConfiguration.$inferSelect;
 
 // CRM Module Types
 export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
