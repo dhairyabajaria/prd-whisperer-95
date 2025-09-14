@@ -15,6 +15,7 @@ import Finance from "@/pages/finance";
 import POS from "@/pages/pos";
 import HR from "@/pages/hr";
 import Marketing from "@/pages/marketing";
+import Settings from "@/pages/settings";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,6 +35,7 @@ function Router() {
           <Route path="/pos" component={POS} />
           <Route path="/hr" component={HR} />
           <Route path="/marketing" component={Marketing} />
+          <Route path="/settings" component={Settings} />
         </>
       )}
       <Route component={NotFound} />

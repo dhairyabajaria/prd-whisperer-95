@@ -74,6 +74,12 @@ const navigation = [
     href: "/marketing",
     icon: Target,
     roles: ['admin', 'marketing']
+  },
+  {
+    name: "Settings",
+    href: "/settings",
+    icon: Settings,
+    roles: ['admin']
   }
 ];
 

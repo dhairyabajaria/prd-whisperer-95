@@ -1,9 +1,20 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
-});
+
+// Helper function to check if OpenAI is properly configured
+export function isOpenAIConfigured(): boolean {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+  return !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0);
+}
+
+// Only initialize OpenAI if we have a valid API key
+let openai: OpenAI | null = null;
+if (isOpenAIConfigured()) {
+  openai = new OpenAI({ 
+    apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR
+  });
+}
 
 export interface InventoryRecommendation {
   productId: string;
@@ -34,6 +45,74 @@ export interface AIInsight {
 }
 
 export class AIService {
+  // Fallback data generators for when AI is unavailable
+  private generateFallbackInventoryRecommendations(inventoryData: Array<{
+    productId: string;
+    productName: string;
+    currentStock: number;
+    salesHistory: number[];
+    leadTimeDays: number;
+    minStockLevel: number;
+  }>): InventoryRecommendation[] {
+    return inventoryData
+      .filter(item => item.currentStock <= item.minStockLevel * 1.5)
+      .slice(0, 3)
+      .map(item => ({
+        productId: item.productId,
+        productName: item.productName,
+        currentStock: item.currentStock,
+        recommendedReorder: Math.max(item.minStockLevel * 2, 100),
+        reason: item.currentStock <= item.minStockLevel 
+          ? "Stock below minimum level - reorder required"
+          : "Stock approaching minimum level - consider reordering",
+        urgency: item.currentStock <= item.minStockLevel ? 'high' : 'medium',
+        suggestedSupplier: "Auto-suggested supplier"
+      }));
+  }
+
+  private generateFallbackBusinessInsights(): AIInsight[] {
+    return [
+      {
+        type: 'reorder',
+        title: 'Stock Level Review Needed',
+        description: 'Several products are approaching minimum stock levels. Regular inventory review recommended.',
+        actionText: 'Review inventory levels',
+        urgency: 'medium'
+      },
+      {
+        type: 'sales_trend',
+        title: 'Monitor Sales Performance',
+        description: 'Track your sales metrics regularly to identify trends and opportunities.',
+        actionText: 'View sales reports',
+        urgency: 'low'
+      }
+    ];
+  }
+
+  private generateFallbackPriceOptimizations(productData: Array<{
+    productId: string;
+    productName: string;
+    currentPrice: number;
+    salesVolume: number;
+    competitorPrices: number[];
+    marginPercentage: number;
+  }>): PriceOptimization[] {
+    return productData.slice(0, 2).map(product => {
+      const avgCompetitorPrice = product.competitorPrices.length > 0 
+        ? product.competitorPrices.reduce((a, b) => a + b, 0) / product.competitorPrices.length
+        : product.currentPrice;
+      
+      return {
+        productId: product.productId,
+        productName: product.productName,
+        currentPrice: product.currentPrice,
+        suggestedPrice: avgCompetitorPrice,
+        potentialMarginIncrease: Math.abs(avgCompetitorPrice - product.currentPrice) * 0.1,
+        competitorData: `Competitor prices range from ${Math.min(...product.competitorPrices)} to ${Math.max(...product.competitorPrices)}`
+      };
+    });
+  }
+
   async generateInventoryRecommendations(
     inventoryData: Array<{
       productId: string;
@@ -44,6 +123,12 @@ export class AIService {
       minStockLevel: number;
     }>
   ): Promise<InventoryRecommendation[]> {
+    // Return fallback data if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning fallback inventory recommendations');
+      return this.generateFallbackInventoryRecommendations(inventoryData);
+    }
+
     try {
       const prompt = `
         As a pharmaceutical inventory management AI, analyze the following inventory data and provide reorder recommendations.
@@ -88,7 +173,8 @@ export class AIService {
       return result.recommendations || [];
     } catch (error) {
       console.error('Error generating inventory recommendations:', error);
-      return [];
+      // Return fallback data on error
+      return this.generateFallbackInventoryRecommendations(inventoryData);
     }
   }
 
@@ -102,6 +188,12 @@ export class AIService {
       marginPercentage: number;
     }>
   ): Promise<PriceOptimization[]> {
+    // Return fallback data if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning fallback price optimizations');
+      return this.generateFallbackPriceOptimizations(productData);
+    }
+
     try {
       const prompt = `
         Analyze pharmaceutical product pricing for optimization opportunities.
@@ -145,7 +237,8 @@ export class AIService {
       return result.optimizations || [];
     } catch (error) {
       console.error('Error analyzing price optimization:', error);
-      return [];
+      // Return fallback data on error
+      return this.generateFallbackPriceOptimizations(productData);
     }
   }
 
@@ -157,6 +250,12 @@ export class AIService {
       financialMetrics: any;
     }
   ): Promise<AIInsight[]> {
+    // Return fallback data if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning fallback business insights');
+      return this.generateFallbackBusinessInsights();
+    }
+
     try {
       const prompt = `
         Analyze pharmaceutical distribution business data and provide actionable insights.
@@ -200,7 +299,8 @@ export class AIService {
       return result.insights || [];
     } catch (error) {
       console.error('Error generating business insights:', error);
-      return [];
+      // Return fallback data on error
+      return this.generateFallbackBusinessInsights();
     }
   }
 
@@ -208,6 +308,21 @@ export class AIService {
     query: string,
     businessContext: any
   ): Promise<{ response: string; actionable: boolean; suggestedActions?: string[] }> {
+    // Return fallback response if OpenAI is not configured
+    if (!isOpenAIConfigured() || !openai) {
+      console.log('OpenAI not configured, returning fallback chat response');
+      return {
+        response: "AI chat is currently unavailable. Please contact your administrator to configure AI services, or try using the standard dashboard features.",
+        actionable: true,
+        suggestedActions: [
+          "Check dashboard metrics",
+          "Review inventory levels", 
+          "View recent orders",
+          "Contact system administrator"
+        ]
+      };
+    }
+
     try {
       const prompt = `
         You are an AI assistant for a pharmaceutical ERP system. Answer the user's query based on the business context provided.
@@ -253,9 +368,15 @@ export class AIService {
       };
     } catch (error) {
       console.error('Error processing chat query:', error);
+      // Return fallback response on error
       return {
-        response: "I'm experiencing technical difficulties. Please try again later.",
-        actionable: false
+        response: "I'm experiencing technical difficulties. Please try using the dashboard features or contact support.",
+        actionable: true,
+        suggestedActions: [
+          "Check dashboard metrics",
+          "Review inventory levels", 
+          "Contact system administrator"
+        ]
       };
     }
   }

@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Lightbulb, TrendingUp, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Bot, Lightbulb, TrendingUp, AlertCircle, Settings } from "lucide-react";
 
 interface AIRecommendation {
   productId: string;
@@ -24,7 +27,22 @@ interface AIInsight {
   data?: any;
 }
 
+interface HealthStatus {
+  status: string;
+  openaiConfigured: boolean;
+  databaseConfigured: boolean;
+  sessionConfigured: boolean;
+}
+
 export default function AIRecommendations() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  const { data: healthStatus } = useQuery<HealthStatus>({
+    queryKey: ["/api/health"],
+    staleTime: 30 * 1000, // 30 seconds
+  });
+
   const { data: recommendations, isLoading: loadingRecs } = useQuery<AIRecommendation[]>({
     queryKey: ["/api/ai/recommendations"],
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -61,15 +79,51 @@ export default function AIRecommendations() {
     console.log('Applying insight:', insight);
   };
 
+  const isAiConfigured = healthStatus?.openaiConfigured ?? false;
+  const showFallbackMessage = !isAiConfigured;
+
   return (
     <Card data-testid="card-ai-recommendations">
       <CardHeader className="border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground flex items-center">
-          <Bot className="text-primary mr-2 ai-pulse w-5 h-5" />
-          AI Recommendations
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-foreground flex items-center">
+            <Bot className="text-primary mr-2 ai-pulse w-5 h-5" />
+            AI Recommendations
+            {showFallbackMessage && (
+              <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-800">
+                Fallback Mode
+              </Badge>
+            )}
+          </h3>
+          {showFallbackMessage && isAdmin && (
+            <Button
+              variant="outline" 
+              size="sm"
+              onClick={() => window.location.href = '/settings'}
+              className="text-xs"
+              data-testid="button-configure-ai"
+            >
+              <Settings className="w-3 h-3 mr-1" />
+              Configure AI
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
+        {showFallbackMessage && (
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              AI features are using fallback data. 
+              {isAdmin ? (
+                <span> Configure OpenAI API key in <a href="/settings" className="font-medium underline">Settings</a> for enhanced recommendations.</span>
+              ) : (
+                <span> Contact your administrator to enable full AI features.</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {loadingRecs || loadingInsights ? (
           <div className="space-y-4">
             {Array.from({ length: 2 }).map((_, index) => (

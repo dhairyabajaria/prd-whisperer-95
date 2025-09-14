@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { aiService } from "./ai";
+import { aiService, isOpenAIConfigured } from "./ai";
 import { externalIntegrationsService } from "./external-integrations";
 import { 
   insertCustomerSchema,
@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment: process.env.NODE_ENV,
       databaseConfigured: !!process.env.DATABASE_URL,
       sessionConfigured: !!process.env.SESSION_SECRET,
-      openaiConfigured: !!process.env.OPENAI_API_KEY
+      openaiConfigured: isOpenAIConfigured()
     });
   });
 
