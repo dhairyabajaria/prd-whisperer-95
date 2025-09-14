@@ -91,22 +91,22 @@ export default function MarketingPage() {
   // Data queries - only enabled for authorized users
   const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useQuery<Campaign[]>({
     queryKey: ["/api/marketing/campaigns"],
-    enabled: isAuthenticated && !isLoading && hasMarketingAccess,
+    enabled: !!isAuthenticated && !isLoading && !!hasMarketingAccess,
   });
 
   const { data: leads, isLoading: leadsLoading, error: leadsError } = useQuery<Lead[]>({
     queryKey: ["/api/marketing/leads"],
-    enabled: isAuthenticated && !isLoading && hasMarketingAccess,
+    enabled: !!isAuthenticated && !isLoading && !!hasMarketingAccess,
   });
 
   const { data: communications, isLoading: communicationsLoading, error: communicationsError } = useQuery<Communication[]>({
     queryKey: ["/api/marketing/communications"],
-    enabled: isAuthenticated && !isLoading && hasMarketingAccess,
+    enabled: !!isAuthenticated && !isLoading && !!hasMarketingAccess,
   });
 
   const { data: users } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
-    enabled: isAuthenticated && !isLoading && hasMarketingAccess,
+    enabled: !!isAuthenticated && !isLoading && !!hasMarketingAccess,
   });
 
   // Form configurations
@@ -415,7 +415,7 @@ export default function MarketingPage() {
   };
 
   // Filter functions
-  const filteredCampaigns = campaigns?.filter(campaign => {
+  const filteredCampaigns = campaigns?.filter((campaign: Campaign) => {
     const matchesSearch = campaign.name.toLowerCase().includes(campaignSearchTerm.toLowerCase()) ||
       campaign.description?.toLowerCase().includes(campaignSearchTerm.toLowerCase());
     const matchesStatus = selectedCampaignStatus === "" || campaign.status === selectedCampaignStatus;
@@ -423,7 +423,7 @@ export default function MarketingPage() {
     return matchesSearch && matchesStatus && matchesType;
   }) || [];
 
-  const filteredLeads = leads?.filter(lead => {
+  const filteredLeads = leads?.filter((lead: Lead) => {
     const matchesSearch = lead.firstName.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
       lead.lastName.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
       lead.email?.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
@@ -433,7 +433,7 @@ export default function MarketingPage() {
     return matchesSearch && matchesStatus && matchesSource;
   }) || [];
 
-  const filteredCommunications = communications?.filter(communication => {
+  const filteredCommunications = communications?.filter((communication: Communication) => {
     const matchesSearch = communication.subject?.toLowerCase().includes(communicationSearchTerm.toLowerCase()) ||
       communication.content?.toLowerCase().includes(communicationSearchTerm.toLowerCase());
     const matchesType = selectedCommunicationType === "" || communication.communicationType === selectedCommunicationType;
@@ -516,7 +516,7 @@ export default function MarketingPage() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Campaigns</p>
                         <p className="text-2xl font-bold" data-testid="metric-total-campaigns">
-                          {campaigns?.length || 0}
+                          {campaigns?.length ?? 0}
                         </p>
                       </div>
                       <Target className="h-8 w-8 text-primary" />
@@ -530,7 +530,7 @@ export default function MarketingPage() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Active Campaigns</p>
                         <p className="text-2xl font-bold" data-testid="metric-active-campaigns">
-                          {campaigns?.filter(c => c.status === 'active').length || 0}
+                          {campaigns?.filter((c: Campaign) => c.status === 'active').length ?? 0}
                         </p>
                       </div>
                       <Play className="h-8 w-8 text-green-600" />
@@ -544,7 +544,7 @@ export default function MarketingPage() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Budget</p>
                         <p className="text-2xl font-bold" data-testid="metric-total-budget">
-                          {formatCurrency(campaigns?.reduce((sum, c) => sum + parseFloat(c.budget), 0) || 0)}
+                          {formatCurrency(campaigns?.reduce((sum: number, c: Campaign) => sum + parseFloat(c.budget || '0'), 0) ?? 0)}
                         </p>
                       </div>
                       <DollarSign className="h-8 w-8 text-yellow-600" />
@@ -558,7 +558,7 @@ export default function MarketingPage() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Spend</p>
                         <p className="text-2xl font-bold" data-testid="metric-total-spend">
-                          {formatCurrency(campaigns?.reduce((sum, c) => sum + parseFloat(c.actualSpend), 0) || 0)}
+                          {formatCurrency(campaigns?.reduce((sum: number, c: Campaign) => sum + parseFloat(c.actualSpend || '0'), 0) ?? 0)}
                         </p>
                       </div>
                       <BarChart3 className="h-8 w-8 text-blue-600" />
@@ -581,7 +581,7 @@ export default function MarketingPage() {
                     />
                   </div>
                   
-                  <Select value={selectedCampaignStatus} onValueChange={setSelectedCampaignStatus}>
+                  <Select value={selectedCampaignStatus || ""} onValueChange={setSelectedCampaignStatus}>
                     <SelectTrigger className="w-40" data-testid="select-campaign-status">
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
@@ -595,7 +595,7 @@ export default function MarketingPage() {
                     </SelectContent>
                   </Select>
                   
-                  <Select value={selectedCampaignType} onValueChange={setSelectedCampaignType}>
+                  <Select value={selectedCampaignType || ""} onValueChange={setSelectedCampaignType}>
                     <SelectTrigger className="w-40" data-testid="select-campaign-type">
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
@@ -733,7 +733,7 @@ export default function MarketingPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-campaign-status-form">
                                       <SelectValue placeholder="Select status" />
@@ -853,7 +853,7 @@ export default function MarketingPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredCampaigns.map((campaign) => {
-                          const budgetProgress = (parseFloat(campaign.actualSpend) / parseFloat(campaign.budget)) * 100;
+                          const budgetProgress = (parseFloat(campaign.actualSpend || '0') / parseFloat(campaign.budget || '1')) * 100;
                           return (
                             <TableRow key={campaign.id} data-testid={`row-campaign-${campaign.id}`}>
                               <TableCell>
@@ -872,15 +872,15 @@ export default function MarketingPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge className={getCampaignStatusColor(campaign.status)}>
+                                <Badge className={getCampaignStatusColor(campaign.status || 'draft')}>
                                   {campaign.status}
                                 </Badge>
                               </TableCell>
                               <TableCell data-testid={`text-campaign-budget-${campaign.id}`}>
-                                {formatCurrency(campaign.budget)}
+                                {formatCurrency(campaign.budget || '0')}
                               </TableCell>
                               <TableCell data-testid={`text-campaign-spent-${campaign.id}`}>
-                                {formatCurrency(campaign.actualSpend)}
+                                {formatCurrency(campaign.actualSpend || '0')}
                               </TableCell>
                               <TableCell>
                                 <div className="space-y-1">
@@ -1141,7 +1141,7 @@ export default function MarketingPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Source</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-lead-source-form">
                                       <SelectValue placeholder="Select source" />
@@ -1167,7 +1167,7 @@ export default function MarketingPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-lead-status-form">
                                       <SelectValue placeholder="Select status" />
@@ -1217,7 +1217,7 @@ export default function MarketingPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Assigned To</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-lead-assigned-to">
                                       <SelectValue placeholder="Select sales rep" />
@@ -1383,16 +1383,16 @@ export default function MarketingPage() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Badge className={getLeadStatusColor(lead.leadStatus)}>
-                                  {lead.leadStatus}
+                                <Badge className={getLeadStatusColor(lead.leadStatus || 'new')}>
+                                  {lead.leadStatus || 'new'}
                                 </Badge>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center space-x-2">
-                                  <div className={`font-medium ${getLeadScoreColor(lead.leadScore)}`}>
-                                    {lead.leadScore}/100
+                                  <div className={`font-medium ${getLeadScoreColor(lead.leadScore || 0)}`}>
+                                    {lead.leadScore || 0}/100
                                   </div>
-                                  <Progress value={lead.leadScore} className="h-2 w-16" />
+                                  <Progress value={lead.leadScore || 0} className="h-2 w-16" />
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -1401,7 +1401,7 @@ export default function MarketingPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell data-testid={`text-lead-value-${lead.id}`}>
-                                {formatCurrency(lead.estimatedValue)}
+                                {formatCurrency(lead.estimatedValue || '0')}
                               </TableCell>
                               <TableCell>
                                 {assignedUser ? (
@@ -1624,7 +1624,7 @@ export default function MarketingPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-communication-status">
                                       <SelectValue placeholder="Select status" />
@@ -1760,8 +1760,8 @@ export default function MarketingPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge className={getCommunicationStatusColor(communication.status)}>
-                                  {communication.status}
+                                <Badge className={getCommunicationStatusColor(communication.status || 'draft')}>
+                                  {communication.status || 'draft'}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -1773,9 +1773,9 @@ export default function MarketingPage() {
                               </TableCell>
                               <TableCell>
                                 <div className="text-sm">
-                                  <div>{new Date(communication.createdAt).toLocaleDateString()}</div>
+                                  <div>{communication.createdAt ? new Date(communication.createdAt).toLocaleDateString() : 'N/A'}</div>
                                   <div className="text-muted-foreground">
-                                    {new Date(communication.createdAt).toLocaleTimeString()}
+                                    {communication.createdAt ? new Date(communication.createdAt).toLocaleTimeString() : 'N/A'}
                                   </div>
                                 </div>
                               </TableCell>
