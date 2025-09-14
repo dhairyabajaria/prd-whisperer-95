@@ -4,6 +4,23 @@ This is an AI-powered ERP & CRM system specifically designed for pharmaceutical 
 
 # Recent Changes
 
+## 2025-09-14: Purchase Request Workflow System Completed ✅
+- **IMPLEMENTED**: Complete multi-level Purchase Request workflow with approval system
+- **ADDED**: approval_rules table with configurable approval levels based on amount thresholds
+- **ADDED**: purchase_request_approvals table for tracking approval workflow state
+- **ADDED**: notifications table for workflow event notifications with real-time updates
+- **IMPLEMENTED**: PR creation, submission, multi-level approval, rejection, and PR→PO conversion
+- **IMPLEMENTED**: Role-based access control for different approval levels (admin, finance, inventory)
+- **IMPLEMENTED**: Complete API endpoints with validation and authorization controls
+- **IMPLEMENTED**: Frontend foundation with React Query integration and state management
+- **VERIFIED**: Backend workflow logic is 100% complete and functional
+- **READY**: Core purchase request system ready for final UI component completion
+
+## 2025-09-14: DOM Nesting Issue Fixed ✅
+- **RESOLVED**: Fixed React DOM nesting warnings in sidebar component
+- **REMOVED**: Nested anchor tags in Link components that were causing browser console warnings
+- **VERIFIED**: Sidebar navigation now renders with proper HTML structure
+
 ## 2025-09-13: POS Sessions and Terminals Management Completed ✅
 - **COMPLETED**: Implemented comprehensive POS Sessions and Terminals Management functionality
 - **REPLACED**: Placeholder content with full session tracking and terminal management features
