@@ -2922,7 +2922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId: customerId,
         content: comm.content || '',
         communicationType: comm.communicationType,
-        direction: comm.direction || 'inbound',
+        direction: (comm.direction === 'outbound' ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
         createdAt: comm.createdAt || new Date()
       }));
 
@@ -2933,7 +2933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let skipped = 0;
 
       // Store all sentiment analysis results
-      for (const [commId, sentimentResult] of sentimentResults.entries()) {
+      for (const [commId, sentimentResult] of Array.from(sentimentResults.entries())) {
         try {
           const sentimentData = {
             communicationId: commId,

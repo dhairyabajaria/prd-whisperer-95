@@ -4003,6 +4003,27 @@ export class DatabaseStorage implements IStorage {
     return communication;
   }
 
+  // CRM Module - General Communication operations
+  async getCommunication(id: string): Promise<Communication | undefined> {
+    const db = await getDb();
+    const [communication] = await db
+      .select()
+      .from(communications)
+      .where(eq(communications.id, id))
+      .limit(1);
+    return communication;
+  }
+
+  async getCustomerCommunications(customerId: string, limit = 50): Promise<Communication[]> {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(communications)
+      .where(eq(communications.customerId, customerId))
+      .limit(limit)
+      .orderBy(desc(communications.createdAt));
+  }
+
   // Sentiment Analysis operations
   async upsertSentiment(sentimentData: InsertSentimentAnalysis): Promise<SentimentAnalysis> {
     const db = await getDb();
@@ -4502,6 +4523,199 @@ export class DatabaseStorage implements IStorage {
     return { pr: updatedPr, po };
   }
 
+  // Enhanced PR workflow methods with multi-level approval
+  async submitPurchaseRequestWithApproval(id: string, submitterId: string): Promise<{ pr: PurchaseRequest; approvals: PurchaseRequestApproval[] }> {
+    const db = await getDb();
+    
+    const pr = await this.getPurchaseRequest(id);
+    if (!pr) throw new Error('Purchase request not found');
+
+    // Get applicable approval rules for this PR
+    const rules = await this.getApprovalRules('purchase_request', pr.currency || 'USD');
+    
+    const prTotalAmount = parseFloat(pr.totalAmount || '0');
+    const applicableRules = rules.filter(rule => 
+      prTotalAmount >= (rule.minAmount ? parseFloat(rule.minAmount) : 0) &&
+      prTotalAmount <= (rule.maxAmount ? parseFloat(rule.maxAmount) : Infinity)
+    );
+
+    // Update PR status to submitted
+    const [updatedPr] = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'submitted',
+        submittedAt: new Date(),
+        submittedBy: submitterId,
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+
+    // Create approval records
+    const approvals: PurchaseRequestApproval[] = [];
+    for (const rule of applicableRules) {
+      const [approval] = await db
+        .insert(purchaseRequestApprovals)
+        .values({
+          prId: id,
+          ruleId: rule.id,
+          level: rule.level,
+          status: 'pending',
+          requiredBy: rule.requiredBy || submitterId,
+        })
+        .returning();
+      approvals.push(approval);
+    }
+
+    return { pr: updatedPr, approvals };
+  }
+
+  async approvePurchaseRequestLevel(prId: string, level: number, approverId: string, comment?: string): Promise<{ pr: PurchaseRequest; approval: PurchaseRequestApproval; isFullyApproved: boolean }> {
+    const db = await getDb();
+    
+    // Update approval for this level
+    const [approval] = await db
+      .update(purchaseRequestApprovals)
+      .set({
+        status: 'approved',
+        approvedBy: approverId,
+        approvedAt: new Date(),
+        comment,
+      })
+      .where(and(
+        eq(purchaseRequestApprovals.prId, prId),
+        eq(purchaseRequestApprovals.level, level)
+      ))
+      .returning();
+
+    // Check if all levels are approved
+    const pendingApprovals = await db
+      .select()
+      .from(purchaseRequestApprovals)
+      .where(and(
+        eq(purchaseRequestApprovals.prId, prId),
+        eq(purchaseRequestApprovals.status, 'pending')
+      ));
+
+    const isFullyApproved = pendingApprovals.length === 0;
+
+    // If fully approved, update PR status
+    let updatedPr;
+    if (isFullyApproved) {
+      [updatedPr] = await db
+        .update(purchaseRequests)
+        .set({ 
+          status: 'approved',
+          approvedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(purchaseRequests.id, prId))
+        .returning();
+    } else {
+      updatedPr = await this.getPurchaseRequest(prId);
+    }
+
+    return { pr: updatedPr!, approval, isFullyApproved };
+  }
+
+  async rejectPurchaseRequestLevel(prId: string, level: number, approverId: string, comment: string): Promise<{ pr: PurchaseRequest; approval: PurchaseRequestApproval }> {
+    const db = await getDb();
+    
+    // Update approval for this level
+    const [approval] = await db
+      .update(purchaseRequestApprovals)
+      .set({
+        status: 'rejected',
+        approvedBy: approverId,
+        approvedAt: new Date(),
+        comment,
+      })
+      .where(and(
+        eq(purchaseRequestApprovals.prId, prId),
+        eq(purchaseRequestApprovals.level, level)
+      ))
+      .returning();
+
+    // Update PR status to rejected
+    const [updatedPr] = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'rejected',
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, prId))
+      .returning();
+
+    return { pr: updatedPr, approval };
+  }
+
+  async getPurchaseRequestApprovals(prId: string): Promise<(PurchaseRequestApproval & { approver: User; rule: ApprovalRule })[]> {
+    const db = await getDb();
+    
+    return await db
+      .select({
+        id: purchaseRequestApprovals.id,
+        prId: purchaseRequestApprovals.prId,
+        ruleId: purchaseRequestApprovals.ruleId,
+        level: purchaseRequestApprovals.level,
+        status: purchaseRequestApprovals.status,
+        requiredBy: purchaseRequestApprovals.requiredBy,
+        approvedBy: purchaseRequestApprovals.approvedBy,
+        approvedAt: purchaseRequestApprovals.approvedAt,
+        comment: purchaseRequestApprovals.comment,
+        createdAt: purchaseRequestApprovals.createdAt,
+        approver: users,
+        rule: approvalRules,
+      })
+      .from(purchaseRequestApprovals)
+      .leftJoin(users, eq(purchaseRequestApprovals.approvedBy, users.id))
+      .leftJoin(approvalRules, eq(purchaseRequestApprovals.ruleId, approvalRules.id))
+      .where(eq(purchaseRequestApprovals.prId, prId))
+      .orderBy(asc(purchaseRequestApprovals.level));
+  }
+
+  async getPendingApprovalsForUser(userId: string, limit = 50): Promise<(PurchaseRequestApproval & { purchaseRequest: PurchaseRequest & { requester: User; items: (PurchaseRequestItem & { product: Product })[] }; rule: ApprovalRule })[]> {
+    const db = await getDb();
+    
+    // Get pending approvals for this user
+    const approvals = await db
+      .select({
+        id: purchaseRequestApprovals.id,
+        prId: purchaseRequestApprovals.prId,
+        ruleId: purchaseRequestApprovals.ruleId,
+        level: purchaseRequestApprovals.level,
+        status: purchaseRequestApprovals.status,
+        requiredBy: purchaseRequestApprovals.requiredBy,
+        approvedBy: purchaseRequestApprovals.approvedBy,
+        approvedAt: purchaseRequestApprovals.approvedAt,
+        comment: purchaseRequestApprovals.comment,
+        createdAt: purchaseRequestApprovals.createdAt,
+        rule: approvalRules,
+      })
+      .from(purchaseRequestApprovals)
+      .leftJoin(approvalRules, eq(purchaseRequestApprovals.ruleId, approvalRules.id))
+      .where(and(
+        eq(purchaseRequestApprovals.status, 'pending'),
+        eq(purchaseRequestApprovals.requiredBy, userId)
+      ))
+      .limit(limit)
+      .orderBy(desc(purchaseRequestApprovals.createdAt));
+
+    // Get purchase request details for each approval
+    const results = [];
+    for (const approval of approvals) {
+      const pr = await this.getPurchaseRequest(approval.prId);
+      if (pr) {
+        results.push({
+          ...approval,
+          purchaseRequest: pr,
+        });
+      }
+    }
+
+    return results;
+  }
+
   // Approval workflow operations
   async getApprovals(entityType?: string, entityId?: string, approverId?: string): Promise<(Approval & { approver: User })[]> {
     const db = await getDb();
@@ -4551,6 +4765,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(approvals.id, id))
       .returning();
     return approval;
+  }
+
+  // Multi-level approval rules management
+  async getApprovalRules(entityType?: string, currency?: string): Promise<ApprovalRule[]> {
+    const db = await getDb();
+    
+    let conditions = [];
+    if (entityType) conditions.push(eq(approvalRules.entityType, entityType));
+    if (currency) conditions.push(eq(approvalRules.currency, currency));
+    
+    return await db
+      .select()
+      .from(approvalRules)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(approvalRules.level));
+  }
+
+  async createApprovalRule(rule: InsertApprovalRule): Promise<ApprovalRule> {
+    const db = await getDb();
+    const [approvalRule] = await db.insert(approvalRules).values(rule).returning();
+    return approvalRule;
+  }
+
+  async updateApprovalRule(id: string, rule: Partial<InsertApprovalRule>): Promise<ApprovalRule> {
+    const db = await getDb();
+    const [approvalRule] = await db
+      .update(approvalRules)
+      .set({ ...rule, updatedAt: new Date() })
+      .where(eq(approvalRules.id, id))
+      .returning();
+    return approvalRule;
+  }
+
+  async deleteApprovalRule(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete(approvalRules).where(eq(approvalRules.id, id));
   }
 
   // Goods Receipt operations
