@@ -211,8 +211,8 @@ export default function Sidebar() {
           if (!canAccessRoute(item.roles)) return null;
           
           return (
-            <Link key={item.name} href={item.href}>
-              <a className={cn(
+            <Link key={item.name} href={item.href}
+              className={cn(
                 "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
                 isActive(item.href)
                   ? "bg-white/20 text-white"
@@ -227,7 +227,6 @@ export default function Sidebar() {
                     12
                   </span>
                 )}
-              </a>
             </Link>
           );
         })}
@@ -238,8 +237,8 @@ export default function Sidebar() {
           if (!canAccessRoute(item.roles)) return null;
           
           return (
-            <Link key={item.name} href={item.href}>
-              <a className={cn(
+            <Link key={item.name} href={item.href}
+              className={cn(
                 "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
                 isActive(item.href)
                   ? "bg-white/20 text-white"
@@ -248,7 +247,6 @@ export default function Sidebar() {
               data-testid={`link-ai-${item.name.toLowerCase().replace(' ', '-')}`}>
                 <item.icon className={cn("w-4 h-4", item.name === "AI Assistant" && "ai-pulse")} />
                 <span>{item.name}</span>
-              </a>
             </Link>
           );
         })}
@@ -256,12 +254,11 @@ export default function Sidebar() {
 
       {/* Settings */}
       <div className="p-6 border-t border-white/20">
-        <Link href="/settings">
-          <a className="flex items-center space-x-3 px-3 py-2 rounded-md text-white/80 hover:bg-white/10 transition-colors"
-             data-testid="link-settings">
+        <Link href="/settings"
+          className="flex items-center space-x-3 px-3 py-2 rounded-md text-white/80 hover:bg-white/10 transition-colors"
+          data-testid="link-settings">
             <Settings className="w-4 h-4" />
             <span>Settings</span>
-          </a>
         </Link>
       </div>
     </div>
