@@ -3452,7 +3452,12 @@ export class DatabaseStorage implements IStorage {
   async getReceipts(limit = 100, customerId?: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User })[]> {
     const db = await getDb();
     return await db
-      .select()
+      .select({
+        receipt: receipts,
+        customer: customers,
+        invoice: invoices,
+        receivedBy: users,
+      })
       .from(receipts)
       .leftJoin(customers, eq(receipts.customerId, customers.id))
       .leftJoin(invoices, eq(receipts.invoiceId, invoices.id))
@@ -3461,17 +3466,22 @@ export class DatabaseStorage implements IStorage {
       .limit(limit)
       .orderBy(desc(receipts.createdAt))
       .then(rows => rows.map(row => ({
-        ...row.receipts,
-        customer: row.customers!,
-        invoice: row.invoices || undefined,
-        receivedBy: row.users!,
+        ...row.receipt,
+        customer: row.customer!,
+        invoice: row.invoice || undefined,
+        receivedBy: row.receivedBy!,
       })));
   }
 
   async getReceipt(id: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined> {
     const db = await getDb();
     const [row] = await db
-      .select()
+      .select({
+        receipt: receipts,
+        customer: customers,
+        invoice: invoices,
+        receivedBy: users,
+      })
       .from(receipts)
       .leftJoin(customers, eq(receipts.customerId, customers.id))
       .leftJoin(invoices, eq(receipts.invoiceId, invoices.id))
@@ -3481,10 +3491,10 @@ export class DatabaseStorage implements IStorage {
     if (!row) return undefined;
 
     return {
-      ...row.receipts,
-      customer: row.customers!,
-      invoice: row.invoices || undefined,
-      receivedBy: row.users!,
+      ...row.receipt,
+      customer: row.customer!,
+      invoice: row.invoice || undefined,
+      receivedBy: row.receivedBy!,
     };
   }
 
