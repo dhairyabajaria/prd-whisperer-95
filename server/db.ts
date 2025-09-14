@@ -6,85 +6,99 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-// Lazy database initialization with circuit breaker
-let dbInstance: ReturnType<typeof drizzle> | null = null;
-let initPromise: Promise<ReturnType<typeof drizzle>> | null = null;
-let lastFailure = 0;
-let attempts = 0;
-const MAX_ATTEMPTS = 3;
-const COOLDOWN_MS = 30000;
+// Allow application to start even without DATABASE_URL for debugging
+const isDevelopment = process.env.NODE_ENV === 'development';
+let db: ReturnType<typeof drizzle> | null = null;
+let pool: Pool | null = null;
 
+// Replit-specific function to access secrets at runtime
+async function getReplitSecret(key: string): Promise<string | undefined> {
+  // Method 1: Direct process.env access
+  let value = process.env[key];
+  if (value && value.trim() !== '') return value;
+  
+  // Method 2: Try reading from file system (Replit sometimes stores secrets as files)
+  try {
+    const fs = require('fs');
+    const secretPath = `/tmp/secrets/${key}`;
+    if (fs.existsSync(secretPath)) {
+      value = fs.readFileSync(secretPath, 'utf8').trim();
+      if (value) return value;
+    }
+  } catch (e) {
+    // Ignore file system errors
+  }
+  
+  // Method 3: Check if available but empty, try forcing reload
+  if (Object.prototype.hasOwnProperty.call(process.env, key)) {
+    // Key exists but might be empty - try accessing in next tick
+    await new Promise(resolve => setTimeout(resolve, 100));
+    value = process.env[key];
+    if (value && value.trim() !== '') return value;
+  }
+  
+  return undefined;
+}
+
+// Try to initialize database connection with Replit-specific handling
+async function initializeDatabase() {
+  try {
+    console.log('Database initialization (Replit-aware):');
+    console.log('NODE_ENV:', process.env.NODE_ENV || 'undefined');
+    
+    let databaseUrl = await getReplitSecret('DATABASE_URL');
+    
+    // If still not found, try constructing from PG components
+    if (!databaseUrl) {
+      console.log('DATABASE_URL not found, trying PG components...');
+      const pgHost = await getReplitSecret('PGHOST');
+      const pgPort = await getReplitSecret('PGPORT');
+      const pgDatabase = await getReplitSecret('PGDATABASE');
+      const pgUser = await getReplitSecret('PGUSER');
+      const pgPassword = await getReplitSecret('PGPASSWORD');
+      
+      console.log('PG components availability:', {
+        PGHOST: !!pgHost,
+        PGPORT: !!pgPort,
+        PGDATABASE: !!pgDatabase,
+        PGUSER: !!pgUser,
+        PGPASSWORD: !!pgPassword
+      });
+      
+      if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
+        databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
+        console.log('✅ Constructed DATABASE_URL from PG components');
+      }
+    }
+
+    if (databaseUrl && databaseUrl.trim() !== '') {
+      console.log('✅ Initializing database connection');
+      pool = new Pool({ connectionString: databaseUrl });
+      db = drizzle({ client: pool, schema });
+      console.log('✅ Database connection initialized successfully');
+      
+      // Test connection
+      await db.execute(sql`SELECT 1`);
+      console.log('✅ Database connection test successful');
+    } else {
+      console.log('⚠️ DATABASE_URL not available - database operations will fail at runtime');
+      console.log('Available env vars with DATABASE/PG:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PG')));
+    }
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+    console.log('Application will continue without database connection');
+  }
+}
+
+// Initialize database asynchronously 
+initializeDatabase();
+
+export { pool, db };
+
+// For backward compatibility with existing code
 export async function getDb() {
-  // Return existing instance if available
-  if (dbInstance) {
-    return dbInstance;
+  if (!db) {
+    throw new Error("DATABASE_URL must be set and valid. Database connection not available.");
   }
-
-  // Check circuit breaker cooldown
-  if (attempts >= MAX_ATTEMPTS && Date.now() - lastFailure < COOLDOWN_MS) {
-    throw new Error("Database temporarily unavailable; retry later");
-  }
-
-  // Try different possible environment variable names for PostgreSQL DATABASE_URL
-  const databaseUrl = process.env.DATABASE_URL || 
-                     process.env.NEON_DATABASE_URL || 
-                     process.env.DB_URL ||
-                     process.env.POSTGRES_URL;
-  
-  // Helper function to safely log database connection info without credentials
-  const getSafeDbInfo = (url: string | undefined) => {
-    if (!url) return 'not set';
-    try {
-      const urlObj = new URL(url);
-      return `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? ':' + urlObj.port : ''}${urlObj.pathname}`;
-    } catch {
-      return 'present but invalid format';
-    }
-  };
-  
-  console.log('Available DB env vars:', Object.keys(process.env).filter(key => 
-    key.includes('DATABASE') || key.includes('DB') || key.includes('POSTGRES') || key.includes('NEON')
-  ));
-  console.log('DATABASE_URL:', getSafeDbInfo(process.env.DATABASE_URL));
-  console.log('Selected database:', getSafeDbInfo(databaseUrl));
-  
-  if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL must be set. Did you forget to provision a database?",
-    );
-  }
-
-  // Coalesce concurrent callers
-  if (initPromise) {
-    return initPromise;
-  }
-
-  initPromise = (async () => {
-    try {
-      const pool = new Pool({ connectionString: databaseUrl });
-      const db = drizzle({ client: pool, schema });
-      
-      // Test connectivity
-      await db.execute(sql`select 1`);
-      
-      // Success: reset counters and store instance
-      dbInstance = db;
-      attempts = 0;
-      lastFailure = 0;
-      initPromise = null;
-      
-      return db;
-    } catch (error) {
-      // Failure: update circuit breaker state
-      attempts++;
-      lastFailure = Date.now();
-      initPromise = null;
-      
-      console.error(`Database connection failed (attempt ${attempts}/${MAX_ATTEMPTS}):`, error);
-      
-      throw error;
-    }
-  })();
-
-  return initPromise;
+  return db;
 }

@@ -1096,7 +1096,7 @@ export class DatabaseStorage implements IStorage {
         } as const;
         
         const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (!allowedStates.includes(order.status as any)) {
+        if (order.status && !allowedStates.includes(order.status as (typeof allowedStates)[number])) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -1554,7 +1554,7 @@ export class DatabaseStorage implements IStorage {
         } as const;
         
         const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (!allowedStates.includes(order.status as any)) {
+        if (order.status && !allowedStates.includes(order.status as (typeof allowedStates)[number])) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -3386,12 +3386,7 @@ export class DatabaseStorage implements IStorage {
   async getReceipts(limit = 100, customerId?: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User })[]> {
     const db = await getDb();
     return await db
-      .select({
-        receipt: receipts,
-        customer: customers,
-        invoice: invoices,
-        receivedBy: users,
-      })
+      .select()
       .from(receipts)
       .leftJoin(customers, eq(receipts.customerId, customers.id))
       .leftJoin(invoices, eq(receipts.invoiceId, invoices.id))
@@ -3400,22 +3395,17 @@ export class DatabaseStorage implements IStorage {
       .limit(limit)
       .orderBy(desc(receipts.createdAt))
       .then(rows => rows.map(row => ({
-        ...row.receipt,
-        customer: row.customer!,
-        invoice: row.invoice || undefined,
-        receivedBy: row.receivedBy!,
+        ...row.receipts,
+        customer: row.customers!,
+        invoice: row.invoices || undefined,
+        receivedBy: row.users!,
       })));
   }
 
   async getReceipt(id: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined> {
     const db = await getDb();
     const [row] = await db
-      .select({
-        receipt: receipts,
-        customer: customers,
-        invoice: invoices,
-        receivedBy: users,
-      })
+      .select()
       .from(receipts)
       .leftJoin(customers, eq(receipts.customerId, customers.id))
       .leftJoin(invoices, eq(receipts.invoiceId, invoices.id))
@@ -3425,10 +3415,10 @@ export class DatabaseStorage implements IStorage {
     if (!row) return undefined;
 
     return {
-      ...row.receipt,
-      customer: row.customer!,
-      invoice: row.invoice || undefined,
-      receivedBy: row.receivedBy!,
+      ...row.receipts,
+      customer: row.customers!,
+      invoice: row.invoices || undefined,
+      receivedBy: row.users!,
     };
   }
 
@@ -4029,7 +4019,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
     
-    return results as any;
+    return results;
   }
 
   async getPurchaseRequest(id: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] }) | undefined> {
@@ -4311,7 +4301,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
     
-    return results as any;
+    return results;
   }
 
   async getGoodsReceipt(id: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined> {
@@ -4349,7 +4339,7 @@ export class DatabaseStorage implements IStorage {
       warehouse: gr.warehouse,
       receivedBy: gr.receivedBy,
       items: items.map(item => ({ ...item.goodsReceiptItem, product: item.product }))
-    } as any;
+    };
   }
 
   async createGoodsReceipt(receiptData: InsertGoodsReceipt, items: InsertGoodsReceiptItem[]): Promise<GoodsReceipt> {
@@ -4540,7 +4530,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
     
-    return results as any;
+    return results;
   }
 
   async getVendorBill(id: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined> {
@@ -4576,7 +4566,7 @@ export class DatabaseStorage implements IStorage {
       purchaseOrder: bill.purchaseOrder,
       createdBy: bill.createdBy,
       items: items.map(item => ({ ...item.vendorBillItem, product: item.product }))
-    } as any;
+    };
   }
 
   async createVendorBill(billData: InsertVendorBill, items: InsertVendorBillItem[]): Promise<VendorBill> {
@@ -5373,7 +5363,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
     
-    return results as any;
+    return results;
   }
 
   async getCampaign(id: string): Promise<(Campaign & { manager: User; members: (CampaignMember & { customer?: Customer; lead?: Lead })[] }) | undefined> {
@@ -6214,21 +6204,29 @@ export class DatabaseStorage implements IStorage {
 
 import { MemStorage } from "./memStorage";
 
-// Use in-memory storage as fallback for development
+// Use storage based on DATABASE_URL availability
 let storage: IStorage;
 
-try {
-  // Try to initialize database storage
-  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-  console.log('Environment:', process.env.NODE_ENV);
-  
-  // Force database storage since we know database is available
-  console.log('Forcing database storage initialization...');
-  storage = new DatabaseStorage();
-  console.log('Successfully initialized database storage');
-} catch (error) {
-  console.warn('Database storage failed, falling back to memory storage:', error);
+const databaseUrl = process.env.DATABASE_URL;
+const hasDatabaseUrl = databaseUrl && databaseUrl.trim() !== '';
+
+console.log('DATABASE_URL exists:', !!hasDatabaseUrl);
+console.log('Environment:', process.env.NODE_ENV);
+
+if (hasDatabaseUrl) {
+  try {
+    console.log('Initializing database storage...');
+    storage = new DatabaseStorage();
+    console.log('✅ Successfully initialized database storage');
+  } catch (error) {
+    console.warn('❌ Database storage failed, falling back to memory storage:', error);
+    storage = new MemStorage();
+    console.log('✅ Successfully initialized memory storage (fallback)');
+  }
+} else {
+  console.log('📝 DATABASE_URL not available, using memory storage for development');
   storage = new MemStorage();
+  console.log('✅ Successfully initialized memory storage');
 }
 
 export { storage };

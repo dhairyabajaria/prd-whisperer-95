@@ -290,6 +290,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/suppliers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const supplier = await storage.getSupplier(req.params.id);
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      res.json(supplier);
+    } catch (error) {
+      console.error("Error fetching supplier:", error);
+      res.status(500).json({ message: "Failed to fetch supplier" });
+    }
+  });
+
   app.post("/api/suppliers", isAuthenticated, async (req, res) => {
     try {
       const supplierData = insertSupplierSchema.parse(req.body);
@@ -298,6 +311,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating supplier:", error);
       res.status(400).json({ message: "Failed to create supplier", error: error.message });
+    }
+  });
+
+  app.patch("/api/suppliers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const supplierData = insertSupplierSchema.partial().parse(req.body);
+      const supplier = await storage.updateSupplier(req.params.id, supplierData);
+      res.json(supplier);
+    } catch (error: any) {
+      console.error("Error updating supplier:", error);
+      res.status(400).json({ message: "Failed to update supplier", error: error.message });
+    }
+  });
+
+  app.delete("/api/suppliers/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteSupplier(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      res.status(500).json({ message: "Failed to delete supplier" });
     }
   });
 
@@ -312,6 +346,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/warehouses/:id", isAuthenticated, async (req, res) => {
+    try {
+      const warehouse = await storage.getWarehouse(req.params.id);
+      if (!warehouse) {
+        return res.status(404).json({ message: "Warehouse not found" });
+      }
+      res.json(warehouse);
+    } catch (error) {
+      console.error("Error fetching warehouse:", error);
+      res.status(500).json({ message: "Failed to fetch warehouse" });
+    }
+  });
+
   app.post("/api/warehouses", isAuthenticated, async (req, res) => {
     try {
       const warehouseData = insertWarehouseSchema.parse(req.body);
@@ -320,6 +367,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating warehouse:", error);
       res.status(400).json({ message: "Failed to create warehouse", error: error.message });
+    }
+  });
+
+  app.patch("/api/warehouses/:id", isAuthenticated, async (req, res) => {
+    try {
+      const warehouseData = insertWarehouseSchema.partial().parse(req.body);
+      const warehouse = await storage.updateWarehouse(req.params.id, warehouseData);
+      res.json(warehouse);
+    } catch (error: any) {
+      console.error("Error updating warehouse:", error);
+      res.status(400).json({ message: "Failed to update warehouse", error: error.message });
+    }
+  });
+
+  app.delete("/api/warehouses/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteWarehouse(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting warehouse:", error);
+      res.status(500).json({ message: "Failed to delete warehouse" });
     }
   });
 
@@ -335,6 +403,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/products/:id", isAuthenticated, async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
   app.post("/api/products", isAuthenticated, async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
@@ -343,6 +424,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating product:", error);
       res.status(400).json({ message: "Failed to create product", error: error.message });
+    }
+  });
+
+  app.patch("/api/products/:id", isAuthenticated, async (req, res) => {
+    try {
+      const productData = insertProductSchema.partial().parse(req.body);
+      const product = await storage.updateProduct(req.params.id, productData);
+      res.json(product);
+    } catch (error: any) {
+      console.error("Error updating product:", error);
+      res.status(400).json({ message: "Failed to update product", error: error.message });
+    }
+  });
+
+  app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteProduct(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ message: "Failed to delete product" });
     }
   });
 

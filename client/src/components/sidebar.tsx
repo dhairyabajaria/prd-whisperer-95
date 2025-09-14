@@ -14,7 +14,9 @@ import {
   Settings,
   Pill,
   Bell,
-  Target
+  Target,
+  Building2,
+  Warehouse
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -32,6 +34,24 @@ const navigation = [
     href: "/customers",
     icon: Users,
     roles: ['admin', 'sales']
+  },
+  {
+    name: "Products",
+    href: "/products",
+    icon: Pill,
+    roles: ['admin', 'inventory', 'sales']
+  },
+  {
+    name: "Suppliers",
+    href: "/suppliers",
+    icon: Building2,
+    roles: ['admin', 'inventory', 'finance']
+  },
+  {
+    name: "Warehouses",
+    href: "/warehouses",
+    icon: Warehouse,
+    roles: ['admin', 'inventory']
   },
   {
     name: "Inventory",

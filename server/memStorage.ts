@@ -224,10 +224,10 @@ export class MemStorage implements IStorage {
     
     const newUser: User = {
       id: user.id,
-      email: user.email ?? existingUser?.email ?? null,
-      firstName: user.firstName ?? existingUser?.firstName ?? null,
-      lastName: user.lastName ?? existingUser?.lastName ?? null,
-      profileImageUrl: user.profileImageUrl ?? existingUser?.profileImageUrl ?? null,
+      email: user.email || existingUser?.email || null,
+      firstName: user.firstName || existingUser?.firstName || null,
+      lastName: user.lastName || existingUser?.lastName || null,
+      profileImageUrl: user.profileImageUrl || existingUser?.profileImageUrl || null,
       role: existingUser?.role ?? "sales",
       isActive: existingUser?.isActive ?? true,
       createdAt: existingUser?.createdAt ?? now,
@@ -432,7 +432,7 @@ export class MemStorage implements IStorage {
     expiringProductsCount: number;
   }> {
     const totalRevenue = Array.from(this.invoices.values())
-      .reduce((sum, inv) => sum + parseFloat(inv.totalAmount), 0);
+      .reduce((sum, inv) => sum + parseFloat(inv.totalAmount || '0'), 0);
     
     const activeProducts = Array.from(this.products.values())
       .filter(p => p.isActive).length;
@@ -442,7 +442,7 @@ export class MemStorage implements IStorage {
     
     const outstandingAmount = Array.from(this.invoices.values())
       .reduce((sum, inv) => {
-        const outstanding = parseFloat(inv.totalAmount) - parseFloat(inv.paidAmount);
+        const outstanding = parseFloat(inv.totalAmount || '0') - parseFloat(inv.paidAmount || '0');
         return sum + outstanding;
       }, 0);
     
@@ -484,7 +484,7 @@ export class MemStorage implements IStorage {
         date: order.orderDate,
         type: 'sale',
         customerOrSupplier: customer?.name || 'Unknown Customer',
-        amount: parseFloat(order.totalAmount),
+        amount: parseFloat(order.totalAmount || '0'),
         status: order.status || 'draft',
         reference: order.orderNumber,
       });
@@ -499,7 +499,7 @@ export class MemStorage implements IStorage {
           date: invoice.invoiceDate,
           type: 'payment',
           customerOrSupplier: customer?.name || 'Unknown Customer',
-          amount: parseFloat(invoice.paidAmount),
+          amount: parseFloat(invoice.paidAmount || '0'),
           status: 'paid',
           reference: invoice.invoiceNumber,
         });
@@ -518,7 +518,8 @@ export class MemStorage implements IStorage {
     const expiringInventory: (Inventory & { product: Product; warehouse: Warehouse })[] = [];
     
     for (const inv of Array.from(this.inventory.values())) {
-      const expiryDate = new Date(inv.expiryDate!);
+      if (!inv.expiryDate) continue;
+      const expiryDate = new Date(inv.expiryDate);
       if (expiryDate <= cutoffDate && inv.quantity > 0) {
         const product = this.products.get(inv.productId);
         const warehouse = this.warehouses.get(inv.warehouseId);
@@ -540,7 +541,7 @@ export class MemStorage implements IStorage {
   // Placeholder implementations for other required methods
   async getInventory(warehouseId?: string): Promise<(Inventory & { product: Product })[]> {
     const results: (Inventory & { product: Product })[] = [];
-    for (const inv of this.inventory.values()) {
+    for (const inv of Array.from(this.inventory.values())) {
       if (!warehouseId || inv.warehouseId === warehouseId) {
         const product = this.products.get(inv.productId);
         if (product) {
@@ -913,6 +914,4 @@ export class MemStorage implements IStorage {
   async markReportExportComplete(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async markReportExportFailed(): Promise<any> { throw new Error("Not implemented in memory storage"); }
 
-  // Missing Dashboard method
-  async getRecentTransactions(): Promise<any> { return []; }
 }

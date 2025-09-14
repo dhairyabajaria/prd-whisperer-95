@@ -958,6 +958,7 @@ export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  type: campaignTypeEnum("campaign_type").notNull(),
   campaignType: campaignTypeEnum("campaign_type").notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date"),
@@ -967,7 +968,11 @@ export const campaigns = pgTable("campaigns", {
   targetAudience: text("target_audience"),
   objectives: text("objectives"),
   status: campaignStatusEnum("status").default('draft'),
+  managedBy: varchar("manager_id").references(() => users.id).notNull(),
   managerId: varchar("manager_id").references(() => users.id).notNull(),
+  totalMembers: integer("total_members").default(0),
+  launchedAt: timestamp("launched_at"),
+  completedAt: timestamp("completed_at"),
   metrics: jsonb("metrics"), // campaign performance metrics
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -978,12 +983,14 @@ export const campaigns = pgTable("campaigns", {
 export const campaignMembers = pgTable("campaign_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   campaignId: varchar("campaign_id").references(() => campaigns.id).notNull(),
-  customerId: varchar("customer_id").references(() => customers.id).notNull(),
+  customerId: varchar("customer_id").references(() => customers.id),
+  leadId: varchar("lead_id").references(() => leads.id),
   joinedAt: timestamp("joined_at").defaultNow(),
   status: campaignMemberStatusEnum("status").default('active'),
   responseData: jsonb("response_data"), // tracking campaign engagement
   lastContactedAt: timestamp("last_contacted_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Leads table
