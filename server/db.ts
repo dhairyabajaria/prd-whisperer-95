@@ -25,8 +25,21 @@ export async function getDb() {
     throw new Error("Database temporarily unavailable; retry later");
   }
 
-  // Validate DATABASE_URL
-  if (!process.env.DATABASE_URL) {
+  // Try different possible environment variable names for DATABASE_URL
+  const databaseUrl = process.env.DATABASE_URL || 
+                     process.env.REPLIT_DB_URL || 
+                     process.env.NEON_DATABASE_URL || 
+                     process.env.DB_URL ||
+                     process.env.POSTGRES_URL;
+  
+  console.log('Available env vars:', Object.keys(process.env).filter(key => 
+    key.includes('DATABASE') || key.includes('DB') || key.includes('POSTGRES') || key.includes('NEON')
+  ));
+  console.log('DATABASE_URL value:', process.env.DATABASE_URL);
+  console.log('PGDATABASE value:', process.env.PGDATABASE);
+  console.log('Selected databaseUrl:', databaseUrl);
+  
+  if (!databaseUrl) {
     throw new Error(
       "DATABASE_URL must be set. Did you forget to provision a database?",
     );
@@ -39,7 +52,7 @@ export async function getDb() {
 
   initPromise = (async () => {
     try {
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+      const pool = new Pool({ connectionString: databaseUrl });
       const db = drizzle({ client: pool, schema });
       
       // Test connectivity

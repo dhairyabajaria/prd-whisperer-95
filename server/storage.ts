@@ -1093,10 +1093,10 @@ export class DatabaseStorage implements IStorage {
           'shipped': ['delivered'],
           'delivered': [], // Terminal state
           'cancelled': [] // Terminal state
-        };
+        } as const;
         
         const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (!allowedStates.includes(order.status as string)) {
+        if (!allowedStates.includes(order.status as any)) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -1551,10 +1551,10 @@ export class DatabaseStorage implements IStorage {
           'received': ['closed'],
           'closed': [], // Terminal state
           'cancelled': [] // Terminal state
-        };
+        } as const;
         
         const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (!allowedStates.includes(order.status as string)) {
+        if (!allowedStates.includes(order.status as any)) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -4275,7 +4275,7 @@ export class DatabaseStorage implements IStorage {
     
     const grs = await db
       .select({
-        ...goodsReceipts,
+        goodsReceipt: goodsReceipts,
         purchaseOrder: purchaseOrders,
         supplier: suppliers,
         warehouse: warehouses,
@@ -4295,7 +4295,7 @@ export class DatabaseStorage implements IStorage {
     for (const gr of grs) {
       const items = await db
         .select({
-          ...goodsReceiptItems,
+          goodsReceiptItem: goodsReceiptItems,
           product: products,
         })
         .from(goodsReceiptItems)
@@ -4303,9 +4303,11 @@ export class DatabaseStorage implements IStorage {
         .where(eq(goodsReceiptItems.grId, gr.id));
       
       results.push({ 
-        ...gr, 
+        ...gr.goodsReceipt, 
         purchaseOrder: { ...gr.purchaseOrder, supplier: gr.supplier },
-        items 
+        warehouse: gr.warehouse,
+        receivedBy: gr.receivedBy,
+        items: items.map(item => ({ ...item.goodsReceiptItem, product: item.product }))
       });
     }
     
@@ -4317,7 +4319,7 @@ export class DatabaseStorage implements IStorage {
     
     const [gr] = await db
       .select({
-        ...goodsReceipts,
+        goodsReceipt: goodsReceipts,
         purchaseOrder: purchaseOrders,
         supplier: suppliers,
         warehouse: warehouses,
@@ -4334,7 +4336,7 @@ export class DatabaseStorage implements IStorage {
 
     const items = await db
       .select({
-        ...goodsReceiptItems,
+        goodsReceiptItem: goodsReceiptItems,
         product: products,
       })
       .from(goodsReceiptItems)
@@ -4342,9 +4344,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(goodsReceiptItems.grId, id));
 
     return { 
-      ...gr, 
+      ...gr.goodsReceipt, 
       purchaseOrder: { ...gr.purchaseOrder, supplier: gr.supplier },
-      items 
+      warehouse: gr.warehouse,
+      receivedBy: gr.receivedBy,
+      items: items.map(item => ({ ...item.goodsReceiptItem, product: item.product }))
     } as any;
   }
 
@@ -4502,7 +4506,7 @@ export class DatabaseStorage implements IStorage {
     
     const bills = await db
       .select({
-        ...vendorBills,
+        vendorBill: vendorBills,
         supplier: suppliers,
         purchaseOrder: purchaseOrders,
         createdBy: users,
@@ -4520,14 +4524,20 @@ export class DatabaseStorage implements IStorage {
     for (const bill of bills) {
       const items = await db
         .select({
-          ...vendorBillItems,
+          vendorBillItem: vendorBillItems,
           product: products,
         })
         .from(vendorBillItems)
         .leftJoin(products, eq(vendorBillItems.productId, products.id))
         .where(eq(vendorBillItems.billId, bill.id));
       
-      results.push({ ...bill, items });
+      results.push({ 
+        ...bill.vendorBill, 
+        supplier: bill.supplier,
+        purchaseOrder: bill.purchaseOrder,
+        createdBy: bill.createdBy,
+        items: items.map(item => ({ ...item.vendorBillItem, product: item.product }))
+      });
     }
     
     return results as any;
@@ -4538,7 +4548,7 @@ export class DatabaseStorage implements IStorage {
     
     const [bill] = await db
       .select({
-        ...vendorBills,
+        vendorBill: vendorBills,
         supplier: suppliers,
         purchaseOrder: purchaseOrders,
         createdBy: users,
@@ -4553,14 +4563,20 @@ export class DatabaseStorage implements IStorage {
 
     const items = await db
       .select({
-        ...vendorBillItems,
+        vendorBillItem: vendorBillItems,
         product: products,
       })
       .from(vendorBillItems)
       .leftJoin(products, eq(vendorBillItems.productId, products.id))
       .where(eq(vendorBillItems.billId, id));
 
-    return { ...bill, items } as any;
+    return { 
+      ...bill.vendorBill, 
+      supplier: bill.supplier,
+      purchaseOrder: bill.purchaseOrder,
+      createdBy: bill.createdBy,
+      items: items.map(item => ({ ...item.vendorBillItem, product: item.product }))
+    } as any;
   }
 
   async createVendorBill(billData: InsertVendorBill, items: InsertVendorBillItem[]): Promise<VendorBill> {
@@ -6203,13 +6219,13 @@ let storage: IStorage;
 
 try {
   // Try to initialize database storage
-  if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
-    storage = new DatabaseStorage();
-  } else {
-    // Use in-memory storage for development or when database is not available
-    console.log('Using in-memory storage for development');
-    storage = new MemStorage();
-  }
+  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  console.log('Environment:', process.env.NODE_ENV);
+  
+  // Force database storage since we know database is available
+  console.log('Forcing database storage initialization...');
+  storage = new DatabaseStorage();
+  console.log('Successfully initialized database storage');
 } catch (error) {
   console.warn('Database storage failed, falling back to memory storage:', error);
   storage = new MemStorage();
