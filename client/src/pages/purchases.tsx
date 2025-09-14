@@ -35,17 +35,28 @@ import {
   RefreshCw,
   Check,
   X,
-  Settings
+  Settings,
+  Clock,
+  Users,
+  Send,
+  ArrowRight,
+  Bell,
+  Trash2
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { 
   insertPurchaseRequestSchema, 
+  insertPurchaseRequestItemSchema,
   insertPurchaseOrderSchema,
   insertGoodsReceiptSchema,
   insertVendorBillSchema,
   insertCompetitorPriceSchema,
   type PurchaseRequest,
+  type PurchaseRequestItem,
+  type PurchaseRequestApproval,
+  type ApprovalRule,
+  type Notification,
   type PurchaseOrder, 
   type GoodsReceipt,
   type VendorBill,
@@ -56,6 +67,7 @@ import {
   type Warehouse,
   type User,
   type InsertPurchaseRequest,
+  type InsertPurchaseRequestItem,
   type InsertPurchaseOrder,
   type InsertGoodsReceipt,
   type InsertVendorBill,
@@ -79,6 +91,21 @@ interface PurchaseRequestWithDetails extends PurchaseRequest {
     lineTotal?: string;
     notes?: string;
   }>;
+}
+
+interface PendingApprovalWithDetails extends PurchaseRequestApproval {
+  purchaseRequest: PurchaseRequest & {
+    requester: User;
+    items: Array<PurchaseRequestItem & { product: Product }>;
+  };
+  rule: ApprovalRule;
+}
+
+interface PRLineItem {
+  productId: string;
+  quantity: number;
+  unitPrice?: string;
+  notes?: string;
 }
 
 interface PurchaseOrderWithDetails extends PurchaseOrder {
@@ -166,6 +193,12 @@ export default function Purchases() {
   const [isCreateGRModalOpen, setIsCreateGRModalOpen] = useState(false);
   const [isCreateBillModalOpen, setIsCreateBillModalOpen] = useState(false);
   const [isCreateCompPriceModalOpen, setIsCreateCompPriceModalOpen] = useState(false);
+  const [isConvertToPOModalOpen, setIsConvertToPOModalOpen] = useState(false);
+  const [selectedPRForConversion, setSelectedPRForConversion] = useState<string | null>(null);
+  const [prLineItems, setPrLineItems] = useState<PRLineItem[]>([]);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [selectedPRForApproval, setSelectedPRForApproval] = useState<string | null>(null);
+  const [approvalComment, setApprovalComment] = useState("");
   const { toast } = useToast();
 
   // Queries
@@ -207,6 +240,21 @@ export default function Purchases() {
 
   const { data: fxRates } = useQuery<FxRate[]>({
     queryKey: ["/api/fx/rates"],
+  });
+
+  // Enhanced workflow queries
+  const { data: pendingApprovals, isLoading: isPendingApprovalsLoading } = useQuery<PendingApprovalWithDetails[]>({
+    queryKey: ["/api/approvals/pending"],
+  });
+
+  const { data: notifications, isLoading: isNotificationsLoading } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications"],
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  const { data: unreadNotificationCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 30000,
   });
 
   // Forms
@@ -292,28 +340,80 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const approvePRMutation = useMutation({
+  // Enhanced PR workflow mutations
+  const submitPRMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("POST", `/api/purchases/requests/${id}/approve`, {});
+      const response = await apiRequest("POST", `/api/purchases/requests/${id}/submit`, {});
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals/pending"] });
+      toast({ title: "Success", description: "Purchase request submitted for approval" });
+    },
+    onError: handleMutationError,
+  });
+
+  const approvePRMutation = useMutation({
+    mutationFn: async ({ id, level, comment }: { id: string; level: number; comment?: string }) => {
+      const response = await apiRequest("POST", `/api/purchases/requests/${id}/approve`, { level, comment });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      setIsApprovalModalOpen(false);
+      setApprovalComment("");
       toast({ title: "Success", description: "Purchase request approved successfully" });
     },
     onError: handleMutationError,
   });
 
   const rejectPRMutation = useMutation({
-    mutationFn: async ({ id, comment }: { id: string; comment: string }) => {
-      const response = await apiRequest("POST", `/api/purchases/requests/${id}/reject`, { comment });
+    mutationFn: async ({ id, level, comment }: { id: string; level: number; comment: string }) => {
+      const response = await apiRequest("POST", `/api/purchases/requests/${id}/reject`, { level, comment });
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      setIsApprovalModalOpen(false);
+      setApprovalComment("");
       toast({ title: "Success", description: "Purchase request rejected" });
+    },
+    onError: handleMutationError,
+  });
+
+  const convertPRToPOMutation = useMutation({
+    mutationFn: async ({ prId, poData }: { prId: string; poData: any }) => {
+      const response = await apiRequest("POST", `/api/purchases/requests/${prId}/convert-to-po`, poData);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      setIsConvertToPOModalOpen(false);
+      setSelectedPRForConversion(null);
+      toast({ title: "Success", description: "Purchase request converted to purchase order successfully" });
+    },
+    onError: handleMutationError,
+  });
+
+  const addPRLineItemMutation = useMutation({
+    mutationFn: async ({ prId, item }: { prId: string; item: InsertPurchaseRequestItem }) => {
+      const response = await apiRequest("POST", `/api/purchases/requests/${prId}/items`, item);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases/requests"] });
+      toast({ title: "Success", description: "Line item added successfully" });
     },
     onError: handleMutationError,
   });

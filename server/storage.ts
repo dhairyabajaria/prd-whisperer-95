@@ -32,6 +32,9 @@ import {
   purchaseRequests,
   purchaseRequestItems,
   approvals,
+  approvalRules,
+  purchaseRequestApprovals,
+  notifications,
   goodsReceipts,
   goodsReceiptItems,
   vendorBills,
@@ -121,6 +124,12 @@ import {
   type InsertPurchaseRequestItem,
   type Approval,
   type InsertApproval,
+  type ApprovalRule,
+  type InsertApprovalRule,
+  type PurchaseRequestApproval,
+  type InsertPurchaseRequestApproval,
+  type Notification,
+  type InsertNotification,
   type GoodsReceipt,
   type InsertGoodsReceipt,
   type GoodsReceiptItem,
@@ -474,10 +483,32 @@ export interface IStorage {
   rejectPurchaseRequest(id: string, approverId: string, comment: string): Promise<PurchaseRequest>;
   convertPRtoPO(prId: string, poData: Partial<InsertPurchaseOrder>): Promise<{ pr: PurchaseRequest; po: PurchaseOrder }>;
 
-  // Approval workflow operations
+  // Enhanced Approval workflow operations
   getApprovals(entityType?: string, entityId?: string, approverId?: string): Promise<(Approval & { approver: User })[]>;
   createApproval(approval: InsertApproval): Promise<Approval>;
   processApproval(id: string, status: 'approved' | 'rejected', comment?: string): Promise<Approval>;
+  
+  // Multi-level approval rules management
+  getApprovalRules(entityType?: string, currency?: string): Promise<ApprovalRule[]>;
+  createApprovalRule(rule: InsertApprovalRule): Promise<ApprovalRule>;
+  updateApprovalRule(id: string, rule: Partial<InsertApprovalRule>): Promise<ApprovalRule>;
+  deleteApprovalRule(id: string): Promise<void>;
+  
+  // Enhanced PR workflow methods
+  submitPurchaseRequestWithApproval(id: string, submitterId: string): Promise<{ pr: PurchaseRequest; approvals: PurchaseRequestApproval[] }>;
+  approvePurchaseRequestLevel(prId: string, level: number, approverId: string, comment?: string): Promise<{ pr: PurchaseRequest; approval: PurchaseRequestApproval; isFullyApproved: boolean }>;
+  rejectPurchaseRequestLevel(prId: string, level: number, approverId: string, comment: string): Promise<{ pr: PurchaseRequest; approval: PurchaseRequestApproval }>;
+  
+  // Purchase request approval queries
+  getPurchaseRequestApprovals(prId: string): Promise<(PurchaseRequestApproval & { approver: User; rule: ApprovalRule })[]>;
+  getPendingApprovalsForUser(userId: string, limit?: number): Promise<(PurchaseRequestApproval & { purchaseRequest: PurchaseRequest & { requester: User; items: (PurchaseRequestItem & { product: Product })[] }; rule: ApprovalRule })[]>;
+  
+  // Notification system operations
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getUserNotifications(userId: string, limit?: number, unreadOnly?: boolean): Promise<Notification[]>;
+  markNotificationAsRead(id: string): Promise<Notification>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
 
   // Goods Receipt operations
   getGoodsReceipts(limit?: number, poId?: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]>;

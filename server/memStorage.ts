@@ -24,6 +24,18 @@ import type {
   InsertInvoice,
   StockMovement,
   InsertStockMovement,
+  PurchaseRequest,
+  InsertPurchaseRequest,
+  PurchaseRequestItem,
+  InsertPurchaseRequestItem,
+  Approval,
+  InsertApproval,
+  ApprovalRule,
+  InsertApprovalRule,
+  PurchaseRequestApproval,
+  InsertPurchaseRequestApproval,
+  Notification,
+  InsertNotification,
 } from "@shared/schema";
 
 // In-memory storage implementation for development
@@ -40,6 +52,14 @@ export class MemStorage implements IStorage {
   private purchaseOrderItems = new Map<string, PurchaseOrderItem>();
   private invoices = new Map<string, Invoice>();
   private stockMovements = new Map<string, StockMovement>();
+  
+  // Purchase Request workflow collections
+  private purchaseRequests = new Map<string, PurchaseRequest>();
+  private purchaseRequestItems = new Map<string, PurchaseRequestItem>();
+  private approvals = new Map<string, Approval>();
+  private approvalRules = new Map<string, ApprovalRule>();
+  private purchaseRequestApprovals = new Map<string, PurchaseRequestApproval>();
+  private notifications = new Map<string, Notification>();
 
   constructor() {
     this.seedData();
@@ -174,6 +194,64 @@ export class MemStorage implements IStorage {
     ];
 
     inventoryItems.forEach(item => this.inventory.set(item.id, item));
+
+    // Seed approval rules for purchase requests
+    const approvalRules = [
+      {
+        id: "rule-1",
+        entityType: "purchase_request" as const,
+        amountRangeMin: "0",
+        amountRangeMax: "1000",
+        currency: "USD",
+        level: 1,
+        approverRole: "admin" as const,
+        specificApproverId: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "rule-2", 
+        entityType: "purchase_request" as const,
+        amountRangeMin: "1000.01",
+        amountRangeMax: "5000",
+        currency: "USD",
+        level: 1,
+        approverRole: "finance" as const,
+        specificApproverId: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "rule-3",
+        entityType: "purchase_request" as const,
+        amountRangeMin: "5000.01",
+        amountRangeMax: null,
+        currency: "USD", 
+        level: 1,
+        approverRole: "admin" as const,
+        specificApproverId: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "rule-4",
+        entityType: "purchase_request" as const,
+        amountRangeMin: "5000.01",
+        amountRangeMax: null,
+        currency: "USD",
+        level: 2,
+        approverRole: "finance" as const, 
+        specificApproverId: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    approvalRules.forEach(rule => this.approvalRules.set(rule.id, rule));
 
     // Seed sales orders
     const salesOrder1: SalesOrder = {
@@ -785,22 +863,621 @@ export class MemStorage implements IStorage {
   async updateLeadCommunication(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getCrmDashboardMetrics(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   
-  // Purchase module methods - all stub implementations
-  async getPurchaseRequests(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getPurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async createPurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async updatePurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async deletePurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async createPurchaseRequestItem(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async submitPurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async approvePurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async rejectPurchaseRequest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async convertPRtoPO(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  
-  // Continue with all other methods as stubs...
-  async getApprovals(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async createApproval(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async processApproval(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  // Purchase Request CRUD operations
+  async getPurchaseRequests(limit = 50, status?: string, requesterId?: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] })[]> {
+    let prs = Array.from(this.purchaseRequests.values());
+    
+    // Apply filters
+    if (status) {
+      prs = prs.filter(pr => pr.status === status);
+    }
+    if (requesterId) {
+      prs = prs.filter(pr => pr.requesterId === requesterId);
+    }
+    
+    // Limit results
+    prs = prs.slice(0, limit);
+    
+    // Enrich with related data
+    return prs.map(pr => {
+      const requester = this.users.get(pr.requesterId)!;
+      const supplier = pr.supplierId ? this.suppliers.get(pr.supplierId) : undefined;
+      const items = Array.from(this.purchaseRequestItems.values())
+        .filter(item => item.prId === pr.id)
+        .map(item => ({
+          ...item,
+          product: this.products.get(item.productId)!
+        }));
+      
+      return {
+        ...pr,
+        requester,
+        supplier,
+        items
+      };
+    });
+  }
+
+  async getPurchaseRequest(id: string): Promise<(PurchaseRequest & { requester: User; supplier?: Supplier; items: (PurchaseRequestItem & { product: Product })[] }) | undefined> {
+    const pr = this.purchaseRequests.get(id);
+    if (!pr) return undefined;
+    
+    const requester = this.users.get(pr.requesterId)!;
+    const supplier = pr.supplierId ? this.suppliers.get(pr.supplierId) : undefined;
+    const items = Array.from(this.purchaseRequestItems.values())
+      .filter(item => item.prId === pr.id)
+      .map(item => ({
+        ...item,
+        product: this.products.get(item.productId)!
+      }));
+    
+    return {
+      ...pr,
+      requester,
+      supplier,
+      items
+    };
+  }
+
+  async createPurchaseRequest(prData: InsertPurchaseRequest): Promise<PurchaseRequest> {
+    const id = this.generateId();
+    const now = new Date();
+    
+    const pr: PurchaseRequest = {
+      id,
+      prNumber: prData.prNumber,
+      requesterId: prData.requesterId,
+      supplierId: prData.supplierId || null,
+      totalAmount: prData.totalAmount || "0",
+      currency: prData.currency || "USD",
+      status: prData.status || "draft",
+      notes: prData.notes || null,
+      submittedAt: null,
+      approvedAt: null,
+      convertedToPo: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    this.purchaseRequests.set(id, pr);
+    return pr;
+  }
+
+  async updatePurchaseRequest(id: string, prData: Partial<InsertPurchaseRequest>): Promise<PurchaseRequest> {
+    const pr = this.purchaseRequests.get(id);
+    if (!pr) throw new Error('Purchase request not found');
+    
+    const updatedPr: PurchaseRequest = {
+      ...pr,
+      ...prData,
+      updatedAt: new Date(),
+    };
+    
+    this.purchaseRequests.set(id, updatedPr);
+    return updatedPr;
+  }
+
+  async deletePurchaseRequest(id: string): Promise<void> {
+    // Delete items first
+    Array.from(this.purchaseRequestItems.values())
+      .filter(item => item.prId === id)
+      .forEach(item => this.purchaseRequestItems.delete(item.id));
+    
+    // Delete approvals
+    Array.from(this.purchaseRequestApprovals.values())
+      .filter(approval => approval.prId === id)
+      .forEach(approval => this.purchaseRequestApprovals.delete(approval.id));
+    
+    // Delete the PR
+    this.purchaseRequests.delete(id);
+  }
+
+  async createPurchaseRequestItem(item: InsertPurchaseRequestItem): Promise<PurchaseRequestItem> {
+    const id = this.generateId();
+    const now = new Date();
+    
+    const prItem: PurchaseRequestItem = {
+      id,
+      prId: item.prId,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice || null,
+      lineTotal: item.lineTotal || null,
+      notes: item.notes || null,
+      createdAt: now,
+    };
+    
+    this.purchaseRequestItems.set(id, prItem);
+    return prItem;
+  }
+
+  // Legacy methods (kept for backward compatibility)
+  async submitPurchaseRequest(id: string): Promise<PurchaseRequest> {
+    return this.submitPurchaseRequestWithApproval(id, 'system').then(result => result.pr);
+  }
+
+  async approvePurchaseRequest(id: string, approverId: string): Promise<PurchaseRequest> {
+    return this.approvePurchaseRequestLevel(id, 1, approverId).then(result => result.pr);
+  }
+
+  async rejectPurchaseRequest(id: string, approverId: string, comment: string): Promise<PurchaseRequest> {
+    return this.rejectPurchaseRequestLevel(id, 1, approverId, comment).then(result => result.pr);
+  }
+
+  // Enhanced PR workflow methods
+  async submitPurchaseRequestWithApproval(id: string, submitterId: string): Promise<{ pr: PurchaseRequest; approvals: PurchaseRequestApproval[] }> {
+    const pr = this.purchaseRequests.get(id);
+    if (!pr) throw new Error('Purchase request not found');
+    if (pr.status !== 'draft') throw new Error('Only draft PRs can be submitted');
+
+    // Update PR status to submitted
+    const updatedPr: PurchaseRequest = {
+      ...pr,
+      status: 'submitted',
+      submittedAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.purchaseRequests.set(id, updatedPr);
+
+    // Find applicable approval rules based on amount and currency
+    const amount = parseFloat(pr.totalAmount);
+    const applicableRules = Array.from(this.approvalRules.values())
+      .filter(rule => 
+        rule.entityType === 'purchase_request' && 
+        rule.isActive &&
+        rule.currency === pr.currency &&
+        amount >= parseFloat(rule.amountRangeMin) &&
+        (rule.amountRangeMax === null || amount <= parseFloat(rule.amountRangeMax))
+      )
+      .sort((a, b) => a.level - b.level);
+
+    if (applicableRules.length === 0) {
+      throw new Error('No approval rules configured for this amount range');
+    }
+
+    // Create approval entries for each required level
+    const approvals: PurchaseRequestApproval[] = [];
+    for (const rule of applicableRules) {
+      const approvalId = this.generateId();
+      
+      // Find approver - either specific approver or find user with required role
+      let approverId = rule.specificApproverId;
+      if (!approverId) {
+        const approverUser = Array.from(this.users.values()).find(user => 
+          user.role === rule.approverRole && user.isActive
+        );
+        if (approverUser) {
+          approverId = approverUser.id;
+        }
+      }
+
+      if (!approverId) {
+        throw new Error(`No available approver found for role: ${rule.approverRole}`);
+      }
+
+      const approval: PurchaseRequestApproval = {
+        id: approvalId,
+        prId: id,
+        ruleId: rule.id,
+        level: rule.level,
+        approverId,
+        status: 'pending',
+        decidedAt: null,
+        comment: null,
+        notifiedAt: new Date(),
+        createdAt: new Date(),
+      };
+
+      this.purchaseRequestApprovals.set(approvalId, approval);
+      approvals.push(approval);
+
+      // Create notification for the approver
+      await this.createNotification({
+        userId: approverId,
+        type: 'pr_submitted',
+        title: 'New Purchase Request Awaiting Approval',
+        message: `Purchase Request ${pr.prNumber} (${pr.currency} ${pr.totalAmount}) requires your approval.`,
+        entityType: 'purchase_request',
+        entityId: id,
+        isRead: false,
+      });
+    }
+
+    return { pr: updatedPr, approvals };
+  }
+
+  async approvePurchaseRequestLevel(prId: string, level: number, approverId: string, comment?: string): Promise<{ pr: PurchaseRequest; approval: PurchaseRequestApproval; isFullyApproved: boolean }> {
+    const pr = this.purchaseRequests.get(prId);
+    if (!pr) throw new Error('Purchase request not found');
+    if (pr.status !== 'submitted') throw new Error('Only submitted PRs can be approved');
+
+    // Find the pending approval for this level and approver
+    const approval = Array.from(this.purchaseRequestApprovals.values())
+      .find(a => a.prId === prId && a.level === level && a.approverId === approverId && a.status === 'pending');
+    
+    if (!approval) {
+      throw new Error('No pending approval found for this level and approver');
+    }
+
+    // Update the approval
+    const updatedApproval: PurchaseRequestApproval = {
+      ...approval,
+      status: 'approved',
+      decidedAt: new Date(),
+      comment: comment || null,
+    };
+    this.purchaseRequestApprovals.set(approval.id, updatedApproval);
+
+    // Check if all approvals are completed
+    const allApprovals = Array.from(this.purchaseRequestApprovals.values())
+      .filter(a => a.prId === prId);
+    
+    const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
+    const isFullyApproved = pendingApprovals.length === 0;
+
+    let updatedPr = pr;
+    if (isFullyApproved) {
+      // All approvals completed - mark PR as approved
+      updatedPr = {
+        ...pr,
+        status: 'approved',
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.purchaseRequests.set(prId, updatedPr);
+
+      // Notify requester
+      await this.createNotification({
+        userId: pr.requesterId,
+        type: 'pr_approved',
+        title: 'Purchase Request Approved',
+        message: `Your Purchase Request ${pr.prNumber} has been fully approved and can now be converted to a Purchase Order.`,
+        entityType: 'purchase_request',
+        entityId: prId,
+        isRead: false,
+      });
+    }
+
+    return { pr: updatedPr, approval: updatedApproval, isFullyApproved };
+  }
+
+  async rejectPurchaseRequestLevel(prId: string, level: number, approverId: string, comment: string): Promise<{ pr: PurchaseRequest; approval: PurchaseRequestApproval }> {
+    const pr = this.purchaseRequests.get(prId);
+    if (!pr) throw new Error('Purchase request not found');
+    if (pr.status !== 'submitted') throw new Error('Only submitted PRs can be rejected');
+
+    // Find the pending approval for this level and approver
+    const approval = Array.from(this.purchaseRequestApprovals.values())
+      .find(a => a.prId === prId && a.level === level && a.approverId === approverId && a.status === 'pending');
+    
+    if (!approval) {
+      throw new Error('No pending approval found for this level and approver');
+    }
+
+    // Update the approval
+    const updatedApproval: PurchaseRequestApproval = {
+      ...approval,
+      status: 'rejected',
+      decidedAt: new Date(),
+      comment,
+    };
+    this.purchaseRequestApprovals.set(approval.id, updatedApproval);
+
+    // Reject the entire PR
+    const updatedPr: PurchaseRequest = {
+      ...pr,
+      status: 'rejected',
+      updatedAt: new Date(),
+    };
+    this.purchaseRequests.set(prId, updatedPr);
+
+    // Cancel all other pending approvals
+    Array.from(this.purchaseRequestApprovals.values())
+      .filter(a => a.prId === prId && a.status === 'pending')
+      .forEach(a => {
+        const cancelledApproval = { ...a, status: 'rejected' as const, decidedAt: new Date(), comment: 'Cancelled due to rejection at earlier level' };
+        this.purchaseRequestApprovals.set(a.id, cancelledApproval);
+      });
+
+    // Notify requester
+    await this.createNotification({
+      userId: pr.requesterId,
+      type: 'pr_rejected',
+      title: 'Purchase Request Rejected',
+      message: `Your Purchase Request ${pr.prNumber} has been rejected. Reason: ${comment}`,
+      entityType: 'purchase_request',
+      entityId: prId,
+      isRead: false,
+    });
+
+    return { pr: updatedPr, approval: updatedApproval };
+  }
+
+  async convertPRtoPO(prId: string, poData: Partial<InsertPurchaseOrder>): Promise<{ pr: PurchaseRequest; po: PurchaseOrder }> {
+    const pr = this.purchaseRequests.get(prId);
+    if (!pr) throw new Error('Purchase request not found');
+    if (pr.status !== 'approved') throw new Error('Only approved PRs can be converted to POs');
+
+    // Get PR items
+    const prItems = Array.from(this.purchaseRequestItems.values()).filter(item => item.prId === prId);
+    if (prItems.length === 0) throw new Error('No items found in purchase request');
+
+    // Create the PO
+    const poId = this.generateId();
+    const now = new Date();
+    
+    const po: PurchaseOrder = {
+      id: poId,
+      orderNumber: poData.orderNumber || `PO-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      prId: prId,
+      supplierId: pr.supplierId || poData.supplierId!,
+      orderDate: poData.orderDate || now.toISOString().split('T')[0],
+      expectedDeliveryDate: poData.expectedDeliveryDate || null,
+      deliveryDate: null,
+      status: 'draft',
+      incoterm: poData.incoterm || null,
+      paymentTerms: poData.paymentTerms || 30,
+      currency: pr.currency,
+      fxRate: poData.fxRate || "1",
+      subtotal: pr.totalAmount,
+      taxAmount: poData.taxAmount || "0",
+      totalAmount: pr.totalAmount,
+      notes: poData.notes || `Converted from PR ${pr.prNumber}`,
+      createdBy: poData.createdBy!,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.purchaseOrders.set(poId, po);
+
+    // Create PO items from PR items
+    for (const prItem of prItems) {
+      const poItemId = this.generateId();
+      const poItem: PurchaseOrderItem = {
+        id: poItemId,
+        orderId: poId,
+        productId: prItem.productId,
+        quantity: prItem.quantity,
+        unitPrice: prItem.unitPrice || "0",
+        totalPrice: prItem.lineTotal || "0",
+        createdAt: now,
+      };
+      this.purchaseOrderItems.set(poItemId, poItem);
+    }
+
+    // Update PR to mark as converted
+    const updatedPr: PurchaseRequest = {
+      ...pr,
+      status: 'converted',
+      convertedToPo: poId,
+      updatedAt: now,
+    };
+    this.purchaseRequests.set(prId, updatedPr);
+
+    // Notify requester
+    await this.createNotification({
+      userId: pr.requesterId,
+      type: 'pr_converted',
+      title: 'Purchase Request Converted to PO',
+      message: `Your Purchase Request ${pr.prNumber} has been converted to Purchase Order ${po.orderNumber}.`,
+      entityType: 'purchase_request',
+      entityId: prId,
+      isRead: false,
+    });
+
+    return { pr: updatedPr, po };
+  }
+
+  // Approval Rules Management
+  async getApprovalRules(entityType?: string, currency?: string): Promise<ApprovalRule[]> {
+    let rules = Array.from(this.approvalRules.values());
+    
+    if (entityType) {
+      rules = rules.filter(rule => rule.entityType === entityType);
+    }
+    if (currency) {
+      rules = rules.filter(rule => rule.currency === currency);
+    }
+    
+    return rules.sort((a, b) => a.level - b.level);
+  }
+
+  async createApprovalRule(rule: InsertApprovalRule): Promise<ApprovalRule> {
+    const id = this.generateId();
+    const now = new Date();
+    
+    const approvalRule: ApprovalRule = {
+      id,
+      entityType: rule.entityType,
+      amountRangeMin: rule.amountRangeMin || "0",
+      amountRangeMax: rule.amountRangeMax || null,
+      currency: rule.currency || "USD",
+      level: rule.level,
+      approverRole: rule.approverRole || null,
+      specificApproverId: rule.specificApproverId || null,
+      isActive: rule.isActive ?? true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    this.approvalRules.set(id, approvalRule);
+    return approvalRule;
+  }
+
+  async updateApprovalRule(id: string, rule: Partial<InsertApprovalRule>): Promise<ApprovalRule> {
+    const existingRule = this.approvalRules.get(id);
+    if (!existingRule) throw new Error('Approval rule not found');
+    
+    const updatedRule: ApprovalRule = {
+      ...existingRule,
+      ...rule,
+      updatedAt: new Date(),
+    };
+    
+    this.approvalRules.set(id, updatedRule);
+    return updatedRule;
+  }
+
+  async deleteApprovalRule(id: string): Promise<void> {
+    this.approvalRules.delete(id);
+  }
+
+  // Purchase Request Approval Queries
+  async getPurchaseRequestApprovals(prId: string): Promise<(PurchaseRequestApproval & { approver: User; rule: ApprovalRule })[]> {
+    const approvals = Array.from(this.purchaseRequestApprovals.values())
+      .filter(approval => approval.prId === prId)
+      .sort((a, b) => a.level - b.level);
+    
+    return approvals.map(approval => ({
+      ...approval,
+      approver: this.users.get(approval.approverId)!,
+      rule: this.approvalRules.get(approval.ruleId)!,
+    }));
+  }
+
+  async getPendingApprovalsForUser(userId: string, limit = 50): Promise<(PurchaseRequestApproval & { purchaseRequest: PurchaseRequest & { requester: User; items: (PurchaseRequestItem & { product: Product })[] }; rule: ApprovalRule })[]> {
+    const pendingApprovals = Array.from(this.purchaseRequestApprovals.values())
+      .filter(approval => approval.approverId === userId && approval.status === 'pending')
+      .slice(0, limit);
+    
+    return pendingApprovals.map(approval => {
+      const pr = this.purchaseRequests.get(approval.prId)!;
+      const requester = this.users.get(pr.requesterId)!;
+      const items = Array.from(this.purchaseRequestItems.values())
+        .filter(item => item.prId === pr.id)
+        .map(item => ({
+          ...item,
+          product: this.products.get(item.productId)!
+        }));
+      
+      return {
+        ...approval,
+        purchaseRequest: {
+          ...pr,
+          requester,
+          items
+        },
+        rule: this.approvalRules.get(approval.ruleId)!,
+      };
+    });
+  }
+
+  // Notification System Operations
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = this.generateId();
+    const now = new Date();
+    
+    const notif: Notification = {
+      id,
+      userId: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message || null,
+      entityType: notification.entityType || null,
+      entityId: notification.entityId || null,
+      isRead: notification.isRead ?? false,
+      createdAt: now,
+    };
+    
+    this.notifications.set(id, notif);
+    return notif;
+  }
+
+  async getUserNotifications(userId: string, limit = 50, unreadOnly = false): Promise<Notification[]> {
+    let notifications = Array.from(this.notifications.values())
+      .filter(notif => notif.userId === userId);
+    
+    if (unreadOnly) {
+      notifications = notifications.filter(notif => !notif.isRead);
+    }
+    
+    return notifications
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  async markNotificationAsRead(id: string): Promise<Notification> {
+    const notification = this.notifications.get(id);
+    if (!notification) throw new Error('Notification not found');
+    
+    const updatedNotification: Notification = {
+      ...notification,
+      isRead: true,
+    };
+    
+    this.notifications.set(id, updatedNotification);
+    return updatedNotification;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    Array.from(this.notifications.values())
+      .filter(notif => notif.userId === userId && !notif.isRead)
+      .forEach(notif => {
+        const updatedNotif = { ...notif, isRead: true };
+        this.notifications.set(notif.id, updatedNotif);
+      });
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    return Array.from(this.notifications.values())
+      .filter(notif => notif.userId === userId && !notif.isRead)
+      .length;
+  }
+
+  // Approval workflow operations (enhanced)
+  async getApprovals(entityType?: string, entityId?: string, approverId?: string): Promise<(Approval & { approver: User })[]> {
+    let approvals = Array.from(this.approvals.values());
+    
+    if (entityType) {
+      approvals = approvals.filter(approval => approval.entityType === entityType);
+    }
+    if (entityId) {
+      approvals = approvals.filter(approval => approval.entityId === entityId);
+    }
+    if (approverId) {
+      approvals = approvals.filter(approval => approval.approverId === approverId);
+    }
+    
+    return approvals.map(approval => ({
+      ...approval,
+      approver: this.users.get(approval.approverId)!,
+    }));
+  }
+
+  async createApproval(approval: InsertApproval): Promise<Approval> {
+    const id = this.generateId();
+    const now = new Date();
+    
+    const newApproval: Approval = {
+      id,
+      entityType: approval.entityType,
+      entityId: approval.entityId,
+      step: approval.step,
+      approverId: approval.approverId,
+      status: approval.status || 'pending',
+      decidedAt: approval.decidedAt || null,
+      comment: approval.comment || null,
+      createdAt: now,
+    };
+    
+    this.approvals.set(id, newApproval);
+    return newApproval;
+  }
+
+  async processApproval(id: string, status: 'approved' | 'rejected', comment?: string): Promise<Approval> {
+    const approval = this.approvals.get(id);
+    if (!approval) throw new Error('Approval not found');
+    
+    const updatedApproval: Approval = {
+      ...approval,
+      status,
+      decidedAt: new Date(),
+      comment: comment || approval.comment,
+    };
+    
+    this.approvals.set(id, updatedApproval);
+    return updatedApproval;
+  }
   async getGoodsReceipts(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async createGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }

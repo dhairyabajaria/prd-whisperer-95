@@ -543,6 +543,58 @@ export const approvals = pgTable("approvals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Approval rules table for defining multi-level approval hierarchies
+export const approvalRules = pgTable("approval_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: varchar("entity_type").notNull(), // 'purchase_request', 'purchase_order', etc.
+  amountRangeMin: decimal("amount_range_min", { precision: 12, scale: 2 }).default('0'),
+  amountRangeMax: decimal("amount_range_max", { precision: 12, scale: 2 }),
+  currency: varchar("currency", { length: 3 }).default('USD'),
+  level: integer("level").notNull(), // approval level (1, 2, 3, etc.)
+  approverRole: userRoleEnum("approver_role"), // role that can approve at this level
+  specificApproverId: varchar("specific_approver_id").references(() => users.id), // specific user (optional)
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_approval_rules_entity_amount").on(table.entityType, table.amountRangeMin, table.amountRangeMax),
+  index("idx_approval_rules_level").on(table.level),
+]);
+
+// Purchase request approvals table for tracking specific approval workflows
+export const purchaseRequestApprovals = pgTable("purchase_request_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  prId: varchar("pr_id").references(() => purchaseRequests.id).notNull(),
+  ruleId: varchar("rule_id").references(() => approvalRules.id).notNull(),
+  level: integer("level").notNull(),
+  approverId: varchar("approver_id").references(() => users.id).notNull(),
+  status: approvalStatusEnum("status").default('pending'),
+  decidedAt: timestamp("decided_at"),
+  comment: text("comment"),
+  notifiedAt: timestamp("notified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_pr_approvals_pr").on(table.prId),
+  index("idx_pr_approvals_approver").on(table.approverId, table.status),
+  index("idx_pr_approvals_level").on(table.prId, table.level),
+]);
+
+// Notifications table for workflow events
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: varchar("type").notNull(), // 'pr_submitted', 'pr_approved', 'pr_rejected', etc.
+  title: varchar("title").notNull(),
+  message: text("message"),
+  entityType: varchar("entity_type"), // 'purchase_request', etc.
+  entityId: varchar("entity_id"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_notifications_user_unread").on(table.userId, table.isRead),
+  index("idx_notifications_entity").on(table.entityType, table.entityId),
+]);
+
 // Goods receipts table
 export const goodsReceipts = pgTable("goods_receipts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1305,6 +1357,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   aiInsightsReviewed: many(aiInsights, { relationName: "reviewer" }),
   aiInsightsApplied: many(aiInsights, { relationName: "applier" }),
   aiModelMetrics: many(aiModelMetrics),
+  // Purchase Request Workflow relations
+  purchaseRequests: many(purchaseRequests, { relationName: "requester" }),
+  purchaseRequestApprovals: many(purchaseRequestApprovals, { relationName: "approver" }),
+  approvalRulesAsSpecificApprover: many(approvalRules, { relationName: "specificApprover" }),
+  notifications: many(notifications),
 }));
 
 export const customersRelations = relations(customers, ({ one, many }) => ({
@@ -1828,6 +1885,65 @@ export const aiModelMetricsRelations = relations(aiModelMetrics, ({ one }) => ({
   }),
 }));
 
+// Enhanced Purchase Module Relations for new tables
+export const approvalRulesRelations = relations(approvalRules, ({ one, many }) => ({
+  specificApprover: one(users, {
+    fields: [approvalRules.specificApproverId],
+    references: [users.id],
+  }),
+  purchaseRequestApprovals: many(purchaseRequestApprovals),
+}));
+
+export const purchaseRequestApprovalsRelations = relations(purchaseRequestApprovals, ({ one }) => ({
+  purchaseRequest: one(purchaseRequests, {
+    fields: [purchaseRequestApprovals.prId],
+    references: [purchaseRequests.id],
+  }),
+  approvalRule: one(approvalRules, {
+    fields: [purchaseRequestApprovals.ruleId],
+    references: [approvalRules.id],
+  }),
+  approver: one(users, {
+    fields: [purchaseRequestApprovals.approverId],
+    references: [users.id],
+  }),
+}));
+
+export const purchaseRequestsRelations = relations(purchaseRequests, ({ one, many }) => ({
+  requester: one(users, {
+    fields: [purchaseRequests.requesterId],
+    references: [users.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [purchaseRequests.supplierId],
+    references: [suppliers.id],
+  }),
+  convertedPurchaseOrder: one(purchaseOrders, {
+    fields: [purchaseRequests.convertedToPo],
+    references: [purchaseOrders.id],
+  }),
+  items: many(purchaseRequestItems),
+  approvals: many(purchaseRequestApprovals),
+}));
+
+export const purchaseRequestItemsRelations = relations(purchaseRequestItems, ({ one }) => ({
+  purchaseRequest: one(purchaseRequests, {
+    fields: [purchaseRequestItems.prId],
+    references: [purchaseRequests.id],
+  }),
+  product: one(products, {
+    fields: [purchaseRequestItems.productId],
+    references: [products.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
@@ -2060,6 +2176,22 @@ export const insertApprovalSchema = createInsertSchema(approvals).omit({
   createdAt: true,
 });
 
+export const insertApprovalRuleSchema = createInsertSchema(approvalRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPurchaseRequestApprovalSchema = createInsertSchema(purchaseRequestApprovals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertGoodsReceiptSchema = createInsertSchema(goodsReceipts).omit({
   id: true,
   createdAt: true,
@@ -2218,6 +2350,12 @@ export type InsertPurchaseRequestItem = z.infer<typeof insertPurchaseRequestItem
 export type PurchaseRequestItem = typeof purchaseRequestItems.$inferSelect;
 export type InsertApproval = z.infer<typeof insertApprovalSchema>;
 export type Approval = typeof approvals.$inferSelect;
+export type InsertApprovalRule = z.infer<typeof insertApprovalRuleSchema>;
+export type ApprovalRule = typeof approvalRules.$inferSelect;
+export type InsertPurchaseRequestApproval = z.infer<typeof insertPurchaseRequestApprovalSchema>;
+export type PurchaseRequestApproval = typeof purchaseRequestApprovals.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
 export type InsertGoodsReceipt = z.infer<typeof insertGoodsReceiptSchema>;
 export type GoodsReceipt = typeof goodsReceipts.$inferSelect;
 export type InsertGoodsReceiptItem = z.infer<typeof insertGoodsReceiptItemSchema>;

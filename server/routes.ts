@@ -17,6 +17,8 @@ import {
   insertPurchaseRequestSchema,
   insertPurchaseRequestItemSchema,
   insertApprovalSchema,
+  insertApprovalRuleSchema,
+  insertNotificationSchema,
   insertGoodsReceiptSchema,
   insertGoodsReceiptItemSchema,
   insertVendorBillSchema,
@@ -600,10 +602,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced PR workflow endpoints  
   app.post("/api/purchases/requests/:id/submit", isAuthenticated, requirePurchaseAccess, async (req, res) => {
     try {
-      const request = await storage.submitPurchaseRequest(req.params.id);
-      res.json(request);
+      const userId = (req as any).user?.claims?.sub;
+      const result = await storage.submitPurchaseRequestWithApproval(req.params.id, userId);
+      res.json(result);
     } catch (error) {
       console.error("Error submitting purchase request:", error);
       res.status(500).json({ message: "Failed to submit purchase request" });
@@ -612,9 +616,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/purchases/requests/:id/approve", isAuthenticated, requirePurchaseApproval, async (req, res) => {
     try {
-      const approverId = (req as any).user?.claims?.sub;
-      const request = await storage.approvePurchaseRequest(req.params.id, approverId);
-      res.json(request);
+      const userId = (req as any).user?.claims?.sub;
+      const { level, comment } = req.body;
+      const result = await storage.approvePurchaseRequestLevel(req.params.id, level || 1, userId, comment);
+      res.json(result);
     } catch (error) {
       console.error("Error approving purchase request:", error);
       res.status(500).json({ message: "Failed to approve purchase request" });
@@ -623,17 +628,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/purchases/requests/:id/reject", isAuthenticated, requirePurchaseApproval, async (req, res) => {
     try {
-      const approverId = (req as any).user?.claims?.sub;
-      const { comment } = req.body;
-      const request = await storage.rejectPurchaseRequest(req.params.id, approverId, comment);
-      res.json(request);
+      const userId = (req as any).user?.claims?.sub;
+      const { level, comment } = req.body;
+      if (!comment) {
+        return res.status(400).json({ message: "Comment is required for rejection" });
+      }
+      const result = await storage.rejectPurchaseRequestLevel(req.params.id, level || 1, userId, comment);
+      res.json(result);
     } catch (error) {
       console.error("Error rejecting purchase request:", error);
       res.status(500).json({ message: "Failed to reject purchase request" });
     }
   });
 
-  app.post("/api/purchases/requests/:id/convert", isAuthenticated, requirePurchaseApproval, async (req, res) => {
+  app.post("/api/purchases/requests/:id/convert-to-po", isAuthenticated, requirePurchaseApproval, async (req, res) => {
     try {
       const userId = (req as any).user?.claims?.sub;
       const poData = req.body;
@@ -642,6 +650,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error converting purchase request to PO:", error);
       res.status(500).json({ message: "Failed to convert purchase request to PO" });
+    }
+  });
+
+  // PR Approval queries
+  app.get("/api/purchases/requests/:id/approvals", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const approvals = await storage.getPurchaseRequestApprovals(req.params.id);
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching PR approvals:", error);
+      res.status(500).json({ message: "Failed to fetch PR approvals" });
+    }
+  });
+
+  app.get("/api/approvals/pending", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const approvals = await storage.getPendingApprovalsForUser(userId, limit);
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // Approval Rules Management endpoints
+  app.get("/api/approval-rules", isAuthenticated, requireRole(['admin', 'finance']), async (req, res) => {
+    try {
+      const entityType = req.query.entityType as string;
+      const currency = req.query.currency as string;
+      const rules = await storage.getApprovalRules(entityType, currency);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching approval rules:", error);
+      res.status(500).json({ message: "Failed to fetch approval rules" });
+    }
+  });
+
+  app.post("/api/approval-rules", isAuthenticated, requireRole(['admin']), async (req, res) => {
+    try {
+      const ruleData = insertApprovalRuleSchema.parse(req.body);
+      const rule = await storage.createApprovalRule(ruleData);
+      res.status(201).json(rule);
+    } catch (error: any) {
+      console.error("Error creating approval rule:", error);
+      res.status(400).json({ message: "Failed to create approval rule", error: error.message });
+    }
+  });
+
+  app.patch("/api/approval-rules/:id", isAuthenticated, requireRole(['admin']), async (req, res) => {
+    try {
+      const ruleData = insertApprovalRuleSchema.partial().parse(req.body);
+      const rule = await storage.updateApprovalRule(req.params.id, ruleData);
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error updating approval rule:", error);
+      res.status(400).json({ message: "Failed to update approval rule", error: error.message });
+    }
+  });
+
+  app.delete("/api/approval-rules/:id", isAuthenticated, requireRole(['admin']), async (req, res) => {
+    try {
+      await storage.deleteApprovalRule(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting approval rule:", error);
+      res.status(500).json({ message: "Failed to delete approval rule" });
+    }
+  });
+
+  // Notification System endpoints
+  app.get("/api/notifications", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const unreadOnly = req.query.unreadOnly === 'true';
+      const notifications = await storage.getUserNotifications(userId, limit, unreadOnly);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    try {
+      const notification = await storage.markNotificationAsRead(req.params.id);
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.post("/api/notifications/mark-all-read", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Failed to fetch unread notification count" });
     }
   });
 
