@@ -2001,6 +2001,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const itemData = insertQuotationItemSchema.parse(req.body);
       const item = await storage.createQuotationItem(itemData);
+      
+      // Recalculate quotation totals after adding item
+      await storage.recalculateQuotationTotals(req.params.id);
+      
       res.status(201).json(item);
     } catch (error: any) {
       console.error("Error creating quotation item:", error);
@@ -2016,6 +2020,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const itemData = insertQuotationItemSchema.partial().parse(req.body);
       const item = await storage.updateQuotationItem(req.params.id, itemData);
+      
+      // Recalculate quotation totals after updating item
+      await storage.recalculateQuotationTotals(req.params.quotationId);
+      
       res.json(item);
     } catch (error: any) {
       console.error("Error updating quotation item:", error);
@@ -2030,6 +2038,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/crm/quotations/:quotationId/items/:id", isAuthenticated, requireSalesAccess, async (req, res) => {
     try {
       await storage.deleteQuotationItem(req.params.id);
+      
+      // Recalculate quotation totals after deleting item
+      await storage.recalculateQuotationTotals(req.params.quotationId);
+      
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting quotation item:", error);

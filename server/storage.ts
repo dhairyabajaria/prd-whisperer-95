@@ -432,6 +432,7 @@ export interface IStorage {
   getQuotationItems(quotationId: string): Promise<(QuotationItem & { product: Product })[]>;
   updateQuotationItem(id: string, item: Partial<InsertQuotationItem>): Promise<QuotationItem>;
   deleteQuotationItem(id: string): Promise<void>;
+  recalculateQuotationTotals(quotationId: string): Promise<Quotation>;
   convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder>;
 
   // CRM Module - Receipt operations
@@ -3513,6 +3514,57 @@ export class DatabaseStorage implements IStorage {
     await db.delete(quotationItems).where(eq(quotationItems.id, id));
   }
 
+  async recalculateQuotationTotals(quotationId: string): Promise<Quotation> {
+    const db = await getDb();
+    
+    // Get quotation
+    const [quotation] = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.id, quotationId));
+    
+    if (!quotation) throw new Error("Quotation not found");
+
+    // Get all line items for this quotation
+    const items = await db
+      .select()
+      .from(quotationItems)
+      .where(eq(quotationItems.quotationId, quotationId));
+
+    // Calculate totals from line items
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalTax = 0;
+
+    items.forEach(item => {
+      const lineSubtotal = item.quantity * parseFloat(item.unitPrice);
+      const discountAmount = lineSubtotal * (parseFloat(item.discount || '0') / 100);
+      const afterDiscount = lineSubtotal - discountAmount;
+      const taxAmount = afterDiscount * (parseFloat(item.tax || '0') / 100);
+      
+      subtotal += lineSubtotal;
+      totalDiscount += discountAmount;
+      totalTax += taxAmount;
+    });
+
+    const totalAmount = subtotal - totalDiscount + totalTax;
+
+    // Update quotation with calculated totals
+    const [updated] = await db
+      .update(quotations)
+      .set({
+        subtotal: subtotal.toFixed(2),
+        discountAmount: totalDiscount.toFixed(2),
+        taxAmount: totalTax.toFixed(2),
+        totalAmount: totalAmount.toFixed(2),
+        updatedAt: new Date()
+      })
+      .where(eq(quotations.id, quotationId))
+      .returning();
+
+    return updated;
+  }
+
   async convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder> {
     const db = await getDb();
     
@@ -5240,18 +5292,20 @@ export class DatabaseStorage implements IStorage {
           .returning();
 
         // Create stock movement
-        await tx
+        const movementData: InsertStockMovement = {
+          productId: item.productId,
+          warehouseId: grDetail.warehouseId,
+          inventoryId: inventoryEntry.id,
+          movementType: 'in',
+          quantity: item.quantity,
+          reference: grDetail.grNumber,
+          notes: `Goods receipt: ${grDetail.grNumber} - Batch: ${item.batchNumber || 'Auto-generated'}${item.expiryDate ? ` - Expires: ${item.expiryDate}` : ''}`,
+          userId: typeof grDetail.receivedBy === 'string' ? grDetail.receivedBy : grDetail.receivedBy.id,
+        };
+        const [movement] = await tx
           .insert(stockMovements)
-          .values({
-            productId: item.productId,
-            warehouseId: grDetail.warehouseId,
-            inventoryId: inventoryEntry.id,
-            movementType: 'in',
-            quantity: item.quantity,
-            reference: grDetail.grNumber,
-            notes: `Goods receipt: ${grDetail.grNumber} - Batch: ${item.batchNumber || 'Auto-generated'}${item.expiryDate ? ` - Expires: ${item.expiryDate}` : ''}`,
-            userId: grDetail.receivedBy,
-          });
+          .values(movementData)
+          .returning();
       }
       
       // Update PO status if all items received

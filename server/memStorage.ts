@@ -1562,6 +1562,46 @@ export class MemStorage implements IStorage {
     this.quotationItems.delete(id);
   }
 
+  async recalculateQuotationTotals(quotationId: string): Promise<Quotation> {
+    const quotation = this.quotations.get(quotationId);
+    if (!quotation) throw new Error("Quotation not found");
+
+    // Get all line items for this quotation
+    const items = Array.from(this.quotationItems.values())
+      .filter(item => item.quotationId === quotationId);
+
+    // Calculate totals from line items
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalTax = 0;
+
+    items.forEach(item => {
+      const lineSubtotal = item.quantity * parseFloat(item.unitPrice);
+      const discountAmount = lineSubtotal * (parseFloat(item.discount || '0') / 100);
+      const afterDiscount = lineSubtotal - discountAmount;
+      const taxAmount = afterDiscount * (parseFloat(item.tax || '0') / 100);
+      
+      subtotal += lineSubtotal;
+      totalDiscount += discountAmount;
+      totalTax += taxAmount;
+    });
+
+    const totalAmount = subtotal - totalDiscount + totalTax;
+
+    // Update quotation with calculated totals
+    const updated: Quotation = {
+      ...quotation,
+      subtotal: subtotal.toFixed(2),
+      discountAmount: totalDiscount.toFixed(2),
+      taxAmount: totalTax.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      updatedAt: new Date()
+    };
+
+    this.quotations.set(quotationId, updated);
+    return updated;
+  }
+
   async convertQuotationToOrder(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getReceipts(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }

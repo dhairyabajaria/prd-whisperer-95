@@ -180,7 +180,7 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
         notes: quotation.notes || "",
         items: formItems
       });
-      setSelectedCurrency(quotation.currency || 'USD');
+      setSelectedCurrency((quotation.currency as CurrencyCode) || 'USD');
       setFxRate(parseFloat(quotation.fxRate || '1'));
     }
   }, [quotation, quotationItems, isOpen, form]);
