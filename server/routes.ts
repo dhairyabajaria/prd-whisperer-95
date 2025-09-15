@@ -1949,9 +1949,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/crm/quotations", isAuthenticated, requireSalesAccess, async (req, res) => {
     try {
-      const quotationData = insertQuotationSchema.parse(req.body);
+      // Define schema for the full quotation request including items
+      const quotationRequestSchema = insertQuotationSchema.extend({
+        items: z.array(z.object({
+          productId: z.string().min(1),
+          quantity: z.number().min(1),
+          unitPrice: z.number().min(0),
+          discount: z.number().min(0).max(100).optional(),
+          tax: z.number().min(0).max(100).optional(),
+        })).optional(),
+      });
+
+      const fullData = quotationRequestSchema.parse(req.body);
+      const { items, ...quotationData } = fullData;
+
+      // Create the quotation first
       const quotation = await storage.createQuotation(quotationData);
-      res.status(201).json(quotation);
+      
+      // Create each quotation item if items were provided
+      if (items && items.length > 0) {
+        for (const item of items) {
+          // Calculate line total (quantity * unitPrice)
+          const lineTotal = (item.quantity * item.unitPrice).toFixed(2);
+          
+          await storage.createQuotationItem({
+            quotationId: quotation.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice.toString(),
+            lineTotal: lineTotal,
+            discount: item.discount?.toString() ?? null,
+            tax: item.tax?.toString() ?? null,
+          });
+        }
+        
+        // Recalculate quotation totals after adding all items
+        await storage.recalculateQuotationTotals(quotation.id);
+      }
+
+      // Return the complete quotation with items
+      const completeQuotation = await storage.getQuotation(quotation.id);
+      res.status(201).json(completeQuotation);
     } catch (error: any) {
       console.error("Error creating quotation:", error);
       if (error.name === 'ZodError') {
