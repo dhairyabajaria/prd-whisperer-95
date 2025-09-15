@@ -435,8 +435,8 @@ export interface IStorage {
   convertQuotationToOrder(quotationId: string, orderData?: Partial<InsertSalesOrder>): Promise<SalesOrder>;
 
   // CRM Module - Receipt operations
-  getReceipts(limit?: number, customerId?: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User })[]>;
-  getReceipt(id: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined>;
+  getReceipts(limit?: number, customerId?: string): Promise<(Omit<Receipt, 'receivedBy'> & { customer: Customer; invoice?: Invoice; receivedBy: User })[]>;
+  getReceipt(id: string): Promise<(Omit<Receipt, 'receivedBy'> & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined>;
   createReceipt(receipt: InsertReceipt): Promise<Receipt>;
   updateReceipt(id: string, receipt: Partial<InsertReceipt>): Promise<Receipt>;
   allocateReceiptToInvoice(receiptId: string, invoiceId: string, amount: number): Promise<{ receipt: Receipt; invoice: Invoice }>;
@@ -607,16 +607,16 @@ export interface IStorage {
   getUnreadNotificationCount(userId: string): Promise<number>;
 
   // Goods Receipt operations
-  getGoodsReceipts(limit?: number, poId?: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]>;
-  getGoodsReceipt(id: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined>;
+  getGoodsReceipts(limit?: number, poId?: string): Promise<(Omit<GoodsReceipt, 'receivedBy'> & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]>;
+  getGoodsReceipt(id: string): Promise<(Omit<GoodsReceipt, 'receivedBy'> & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined>;
   createGoodsReceipt(receipt: InsertGoodsReceipt, items: InsertGoodsReceiptItem[]): Promise<GoodsReceipt>;
   updateGoodsReceipt(id: string, receipt: Partial<InsertGoodsReceipt>): Promise<GoodsReceipt>;
   deleteGoodsReceipt(id: string): Promise<void>;
   postGoodsReceipt(id: string): Promise<GoodsReceipt>; // posts to inventory
 
   // Vendor Bill operations
-  getVendorBills(limit?: number, supplierId?: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] })[]>;
-  getVendorBill(id: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined>;
+  getVendorBills(limit?: number, supplierId?: string): Promise<(Omit<VendorBill, 'createdBy'> & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] })[]>;
+  getVendorBill(id: string): Promise<(Omit<VendorBill, 'createdBy'> & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined>;
   createVendorBill(bill: InsertVendorBill, items: InsertVendorBillItem[]): Promise<VendorBill>;
   updateVendorBill(id: string, bill: Partial<InsertVendorBill>): Promise<VendorBill>;
   deleteVendorBill(id: string): Promise<void>;
@@ -1242,7 +1242,7 @@ export class DatabaseStorage implements IStorage {
         } as const;
         
         const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (order.status && !allowedStates.includes(order.status as (typeof allowedStates)[number])) {
+        if (order.status && !allowedStates.includes(order.status as any)) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -1700,7 +1700,7 @@ export class DatabaseStorage implements IStorage {
         } as const;
         
         const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (order.status && !allowedStates.includes(order.status as (typeof allowedStates)[number])) {
+        if (order.status && !allowedStates.includes(order.status as any)) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -3892,7 +3892,7 @@ export class DatabaseStorage implements IStorage {
     notes?: string
   ): Promise<{ success: string[]; failed: { id: string; error: string }[] }> {
     const db = await getDb();
-    const results = { success: [], failed: [] as { id: string; error: string }[] };
+    const results: { success: string[]; failed: { id: string; error: string }[] } = { success: [], failed: [] };
     
     for (const commissionId of commissionIds) {
       try {
