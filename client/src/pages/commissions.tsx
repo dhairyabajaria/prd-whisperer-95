@@ -5,6 +5,7 @@ import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
 import AIChatModal from "@/components/ai-chat-modal";
 import CommissionDetailDrawer from "@/components/commission-detail-drawer";
+import SalesRepAnalytics from "@/components/sales-rep-analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,7 @@ export default function Commissions() {
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [selectedCommissions, setSelectedCommissions] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const { toast } = useToast();
 
   const { data: commissions, isLoading, error } = useQuery<CommissionWithRelations[]>({
@@ -422,6 +424,18 @@ export default function Commissions() {
         />
         
         <main className="flex-1 overflow-y-auto p-6" data-testid="main-commissions">
+          {/* Sales Rep Analytics Panel */}
+          {salesRepFilter !== "all" && (
+            <div className="mb-6">
+              <SalesRepAnalytics
+                salesRepId={salesRepFilter}
+                salesRep={salesReps?.find(rep => rep.id === salesRepFilter)}
+                startDate={startDate}
+                endDate={endDate}
+                onCommissionClick={handleCommissionClick}
+              />
+            </div>
+          )}
           {/* Header Actions */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4 flex-1">

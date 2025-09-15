@@ -188,7 +188,7 @@ export default function CommissionDetailDrawer({ commissionId, isOpen, onClose }
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:w-[600px] overflow-y-auto" data-testid="commission-detail-drawer">
+      <SheetContent className="w-full sm:w-[600px] overflow-y-auto z-50" data-testid="commission-detail-drawer">
         <SheetHeader>
           <SheetTitle className="flex items-center space-x-2">
             <DollarSign className="w-5 h-5" />
@@ -240,7 +240,7 @@ export default function CommissionDetailDrawer({ commissionId, isOpen, onClose }
                 <Badge className={getStatusColor(commission.status || 'draft')} data-testid="commission-status">
                   <div className="flex items-center space-x-1">
                     {getStatusIcon(commission.status || 'draft')}
-                    <span>{commission.status?.charAt(0).toUpperCase() + commission.status?.slice(1) || 'Draft'}</span>
+                    <span>{commission.status ? commission.status.charAt(0).toUpperCase() + commission.status.slice(1) : 'Draft'}</span>
                   </div>
                 </Badge>
               </div>
