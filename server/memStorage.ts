@@ -584,8 +584,9 @@ export class MemStorage implements IStorage {
         totalDaysInPipeline: 5,
         industry: "Healthcare",
         companySize: "100-500",
-        websiteUrl: "https://hospitalsaude.ao",
-        socialMediaProfiles: {},
+        annualRevenue: "2000000",
+        decisionMakers: [{"name": "Maria Santos", "role": "Procurement Manager"}],
+        competitorInfo: {"competitors": ["PharmaCorp"], "advantages": "Better pricing"},
         isActive: true,
         createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
@@ -634,8 +635,9 @@ export class MemStorage implements IStorage {
         totalDaysInPipeline: 0,
         industry: "Healthcare",
         companySize: "50-100",
-        websiteUrl: null,
-        socialMediaProfiles: {},
+        annualRevenue: "500000",
+        decisionMakers: [{"name": "João Pereira", "role": "Director"}],
+        competitorInfo: {"competitors": [], "advantages": ""},
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -688,19 +690,19 @@ export class MemStorage implements IStorage {
         id: "comm-1",
         leadId: "lead-1",
         customerId: null,
+        campaignId: null,
         userId: salesUser.id,
         communicationType: "phone" as const,
         direction: "outbound" as const,
         subject: "Discovery Call - Medical Supply Needs",
         content: "Discussed hospital expansion plans and medical supply requirements",
-        status: "completed" as const,
+        status: "sent" as const,
         scheduledAt: null,
-        completedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        duration: 900,
-        attachments: [],
+        sentAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        deliveredAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        openedAt: null,
         metadata: { callOutcome: "positive", followUpRequired: true },
         createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
       }
     ];
 
@@ -1837,8 +1839,9 @@ export class MemStorage implements IStorage {
       totalDaysInPipeline: leadData.totalDaysInPipeline ?? 0,
       industry: leadData.industry ?? null,
       companySize: leadData.companySize ?? null,
-      websiteUrl: leadData.websiteUrl ?? null,
-      socialMediaProfiles: leadData.socialMediaProfiles ?? {},
+      annualRevenue: leadData.annualRevenue ?? null,
+      decisionMakers: leadData.decisionMakers ?? null,
+      competitorInfo: leadData.competitorInfo ?? null,
       isActive: leadData.isActive ?? true,
       createdAt: now,
       updatedAt: now,
@@ -1880,7 +1883,7 @@ export class MemStorage implements IStorage {
       pipelineStage: newStage as any,
       stageChangedAt: now,
       stageHistory: [
-        ...(lead.stageHistory || []),
+        ...((lead.stageHistory as any[]) || []),
         { stage: newStage, changedAt: now, changedBy: movedBy }
       ],
       daysInStage: 0,
@@ -1981,11 +1984,11 @@ export class MemStorage implements IStorage {
     
     // Create customer from lead data
     const customer = await this.createCustomer({
+      ...customerData,
       name: customerData.name || lead.company || `${lead.firstName} ${lead.lastName}`,
       email: customerData.email || lead.email,
       phone: customerData.phone || lead.phone,
-      address: customerData.address || lead.address,
-      ...customerData
+      address: customerData.address || lead.address
     });
     
     // Update lead as converted
@@ -2033,6 +2036,7 @@ export class MemStorage implements IStorage {
       id,
       leadId: communication.leadId ?? null,
       customerId: communication.customerId ?? null,
+      campaignId: communication.campaignId ?? null,
       userId: communication.userId,
       communicationType: communication.communicationType,
       direction: communication.direction,
@@ -2040,12 +2044,11 @@ export class MemStorage implements IStorage {
       content: communication.content ?? null,
       status: communication.status ?? "draft",
       scheduledAt: communication.scheduledAt ?? null,
-      completedAt: communication.completedAt ?? null,
-      duration: communication.duration ?? null,
-      attachments: communication.attachments ?? [],
+      sentAt: null,
+      deliveredAt: null,
+      openedAt: null,
       metadata: communication.metadata ?? null,
       createdAt: now,
-      updatedAt: now,
     };
     
     this.communications.set(id, newCommunication);
@@ -2076,7 +2079,6 @@ export class MemStorage implements IStorage {
       ...existing,
       ...communication,
       id,
-      updatedAt: new Date(),
     };
     
     this.communications.set(id, updated);
@@ -2096,7 +2098,7 @@ export class MemStorage implements IStorage {
     // Add new configurations
     const results: PipelineConfiguration[] = [];
     for (const config of configs) {
-      const id = config.id || this.generateId();
+      const id = this.generateId();
       const now = new Date();
       
       const pipelineConfig: PipelineConfiguration = {
@@ -2115,7 +2117,7 @@ export class MemStorage implements IStorage {
         slaHours: config.slaHours ?? null,
         conversionProbability: config.conversionProbability ?? null,
         createdBy: config.createdBy ?? null,
-        createdAt: config.createdAt ?? now,
+        createdAt: now,
         updatedAt: now,
       };
       
@@ -2130,7 +2132,11 @@ export class MemStorage implements IStorage {
   async getLeadActivities(leadId: string, limit = 50): Promise<LeadActivity[]> {
     return Array.from(this.leadActivities.values())
       .filter(activity => activity.leadId === leadId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      })
       .slice(0, limit);
   }
 
@@ -2176,22 +2182,24 @@ export class MemStorage implements IStorage {
   async getLeadScoringHistory(leadId: string, limit = 50): Promise<LeadScoringHistory[]> {
     return Array.from(this.leadScoringHistory.values())
       .filter(history => history.leadId === leadId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      })
       .slice(0, limit);
   }
 
-  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]> {
+  async getLeadStageHistory(leadId: string): Promise<LeadStageHistory[]> {
     const stageHistory = Array.from(this.leadStageHistory.values())
       .filter(history => history.leadId === leadId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
     
-    return stageHistory.map(history => {
-      const movedBy = history.movedBy ? this.users.get(history.movedBy) : undefined;
-      return {
-        ...history,
-        movedBy
-      };
-    });
+    return stageHistory;
   }
 
   // Lead Scoring Rules operations
@@ -2308,10 +2316,16 @@ export class MemStorage implements IStorage {
     
     // Apply filters
     if (startDate) {
-      leads = leads.filter(lead => new Date(lead.createdAt) >= startDate);
+      leads = leads.filter(lead => {
+        const leadDate = lead.createdAt ? new Date(lead.createdAt) : new Date(0);
+        return leadDate >= startDate;
+      });
     }
     if (endDate) {
-      leads = leads.filter(lead => new Date(lead.createdAt) <= endDate);
+      leads = leads.filter(lead => {
+        const leadDate = lead.createdAt ? new Date(lead.createdAt) : new Date(0);
+        return leadDate <= endDate;
+      });
     }
     if (assignedTo) {
       leads = leads.filter(lead => lead.assignedTo === assignedTo);
@@ -2325,7 +2339,7 @@ export class MemStorage implements IStorage {
     // Calculate stage distribution
     const stageDistribution: Record<string, { count: number; value: number }> = {};
     for (const lead of leads) {
-      const stage = lead.pipelineStage;
+      const stage = lead.pipelineStage || "unknown";
       if (!stageDistribution[stage]) {
         stageDistribution[stage] = { count: 0, value: 0 };
       }
@@ -2388,12 +2402,12 @@ export class MemStorage implements IStorage {
     }
     
     const leadSources: Record<string, { count: number; conversionRate: number }> = {};
-    for (const [source, data] of sourceMap.entries()) {
+    Array.from(sourceMap.entries()).forEach(([source, data]) => {
       leadSources[source] = {
         count: data.count,
         conversionRate: data.count > 0 ? data.converted / data.count : 0
       };
-    }
+    });
     
     // Calculate velocity metrics (simplified)
     const cycleTimes = convertedLeads.map(lead => lead.totalDaysInPipeline || 0);
@@ -3305,9 +3319,9 @@ export class MemStorage implements IStorage {
     });
   }
 
-  async getFxRateLatest(baseCurrency: string, quoteCurrency: string): Promise<FxRate | null> {
+  async getFxRateLatest(baseCurrency: string, quoteCurrency: string): Promise<FxRate | undefined> {
     const rates = await this.getFxRates(baseCurrency, quoteCurrency);
-    return rates.length > 0 ? rates[0] : null;
+    return rates.length > 0 ? rates[0] : undefined;
   }
 
   async upsertFxRate(fxRateData: InsertFxRate): Promise<FxRate> {
@@ -3348,7 +3362,7 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async refreshFxRates(): Promise<{ success: boolean; updatedRates: FxRate[]; errors?: string[] }> {
+  async refreshFxRates(): Promise<FxRate[]> {
     try {
       // Import the external integrations service
       const { externalIntegrationsService } = await import("./external-integrations");
@@ -3402,18 +3416,10 @@ export class MemStorage implements IStorage {
         }
       }
 
-      return {
-        success: updatedRates.length > 0,
-        updatedRates,
-        errors: errors.length > 0 ? errors : undefined
-      };
+      return updatedRates;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      return {
-        success: false,
-        updatedRates: [],
-        errors: [`Failed to refresh FX rates: ${errorMsg}`]
-      };
+      return [];
     }
   }
   async getCompetitorPrices(): Promise<any> { throw new Error("Not implemented in memory storage"); }
