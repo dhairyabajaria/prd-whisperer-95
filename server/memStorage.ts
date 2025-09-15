@@ -46,6 +46,8 @@ import type {
   InsertVendorBillItem,
   CompetitorPrice,
   InsertCompetitorPrice,
+  FxRate,
+  InsertFxRate,
   Quotation,
   InsertQuotation,
   QuotationItem,
@@ -97,6 +99,9 @@ export class MemStorage implements IStorage {
   private vendorBills = new Map<string, VendorBill>();
   private vendorBillItems = new Map<string, VendorBillItem>();
   private competitorPrices = new Map<string, CompetitorPrice>();
+  
+  // FX rates and currency collections
+  private fxRates = new Map<string, FxRate>();
   
   // CRM quotation collections
   private quotations = new Map<string, Quotation>();
@@ -687,6 +692,121 @@ export class MemStorage implements IStorage {
     ];
 
     communicationsData.forEach(comm => this.communications.set(comm.id, comm));
+    
+    // Seed FX rates with common currency pairs including India and UAE markets
+    const today = new Date().toISOString().split('T')[0];
+    const fxRatesData = [
+      {
+        id: "fx-usd-eur-1",
+        baseCurrency: "USD",
+        quoteCurrency: "EUR", 
+        rate: "0.85",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-usd-aoa-1",
+        baseCurrency: "USD",
+        quoteCurrency: "AOA",
+        rate: "830.00", 
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-eur-aoa-1",
+        baseCurrency: "EUR", 
+        quoteCurrency: "AOA",
+        rate: "976.50",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-usd-brl-1",
+        baseCurrency: "USD",
+        quoteCurrency: "BRL",
+        rate: "5.20",
+        asOfDate: today,
+        source: "seed_data", 
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-usd-gbp-1",
+        baseCurrency: "USD",
+        quoteCurrency: "GBP",
+        rate: "0.73",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-usd-inr-1",
+        baseCurrency: "USD",
+        quoteCurrency: "INR",
+        rate: "83.25",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-usd-aed-1",
+        baseCurrency: "USD",
+        quoteCurrency: "AED",
+        rate: "3.67",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-eur-inr-1",
+        baseCurrency: "EUR",
+        quoteCurrency: "INR",
+        rate: "91.50",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-eur-aed-1",
+        baseCurrency: "EUR",
+        quoteCurrency: "AED",
+        rate: "4.04",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-aoa-inr-1",
+        baseCurrency: "AOA",
+        quoteCurrency: "INR",
+        rate: "0.10",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-aoa-aed-1",
+        baseCurrency: "AOA",
+        quoteCurrency: "AED",
+        rate: "0.0044",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      },
+      {
+        id: "fx-inr-aed-1",
+        baseCurrency: "INR",
+        quoteCurrency: "AED",
+        rate: "0.0441",
+        asOfDate: today,
+        source: "seed_data",
+        createdAt: new Date(),
+      }
+    ];
+
+    fxRatesData.forEach(rate => this.fxRates.set(rate.id, rate));
   }
 
   // User operations
@@ -2923,10 +3043,136 @@ export class MemStorage implements IStorage {
   async getMatchResults(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async performThreeWayMatch(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async resolveMatchException(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getFxRates(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async getFxRateLatest(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async upsertFxRate(): Promise<any> { throw new Error("Not implemented in memory storage"); }
-  async refreshFxRates(): Promise<any> { throw new Error("Not implemented in memory storage"); }
+  // FX Rate operations
+  async getFxRates(baseCurrency?: string, quoteCurrency?: string): Promise<FxRate[]> {
+    let rates = Array.from(this.fxRates.values());
+    
+    if (baseCurrency) {
+      rates = rates.filter(rate => rate.baseCurrency === baseCurrency);
+    }
+    if (quoteCurrency) {
+      rates = rates.filter(rate => rate.quoteCurrency === quoteCurrency);
+    }
+    
+    return rates.sort((a, b) => {
+      // Sort by date descending (newest first), then by created date descending
+      const dateCompare = new Date(b.asOfDate).getTime() - new Date(a.asOfDate).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      return new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime();
+    });
+  }
+
+  async getFxRateLatest(baseCurrency: string, quoteCurrency: string): Promise<FxRate | null> {
+    const rates = await this.getFxRates(baseCurrency, quoteCurrency);
+    return rates.length > 0 ? rates[0] : null;
+  }
+
+  async upsertFxRate(fxRateData: InsertFxRate): Promise<FxRate> {
+    // Check if rate already exists for this currency pair and date
+    const existingRates = Array.from(this.fxRates.values()).filter(
+      rate => rate.baseCurrency === fxRateData.baseCurrency && 
+              rate.quoteCurrency === fxRateData.quoteCurrency &&
+              rate.asOfDate === fxRateData.asOfDate
+    );
+
+    const now = new Date();
+    
+    if (existingRates.length > 0) {
+      // Update existing rate
+      const existing = existingRates[0];
+      const updated: FxRate = {
+        ...existing,
+        rate: fxRateData.rate,
+        source: fxRateData.source,
+        createdAt: now, // Update timestamp for latest data
+      };
+      this.fxRates.set(existing.id, updated);
+      return updated;
+    } else {
+      // Create new rate
+      const id = this.generateId();
+      const newRate: FxRate = {
+        id,
+        baseCurrency: fxRateData.baseCurrency,
+        quoteCurrency: fxRateData.quoteCurrency,
+        rate: fxRateData.rate,
+        asOfDate: fxRateData.asOfDate,
+        source: fxRateData.source,
+        createdAt: now,
+      };
+      this.fxRates.set(id, newRate);
+      return newRate;
+    }
+  }
+
+  async refreshFxRates(): Promise<{ success: boolean; updatedRates: FxRate[]; errors?: string[] }> {
+    try {
+      // Import the external integrations service
+      const { externalIntegrationsService } = await import("./external-integrations");
+      
+      const updatedRates: FxRate[] = [];
+      const errors: string[] = [];
+      
+      // Define key currency pairs for pharmaceutical distribution including India and UAE markets
+      const currencyPairs = [
+        { base: 'USD', quote: 'EUR' },
+        { base: 'USD', quote: 'AOA' },  // Angola Kwanza
+        { base: 'USD', quote: 'BRL' },  // Brazilian Real
+        { base: 'USD', quote: 'GBP' },
+        { base: 'USD', quote: 'INR' },  // Indian Rupee (critical for India market)
+        { base: 'USD', quote: 'AED' },  // UAE Dirham (critical for UAE market)
+        { base: 'EUR', quote: 'AOA' },
+        { base: 'EUR', quote: 'USD' },
+        { base: 'EUR', quote: 'INR' },  // European to Indian market
+        { base: 'EUR', quote: 'AED' },  // European to UAE market
+        { base: 'GBP', quote: 'USD' },
+        { base: 'AOA', quote: 'INR' },  // Angola to India trade
+        { base: 'AOA', quote: 'AED' },  // Angola to UAE trade
+        { base: 'INR', quote: 'AED' },  // India to UAE trade corridor
+      ];
+
+      const today = new Date().toISOString().split('T')[0];
+
+      for (const pair of currencyPairs) {
+        try {
+          // Get rates from external service
+          const fxData = await externalIntegrationsService.getFxRatesWithFallbacks(pair.base);
+          
+          if (fxData.success && fxData.rates && fxData.rates[pair.quote]) {
+            const rate = fxData.rates[pair.quote];
+            
+            const upsertedRate = await this.upsertFxRate({
+              baseCurrency: pair.base,
+              quoteCurrency: pair.quote,
+              rate: rate.toString(),
+              asOfDate: today,
+              source: fxData.source,
+            });
+            
+            updatedRates.push(upsertedRate);
+          } else {
+            errors.push(`Failed to get rate for ${pair.base}/${pair.quote}: ${fxData.error || 'No rate available'}`);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`Error fetching ${pair.base}/${pair.quote}: ${errorMsg}`);
+        }
+      }
+
+      return {
+        success: updatedRates.length > 0,
+        updatedRates,
+        errors: errors.length > 0 ? errors : undefined
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        updatedRates: [],
+        errors: [`Failed to refresh FX rates: ${errorMsg}`]
+      };
+    }
+  }
   async getCompetitorPrices(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async upsertCompetitorPrice(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async deleteCompetitorPrice(id: string): Promise<void> {

@@ -216,6 +216,8 @@ export class ExternalIntegrationsService {
         'AUD': 1.35,
         'CHF': 0.92,
         'CNY': 7.10,
+        'INR': 83.25, // Indian Rupee
+        'AED': 3.67,  // UAE Dirham
       },
       'EUR': {
         'USD': 1.18,
@@ -227,6 +229,8 @@ export class ExternalIntegrationsService {
         'AUD': 1.59,
         'CHF': 1.08,
         'CNY': 8.37,
+        'INR': 91.50, // Indian Rupee
+        'AED': 4.04,  // UAE Dirham
       },
       'AOA': {
         'USD': 0.0012,
@@ -234,6 +238,34 @@ export class ExternalIntegrationsService {
         'BRL': 0.0063,
         'GBP': 0.00088,
         'JPY': 0.133,
+        'INR': 0.10,  // Indian Rupee
+        'AED': 0.0044, // UAE Dirham
+      },
+      'INR': {
+        'USD': 0.012,  // 1/83.25
+        'EUR': 0.0109, // 1/91.50
+        'AOA': 10.0,   // 1/0.10
+        'GBP': 0.0088,
+        'JPY': 1.32,
+        'BRL': 0.0625,
+        'CAD': 0.015,
+        'AUD': 0.0162,
+        'CHF': 0.011,
+        'CNY': 0.085,
+        'AED': 0.0441, // 1/(83.25/3.67)
+      },
+      'AED': {
+        'USD': 0.272,  // 1/3.67
+        'EUR': 0.248,  // 1/4.04
+        'AOA': 226.1,  // 1/0.0044
+        'INR': 22.68,  // 83.25/3.67
+        'GBP': 0.199,
+        'JPY': 29.97,
+        'BRL': 1.42,
+        'CAD': 0.341,
+        'AUD': 0.368,
+        'CHF': 0.251,
+        'CNY': 1.93,
       }
     };
 

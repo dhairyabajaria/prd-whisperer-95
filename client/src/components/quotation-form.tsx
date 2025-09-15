@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Save, X } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Save, X, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { CurrencySelector, CurrencyDisplay, CurrencyInput } from "@/components/ui/currency-selector";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertQuotationSchema, type Customer, type Product, type User as UserType, type Quotation } from "@shared/schema";
+import { 
+  CurrencyService, 
+  formatCurrency, 
+  parseCurrencyAmount,
+  CurrencyCode,
+  getUserPreferredCurrency,
+  validateCurrencyInput 
+} from "@/lib/currencyUtils";
 
 // Extended schema for the form with line items
 const quotationFormSchema = insertQuotationSchema.extend({
@@ -54,8 +64,10 @@ interface QuotationItemWithProduct {
 
 export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }: QuotationFormProps) {
   const { toast } = useToast();
-  const [selectedCurrency, setSelectedCurrency] = useState<string>("USD");
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(getUserPreferredCurrency());
   const [fxRate, setFxRate] = useState<number>(1);
+  const [isLoadingRate, setIsLoadingRate] = useState<boolean>(false);
+  const [baseCurrency] = useState<CurrencyCode>("USD"); // Company base currency
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -110,6 +122,35 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       form.setValue("quotationNumber", quotationNumber);
     }
   }, [isOpen, quotation, form]);
+
+  // Fetch FX rate when currency changes
+  useEffect(() => {
+    if (selectedCurrency !== baseCurrency) {
+      setIsLoadingRate(true);
+      CurrencyService.getLatestFxRate(baseCurrency, selectedCurrency)
+        .then(rate => {
+          if (rate) {
+            const numRate = parseFloat(rate.rate);
+            setFxRate(numRate);
+            form.setValue("fxRate", numRate.toString());
+          }
+        })
+        .catch(error => {
+          console.warn('Failed to fetch FX rate:', error);
+          toast({
+            title: "Exchange Rate Warning",
+            description: `Could not fetch current ${baseCurrency}/${selectedCurrency} rate. Using default rate.`,
+            variant: "destructive",
+          });
+        })
+        .finally(() => {
+          setIsLoadingRate(false);
+        });
+    } else {
+      setFxRate(1);
+      form.setValue("fxRate", "1");
+    }
+  }, [selectedCurrency, baseCurrency, form, toast]);
 
   // Load quotation data for editing
   useEffect(() => {
@@ -304,12 +345,6 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
     }
   };
 
-  const currencies = [
-    { value: "USD", label: "USD - US Dollar" },
-    { value: "EUR", label: "EUR - Euro" },
-    { value: "AOA", label: "AOA - Angolan Kwanza" },
-    { value: "GBP", label: "GBP - British Pound" },
-  ];
 
   if (!isOpen) return null;
 
@@ -511,29 +546,54 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="currency">Currency</Label>
-                      <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                        <SelectTrigger data-testid="select-currency">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencies.map((currency) => (
-                            <SelectItem key={currency.value} value={currency.value}>
-                              {currency.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <CurrencySelector
+                        value={selectedCurrency}
+                        onValueChange={(currency) => {
+                          setSelectedCurrency(currency);
+                          form.setValue("currency", currency);
+                        }}
+                        showRates={true}
+                        baseCurrency={baseCurrency}
+                        placeholder="Select currency..."
+                        data-testid="select-currency"
+                      />
                     </div>
 
-                    <div>
-                      <Label htmlFor="fxRate">Exchange Rate</Label>
-                      <Input
-                        type="number"
-                        step="0.000001"
-                        value={fxRate}
-                        onChange={(e) => setFxRate(parseFloat(e.target.value) || 1)}
-                        data-testid="input-fx-rate"
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="fxRate" className="flex items-center gap-2">
+                        Exchange Rate
+                        {isLoadingRate && (
+                          <Badge variant="secondary" className="animate-pulse">
+                            <TrendingUp className="h-3 w-3 mr-1" />
+                            Updating...
+                          </Badge>
+                        )}
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.000001"
+                          value={fxRate}
+                          onChange={(e) => {
+                            const newRate = parseFloat(e.target.value) || 1;
+                            setFxRate(newRate);
+                            form.setValue("fxRate", newRate.toString());
+                          }}
+                          disabled={selectedCurrency === baseCurrency || isLoadingRate}
+                          data-testid="input-fx-rate"
+                          className="flex-1"
+                        />
+                        {selectedCurrency !== baseCurrency && (
+                          <div className="text-xs text-muted-foreground whitespace-nowrap">
+                            1 {baseCurrency} = {fxRate.toFixed(6)} {selectedCurrency}
+                          </div>
+                        )}
+                      </div>
+                      {selectedCurrency !== baseCurrency && (
+                        <p className="text-xs text-muted-foreground">
+                          Rate automatically fetched from live sources
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -658,24 +718,65 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span data-testid="text-subtotal">{selectedCurrency} {form.watch("subtotal")}</span>
+                    <div className="space-y-3">
+                      <div className="text-sm font-medium mb-2">Quotation Summary</div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Subtotal:</span>
+                        <CurrencyDisplay
+                          amount={form.watch("subtotal") || "0"}
+                          currency={selectedCurrency}
+                          showConversion={selectedCurrency !== baseCurrency}
+                          baseCurrency={baseCurrency}
+                          data-testid="text-subtotal"
+                        />
                       </div>
-                      <div className="flex justify-between">
-                        <span>Discount:</span>
-                        <span data-testid="text-discount">-{selectedCurrency} {form.watch("discountAmount")}</span>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Discount:</span>
+                        <CurrencyDisplay
+                          amount={`-${form.watch("discountAmount") || "0"}`}
+                          currency={selectedCurrency}
+                          showConversion={selectedCurrency !== baseCurrency}
+                          baseCurrency={baseCurrency}
+                          data-testid="text-discount"
+                          className="text-green-600"
+                        />
                       </div>
-                      <div className="flex justify-between">
-                        <span>Tax:</span>
-                        <span data-testid="text-tax">{selectedCurrency} {form.watch("taxAmount")}</span>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Tax:</span>
+                        <CurrencyDisplay
+                          amount={form.watch("taxAmount") || "0"}
+                          currency={selectedCurrency}
+                          showConversion={selectedCurrency !== baseCurrency}
+                          baseCurrency={baseCurrency}
+                          data-testid="text-tax"
+                        />
                       </div>
+                      
                       <Separator />
-                      <div className="flex justify-between font-bold text-lg">
-                        <span>Total:</span>
-                        <span data-testid="text-total">{selectedCurrency} {form.watch("totalAmount")}</span>
+                      
+                      <div className="flex justify-between items-center py-2">
+                        <span className="font-bold text-lg">Total:</span>
+                        <CurrencyDisplay
+                          amount={form.watch("totalAmount") || "0"}
+                          currency={selectedCurrency}
+                          showConversion={selectedCurrency !== baseCurrency}
+                          baseCurrency={baseCurrency}
+                          data-testid="text-total"
+                          className="font-bold text-lg"
+                        />
                       </div>
+                      
+                      {selectedCurrency !== baseCurrency && (
+                        <div className="text-xs text-muted-foreground pt-2 border-t">
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Exchange rate: 1 {baseCurrency} = {fxRate.toFixed(6)} {selectedCurrency}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
