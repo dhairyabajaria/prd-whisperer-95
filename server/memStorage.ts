@@ -1713,6 +1713,139 @@ export class MemStorage implements IStorage {
       entries: enrichedEntries
     };
   }
+
+  async markCommissionAsPaid(id: string): Promise<CommissionEntry> {
+    const commission = this.commissionEntries.get(id);
+    if (!commission) throw new Error("Commission entry not found");
+    if (commission.status !== 'approved') throw new Error("Commission must be approved before marking as paid");
+
+    const updated: CommissionEntry = {
+      ...commission,
+      status: 'paid',
+      paidAt: new Date()
+    };
+
+    this.commissionEntries.set(id, updated);
+    return updated;
+  }
+
+  async updateCommissionNotes(id: string, notes?: string): Promise<CommissionEntry> {
+    const commission = this.commissionEntries.get(id);
+    if (!commission) throw new Error("Commission entry not found");
+
+    const updated: CommissionEntry = {
+      ...commission,
+      notes: notes || null
+    };
+
+    this.commissionEntries.set(id, updated);
+    return updated;
+  }
+
+  async getCommissionEntriesForExport(filters: {
+    startDate?: string;
+    endDate?: string;
+    salesRepId?: string;
+    status?: string;
+  }): Promise<(CommissionEntry & { invoice: Invoice & { customer: Customer }; salesRep: User })[]> {
+    let entries = Array.from(this.commissionEntries.values());
+
+    // Apply filters
+    if (filters.startDate) {
+      const start = new Date(filters.startDate);
+      entries = entries.filter(entry => entry.createdAt && new Date(entry.createdAt) >= start);
+    }
+    if (filters.endDate) {
+      const end = new Date(filters.endDate);
+      entries = entries.filter(entry => entry.createdAt && new Date(entry.createdAt) <= end);
+    }
+    if (filters.salesRepId) {
+      entries = entries.filter(entry => entry.salesRepId === filters.salesRepId);
+    }
+    if (filters.status) {
+      entries = entries.filter(entry => entry.status === filters.status);
+    }
+
+    // Enrich with related data
+    return entries.map(entry => {
+      const invoice = this.invoices.get(entry.invoiceId);
+      const customer = invoice ? this.customers.get(invoice.customerId) : undefined;
+      const salesRep = this.users.get(entry.salesRepId);
+
+      return {
+        ...entry,
+        invoice: invoice ? { ...invoice, customer: customer! } : {} as Invoice & { customer: Customer },
+        salesRep: salesRep!
+      };
+    }).filter(entry => entry.invoice.id); // Remove entries with missing invoice data
+  }
+
+  async bulkCommissionActions(
+    commissionIds: string[], 
+    action: 'approve' | 'mark-paid' | 'cancel', 
+    userId: string, 
+    notes?: string
+  ): Promise<{ success: string[]; failed: { id: string; error: string }[] }> {
+    const success: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of commissionIds) {
+      try {
+        const commission = this.commissionEntries.get(id);
+        if (!commission) {
+          failed.push({ id, error: "Commission entry not found" });
+          continue;
+        }
+
+        let updated: CommissionEntry;
+        switch (action) {
+          case 'approve':
+            if (commission.status !== 'accrued') {
+              failed.push({ id, error: "Commission must be in accrued status to approve" });
+              continue;
+            }
+            updated = {
+              ...commission,
+              status: 'approved',
+              approvedBy: userId,
+              approvedAt: new Date(),
+              notes: notes || commission.notes
+            };
+            break;
+          case 'mark-paid':
+            if (commission.status !== 'approved') {
+              failed.push({ id, error: "Commission must be approved before marking as paid" });
+              continue;
+            }
+            updated = {
+              ...commission,
+              status: 'paid',
+              paidAt: new Date(),
+              notes: notes || commission.notes
+            };
+            break;
+          case 'cancel':
+            updated = {
+              ...commission,
+              status: 'cancelled',
+              notes: notes || commission.notes
+            };
+            break;
+          default:
+            failed.push({ id, error: `Unknown action: ${action}` });
+            continue;
+        }
+
+        this.commissionEntries.set(id, updated);
+        success.push(id);
+      } catch (error) {
+        failed.push({ id, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return { success, failed };
+  }
+
   async getCreditOverrides(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getCreditOverride(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async createCreditOverride(): Promise<any> { throw new Error("Not implemented in memory storage"); }
@@ -2085,6 +2218,21 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async getCommunication(id: string): Promise<Communication | undefined> {
+    return this.communications.get(id);
+  }
+
+  async getCustomerCommunications(customerId: string, limit = 50): Promise<Communication[]> {
+    return Array.from(this.communications.values())
+      .filter(comm => comm.customerId === customerId)
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      })
+      .slice(0, limit);
+  }
+
   // Pipeline Configuration operations
   async getPipelineConfiguration(): Promise<PipelineConfiguration[]> {
     return Array.from(this.pipelineConfiguration.values())
@@ -2190,7 +2338,7 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  async getLeadStageHistory(leadId: string): Promise<LeadStageHistory[]> {
+  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]> {
     const stageHistory = Array.from(this.leadStageHistory.values())
       .filter(history => history.leadId === leadId)
       .sort((a, b) => {
@@ -2199,7 +2347,11 @@ export class MemStorage implements IStorage {
         return dateB - dateA;
       });
     
-    return stageHistory;
+    // Enrich with user data
+    return stageHistory.map(history => ({
+      ...history,
+      movedBy: history.movedBy ? this.users.get(history.movedBy) : undefined
+    }));
   }
 
   // Lead Scoring Rules operations

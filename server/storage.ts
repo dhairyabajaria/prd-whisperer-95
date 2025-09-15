@@ -1241,8 +1241,8 @@ export class DatabaseStorage implements IStorage {
           'cancelled': [] // Terminal state
         } as const;
         
-        const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (order.status && !allowedStates.includes(order.status as any)) {
+        const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [] as readonly never[];
+        if (order.status && !allowedStates.includes(order.status as never)) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -1699,8 +1699,8 @@ export class DatabaseStorage implements IStorage {
           'cancelled': [] // Terminal state
         } as const;
         
-        const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [];
-        if (order.status && !allowedStates.includes(order.status as any)) {
+        const allowedStates = validTransitions[currentOrder.status as keyof typeof validTransitions] || [] as readonly never[];
+        if (order.status && !allowedStates.includes(order.status as never)) {
           throw new Error(`Invalid status transition from ${currentOrder.status} to ${order.status}`);
         }
       }
@@ -7085,6 +7085,43 @@ export class DatabaseStorage implements IStorage {
   async markAllNotificationsAsRead(userId: string): Promise<void> {
     throw new Error('Method not implemented');
   }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const db = await getDb();
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+    return result?.count || 0;
+  }
+
+  async deleteGoodsReceipt(id: string): Promise<void> {
+    const db = await getDb();
+    await db.transaction(async (tx) => {
+      // Delete goods receipt items first
+      await tx.delete(goodsReceiptItems).where(eq(goodsReceiptItems.grId, id));
+      // Then delete the goods receipt
+      await tx.delete(goodsReceipts).where(eq(goodsReceipts.id, id));
+    });
+  }
+
+  async deleteVendorBill(id: string): Promise<void> {
+    const db = await getDb();
+    await db.transaction(async (tx) => {
+      // Delete vendor bill items first
+      await tx.delete(vendorBillItems).where(eq(vendorBillItems.billId, id));
+      // Then delete the vendor bill
+      await tx.delete(vendorBills).where(eq(vendorBills.id, id));
+    });
+  }
+
+  async deleteCompetitorPrice(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete(competitorPrices).where(eq(competitorPrices.id, id));
+  }
   
 }
 
@@ -7096,36 +7133,35 @@ import * as fs from 'fs';
 // Simplified approach - use direct process.env since check_secrets confirms they exist
 // The issue might be timing, so let's try a more direct approach
 async function getReplitSecret(key: string): Promise<string | undefined> {
-  // In Replit, environment variables should be available directly
-  // Let's check different possible ways they might be set
+  console.log(`🔍 Attempting to retrieve secret: ${key}`);
   
-  // Method 1: Direct access
-  let value = process.env[key];
-  if (value && value.trim() !== '') {
-    console.log(`✅ Found ${key} via direct process.env access`);
-    return value;
-  }
-  
-  // Method 2: Check if it's set but empty (try a slight delay)
-  await new Promise(resolve => setTimeout(resolve, 200));
-  value = process.env[key];
-  if (value && value.trim() !== '') {
-    console.log(`✅ Found ${key} via delayed process.env access`);
-    return value;
-  }
-  
-  // Method 3: Try file system access (fix ES module issue)
+  // Method 1: Try file system access first (most reliable in Replit)
   try {
     const secretPath = `/tmp/secrets/${key}`;
     if (fs.existsSync(secretPath)) {
-      value = fs.readFileSync(secretPath, 'utf8').trim();
+      const value = fs.readFileSync(secretPath, 'utf8').trim();
       if (value) {
-        console.log(`✅ Found ${key} via file system`);
+        console.log(`✅ Found ${key} via file system (${value.length} chars)`);
         return value;
       }
     }
   } catch (e) {
-    // File system approach not available
+    console.log(`⚠️ File system access failed for ${key}:`, e);
+  }
+  
+  // Method 2: Direct process.env access 
+  let value = process.env[key];
+  if (value && value.trim() !== '') {
+    console.log(`✅ Found ${key} via direct process.env access (${value.length} chars)`);
+    return value;
+  }
+  
+  // Method 3: Check if it's set but empty (try with delay)
+  await new Promise(resolve => setTimeout(resolve, 200));
+  value = process.env[key];
+  if (value && value.trim() !== '') {
+    console.log(`✅ Found ${key} via delayed process.env access (${value.length} chars)`);
+    return value;
   }
   
   console.log(`❌ Unable to find secret: ${key}`);
@@ -7138,14 +7174,50 @@ async function initializeStorage(): Promise<IStorage> {
     console.log('Storage initialization:');
     console.log('NODE_ENV:', process.env.NODE_ENV || 'undefined');
     
-    // Check USE_DB_STORAGE flag (default false for safety)
-    const useDbStorage = process.env.USE_DB_STORAGE?.toLowerCase() === 'true';
-    console.log('USE_DB_STORAGE flag:', useDbStorage);
+    // Check if database should be used (enabled by default if DATABASE_URL is available)
+    const explicitDbFlag = process.env.USE_DB_STORAGE?.toLowerCase();
+    
+    // Check for database availability using multiple methods (match db.ts approach)
+    let hasDbUrl = false;
+    
+    // Method 1: Direct DATABASE_URL check
+    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
+      hasDbUrl = true;
+    }
+    
+    // Method 2: Check if PG components are available (typical for Replit)
+    if (!hasDbUrl) {
+      const pgComponents = [
+        process.env.PGHOST,
+        process.env.PGPORT, 
+        process.env.PGDATABASE,
+        process.env.PGUSER,
+        process.env.PGPASSWORD
+      ];
+      hasDbUrl = pgComponents.every(component => component && component.trim());
+    }
+    
+    // Method 3: Try filesystem access as fallback
+    if (!hasDbUrl) {
+      try {
+        const secretPath = '/tmp/secrets/DATABASE_URL';
+        hasDbUrl = fs.existsSync(secretPath) && fs.readFileSync(secretPath, 'utf8').trim().length > 0;
+      } catch (e) {
+        // Filesystem approach not available
+      }
+    }
+    
+    const useDbStorage = explicitDbFlag === 'true' || (explicitDbFlag !== 'false' && hasDbUrl);
+    
+    console.log('Database configuration check:');
+    console.log('- USE_DB_STORAGE flag:', explicitDbFlag || 'not set');
+    console.log('- DATABASE_URL available:', hasDbUrl);
+    console.log('- Will use database storage:', useDbStorage);
     
     if (!useDbStorage) {
-      console.log('📝 USE_DB_STORAGE is false, using memory storage for safety');
+      console.log('📝 Using memory storage (DATABASE_URL not available or explicitly disabled)');
       const memStorage = new MemStorage();
-      console.log('✅ Successfully initialized memory storage (flag-controlled)');
+      console.log('✅ Successfully initialized memory storage');
       return memStorage;
     }
     
