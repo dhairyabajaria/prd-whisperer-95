@@ -2338,7 +2338,7 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]> {
+  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedByUser?: User })[]> {
     const stageHistory = Array.from(this.leadStageHistory.values())
       .filter(history => history.leadId === leadId)
       .sort((a, b) => {
@@ -2350,7 +2350,7 @@ export class MemStorage implements IStorage {
     // Enrich with user data
     return stageHistory.map(history => ({
       ...history,
-      movedBy: history.movedBy ? this.users.get(history.movedBy) : undefined
+      movedByUser: history.movedBy ? this.users.get(history.movedBy) : undefined
     }));
   }
 

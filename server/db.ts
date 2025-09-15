@@ -11,61 +11,49 @@ neonConfig.webSocketConstructor = ws;
 let db: ReturnType<typeof drizzle> | null = null;
 let pool: Pool | null = null;
 
-// Helper function to get Replit secrets (similar to storage.ts)
+
+// Enhanced secret access for database connection (matching storage.ts)
 async function getReplitSecret(key: string): Promise<string | undefined> {
-  // Method 1: Direct process.env access
+  // Try direct process.env access first
   let value = process.env[key];
   if (value && value.trim() !== '') {
     return value;
   }
   
-  // Method 2: Check with slight delay (Replit environment loading)
-  await new Promise(resolve => setTimeout(resolve, 100));
-  value = process.env[key];
-  if (value && value.trim() !== '') {
-    return value;
-  }
-  
-  // Method 3: File system access for secrets
-  try {
-    const secretPath = `/tmp/secrets/${key}`;
-    if (fs.existsSync(secretPath)) {
-      value = fs.readFileSync(secretPath, 'utf8').trim();
-      if (value) {
-        return value;
-      }
+  // Try with progressive delays for Replit environment loading
+  for (const delay of [100, 500, 1000, 2000]) {
+    await new Promise(resolve => setTimeout(resolve, delay));
+    value = process.env[key];
+    if (value && value.trim() !== '') {
+      console.log(`✅ Found ${key} via delayed access (${delay}ms delay)`);
+      return value;
     }
-  } catch (e) {
-    // File system approach not available
   }
   
   return undefined;
 }
 
-// Async database initialization
+// Async database initialization with enhanced secret access
 async function initializeDatabase() {
   console.log('🔧 Database initialization:');
   console.log('NODE_ENV:', process.env.NODE_ENV || 'undefined');
   
-  // In Replit, DATABASE_URL might be empty but PG components should be available
-  // Try direct construction from PG environment variables first
   let databaseUrl = '';
   
-  // First attempt: Direct environment variable access
-  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
-    databaseUrl = process.env.DATABASE_URL;
-    console.log('✅ Found DATABASE_URL via process.env');
-  } else {
-    console.log('🔍 DATABASE_URL empty, constructing from PG components...');
+  // Method 1: Direct DATABASE_URL access
+  databaseUrl = await getReplitSecret('DATABASE_URL') || '';
+  
+  // Method 2: Construct from PG components if DATABASE_URL not found
+  if (!databaseUrl) {
+    console.log('🔍 DATABASE_URL not found, constructing from PG components...');
     
-    // Try to construct from PG components
-    const pgHost = process.env.PGHOST;
-    const pgPort = process.env.PGPORT;
-    const pgDatabase = process.env.PGDATABASE;
-    const pgUser = process.env.PGUSER;
-    const pgPassword = process.env.PGPASSWORD;
+    const pgHost = await getReplitSecret('PGHOST');
+    const pgPort = await getReplitSecret('PGPORT');
+    const pgDatabase = await getReplitSecret('PGDATABASE');
+    const pgUser = await getReplitSecret('PGUSER');
+    const pgPassword = await getReplitSecret('PGPASSWORD');
     
-    console.log('PG Components status:', {
+    console.log('PG Components retrieved:', {
       PGHOST: pgHost ? `${pgHost.substring(0, 10)}...` : 'empty',
       PGPORT: pgPort || 'empty',
       PGDATABASE: pgDatabase || 'empty', 
@@ -76,26 +64,11 @@ async function initializeDatabase() {
     if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
       databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
       console.log('✅ Successfully constructed DATABASE_URL from PG components');
-    } else {
-      // If PG components are also empty, try secret loading with delay
-      console.log('⏳ PG components empty, trying async secret loading...');
-      await new Promise(resolve => setTimeout(resolve, 500)); // Give more time for env loading
-      
-      const secretHost = await getReplitSecret('PGHOST');
-      const secretPort = await getReplitSecret('PGPORT');
-      const secretDatabase = await getReplitSecret('PGDATABASE');
-      const secretUser = await getReplitSecret('PGUSER');
-      const secretPassword = await getReplitSecret('PGPASSWORD');
-      
-      if (secretHost && secretPort && secretDatabase && secretUser && secretPassword) {
-        databaseUrl = `postgresql://${secretUser}:${secretPassword}@${secretHost}:${secretPort}/${secretDatabase}?sslmode=require`;
-        console.log('✅ Successfully constructed DATABASE_URL from secrets');
-      }
     }
   }
 
   if (!databaseUrl) {
-    console.error('❌ Unable to construct DATABASE_URL. Database connection failed.');
+    console.error('❌ Unable to access DATABASE_URL or construct from components. Database connection failed.');
     console.log('Available env vars with DATABASE/PG:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PG')));
     return;
   }

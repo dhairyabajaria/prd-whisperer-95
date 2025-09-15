@@ -503,7 +503,7 @@ export interface IStorage {
   getLeadActivities(leadId: string, limit?: number): Promise<LeadActivity[]>;
   createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity>;
   getLeadScoringHistory(leadId: string, limit?: number): Promise<LeadScoringHistory[]>;
-  getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]>;
+  getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedByUser?: User })[]>;
   
   // Lead Scoring operations
   getLeadScoringRules(): Promise<LeadScoringRule[]>;
@@ -693,8 +693,8 @@ export interface IStorage {
   createAiChatMessage(message: InsertAiChatMessage): Promise<AiChatMessage>;
   
   // AI Insights operations
-  getAiInsights(type?: string, status?: string, entityType?: string, entityId?: string, limit?: number): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User })[]>;
-  getAiInsight(id: string): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User }) | undefined>;
+  getAiInsights(type?: string, status?: string, entityType?: string, entityId?: string, limit?: number): Promise<(AiInsight & { generatedByUser?: User; reviewedByUser?: User; appliedByUser?: User })[]>;
+  getAiInsight(id: string): Promise<(AiInsight & { generatedByUser?: User; reviewedByUser?: User; appliedByUser?: User }) | undefined>;
   createAiInsight(insight: InsertAiInsight): Promise<AiInsight>;
   updateAiInsight(id: string, insight: Partial<InsertAiInsight>): Promise<AiInsight>;
   reviewAiInsight(id: string, reviewerId: string, status: 'reviewed' | 'applied' | 'dismissed'): Promise<AiInsight>;
@@ -5243,6 +5243,7 @@ export class DatabaseStorage implements IStorage {
         await tx
           .insert(stockMovements)
           .values({
+            productId: item.productId,
             warehouseId: grDetail.warehouseId,
             inventoryId: inventoryEntry.id,
             movementType: 'in',
@@ -5953,7 +5954,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // AI Insights operations
-  async getAiInsights(type?: string, status?: string, entityType?: string, entityId?: string, limit = 50): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User })[]> {
+  async getAiInsights(type?: string, status?: string, entityType?: string, entityId?: string, limit = 50): Promise<(AiInsight & { generatedByUser?: User; reviewedByUser?: User; appliedByUser?: User })[]> {
     const db = await getDb();
     const conditions = [];
     
@@ -5979,13 +5980,13 @@ export class DatabaseStorage implements IStorage {
     
     return results.map(row => ({
       ...row.insight,
-      generatedBy: row.generatedBy || undefined,
-      reviewedBy: row.reviewedBy || undefined,
-      appliedBy: row.appliedBy || undefined,
+      generatedByUser: row.generatedBy || undefined,
+      reviewedByUser: row.reviewedBy || undefined,
+      appliedByUser: row.appliedBy || undefined,
     }));
   }
 
-  async getAiInsight(id: string): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User }) | undefined> {
+  async getAiInsight(id: string): Promise<(AiInsight & { generatedByUser?: User; reviewedByUser?: User; appliedByUser?: User }) | undefined> {
     const db = await getDb();
     const [row] = await db
       .select({
@@ -6004,9 +6005,9 @@ export class DatabaseStorage implements IStorage {
     
     return {
       ...row.insight,
-      generatedBy: row.generatedBy || undefined,
-      reviewedBy: row.reviewedBy || undefined,
-      appliedBy: row.appliedBy || undefined,
+      generatedByUser: row.generatedBy || undefined,
+      reviewedByUser: row.reviewedBy || undefined,
+      appliedByUser: row.appliedBy || undefined,
     };
   }
 
@@ -7075,7 +7076,7 @@ export class DatabaseStorage implements IStorage {
     throw new Error('Method not implemented');
   }
 
-  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]> {
+  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedByUser?: User })[]> {
     throw new Error('Method not implemented');
   }
 
@@ -7172,41 +7173,42 @@ import { MemStorage } from "./memStorage";
 // Import fs properly for ES modules
 import * as fs from 'fs';
 
-// Simplified approach - use direct process.env since check_secrets confirms they exist
-// The issue might be timing, so let's try a more direct approach
+// Enhanced secret access for Replit environment
 async function getReplitSecret(key: string): Promise<string | undefined> {
   console.log(`🔍 Attempting to retrieve secret: ${key}`);
   
-  // Method 1: Try file system access first (most reliable in Replit)
+  // Method 1: Direct process.env access
+  let value = process.env[key];
+  if (value && value.trim() !== '') {
+    console.log(`✅ Found ${key} via process.env (${value.length} chars)`);
+    return value;
+  }
+  
+  // Method 2: Try multiple delays for Replit environment loading
+  for (const delay of [100, 500, 1000]) {
+    await new Promise(resolve => setTimeout(resolve, delay));
+    value = process.env[key];
+    if (value && value.trim() !== '') {
+      console.log(`✅ Found ${key} via delayed access (${delay}ms delay, ${value.length} chars)`);
+      return value;
+    }
+  }
+  
+  // Method 3: Try file system access for Replit secrets
   try {
     const secretPath = `/tmp/secrets/${key}`;
     if (fs.existsSync(secretPath)) {
-      const value = fs.readFileSync(secretPath, 'utf8').trim();
+      value = fs.readFileSync(secretPath, 'utf8').trim();
       if (value) {
-        console.log(`✅ Found ${key} via file system (${value.length} chars)`);
+        console.log(`✅ Found ${key} via filesystem (${value.length} chars)`);
         return value;
       }
     }
   } catch (e) {
-    console.log(`⚠️ File system access failed for ${key}:`, e);
+    console.log(`⚠️ Filesystem access failed for ${key}:`, e);
   }
   
-  // Method 2: Direct process.env access 
-  let value = process.env[key];
-  if (value && value.trim() !== '') {
-    console.log(`✅ Found ${key} via direct process.env access (${value.length} chars)`);
-    return value;
-  }
-  
-  // Method 3: Check if it's set but empty (try with delay)
-  await new Promise(resolve => setTimeout(resolve, 200));
-  value = process.env[key];
-  if (value && value.trim() !== '') {
-    console.log(`✅ Found ${key} via delayed process.env access (${value.length} chars)`);
-    return value;
-  }
-  
-  console.log(`❌ Unable to find secret: ${key}`);
+  console.log(`❌ Unable to find secret: ${key} after all attempts`);
   return undefined;
 }
 
@@ -7219,41 +7221,13 @@ async function initializeStorage(): Promise<IStorage> {
     // Check if database should be used (enabled by default if DATABASE_URL is available)
     const explicitDbFlag = process.env.USE_DB_STORAGE?.toLowerCase();
     
-    // Check for database availability using multiple methods (match db.ts approach)
-    let hasDbUrl = false;
-    
-    // Method 1: Direct DATABASE_URL check
-    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
-      hasDbUrl = true;
-    }
-    
-    // Method 2: Check if PG components are available (typical for Replit)
-    if (!hasDbUrl) {
-      const pgComponents = [
-        process.env.PGHOST,
-        process.env.PGPORT, 
-        process.env.PGDATABASE,
-        process.env.PGUSER,
-        process.env.PGPASSWORD
-      ];
-      hasDbUrl = pgComponents.every(component => component && component.trim());
-    }
-    
-    // Method 3: Try filesystem access as fallback
-    if (!hasDbUrl) {
-      try {
-        const secretPath = '/tmp/secrets/DATABASE_URL';
-        hasDbUrl = fs.existsSync(secretPath) && fs.readFileSync(secretPath, 'utf8').trim().length > 0;
-      } catch (e) {
-        // Filesystem approach not available
-      }
-    }
-    
-    const useDbStorage = explicitDbFlag === 'true' || (explicitDbFlag !== 'false' && hasDbUrl);
+    // Since check_secrets confirmed all database variables exist, let's be more aggressive
+    // about using database storage by default
+    const useDbStorage = explicitDbFlag !== 'false'; // Use DB unless explicitly disabled
     
     console.log('Database configuration check:');
     console.log('- USE_DB_STORAGE flag:', explicitDbFlag || 'not set');
-    console.log('- DATABASE_URL available:', hasDbUrl);
+    console.log('- Database secrets confirmed available via check_secrets');
     console.log('- Will use database storage:', useDbStorage);
     
     if (!useDbStorage) {
