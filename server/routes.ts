@@ -202,6 +202,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Users routes
+  app.get("/api/users", isAuthenticated, async (req, res) => {
+    try {
+      const role = req.query.role as string;
+      const users = await storage.getUsers(role);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   // Dashboard routes
   app.get("/api/dashboard/metrics", isAuthenticated, async (req, res) => {
     try {

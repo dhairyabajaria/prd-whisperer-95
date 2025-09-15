@@ -877,6 +877,22 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
+  async getUsers(role?: string, limit?: number): Promise<User[]> {
+    let users = Array.from(this.users.values());
+    
+    // Filter by role if provided
+    if (role) {
+      users = users.filter(user => user.role === role);
+    }
+    
+    // Apply limit if provided
+    if (limit) {
+      users = users.slice(0, limit);
+    }
+    
+    return users;
+  }
+
   async upsertUser(user: UpsertUser): Promise<User> {
     if (!user.id) throw new Error('User ID is required');
     const existingUser = this.users.get(user.id);

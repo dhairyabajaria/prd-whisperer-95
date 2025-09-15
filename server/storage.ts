@@ -204,6 +204,7 @@ export interface IStorage {
   // User operations
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
+  getUsers(role?: string, limit?: number): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Customer operations
@@ -805,6 +806,22 @@ export class DatabaseStorage implements IStorage {
     const db = await getDb();
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
+  }
+
+  async getUsers(role?: string, limit = 100): Promise<User[]> {
+    const db = await getDb();
+    const conditions = [eq(users.isActive, true)];
+    
+    if (role) {
+      conditions.push(eq(users.role, role as any));
+    }
+
+    return await db
+      .select()
+      .from(users)
+      .where(and(...conditions))
+      .limit(limit)
+      .orderBy(desc(users.createdAt));
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {

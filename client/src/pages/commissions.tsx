@@ -140,7 +140,16 @@ export default function Commissions() {
   const summaryLoading = isLoading;
 
   const { data: salesReps, isLoading: salesRepsLoading } = useQuery<UserType[]>({
-    queryKey: ["/api/users?role=sales"],
+    queryKey: ["/api/users", { role: "sales" }],
+    queryFn: async () => {
+      const response = await fetch("/api/users?role=sales", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch sales representatives");
+      }
+      return response.json();
+    },
   });
 
   const approveMutation = useMutation({
