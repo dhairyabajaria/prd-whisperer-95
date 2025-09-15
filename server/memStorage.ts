@@ -70,6 +70,10 @@ import type {
   InsertCommunication,
   SentimentAnalysis,
   InsertSentimentAnalysis,
+  Campaign,
+  InsertCampaign,
+  CampaignMember,
+  InsertCampaignMember,
 } from "@shared/schema";
 
 // In-memory storage implementation for development
@@ -123,6 +127,10 @@ export class MemStorage implements IStorage {
   
   // Sentiment analysis collections
   private sentimentAnalyses = new Map<string, SentimentAnalysis>();
+  
+  // Campaign collections
+  private campaigns = new Map<string, Campaign>();
+  private campaignMembers = new Map<string, CampaignMember>();
 
   constructor() {
     this.seedData();
