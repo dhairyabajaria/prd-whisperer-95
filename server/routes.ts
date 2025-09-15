@@ -2113,12 +2113,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const querySchema = z.object({
         salesRepId: z.string().optional(),
-        status: z.string().optional(),
-        limit: z.string().optional().transform((val) => val ? parseInt(val) : 100),
+        status: z.enum(['accrued', 'approved', 'paid', 'cancelled']).optional(),
+        startDate: z.string().optional().refine((date) => !date || !isNaN(Date.parse(date)), {
+          message: "Invalid start date format. Use YYYY-MM-DD"
+        }),
+        endDate: z.string().optional().refine((date) => !date || !isNaN(Date.parse(date)), {
+          message: "Invalid end date format. Use YYYY-MM-DD"
+        }),
+        limit: z.string().optional().transform((val) => val ? Math.min(parseInt(val), 1000) : 100),
+      }).refine((data) => {
+        if (data.startDate && data.endDate) {
+          return new Date(data.startDate) <= new Date(data.endDate);
+        }
+        return true;
+      }, {
+        message: "Start date must be before or equal to end date"
       });
 
-      const { salesRepId, status, limit } = querySchema.parse(req.query);
-      const commissions = await storage.getCommissionEntries(salesRepId, status, limit);
+      const { salesRepId, status, startDate, endDate, limit } = querySchema.parse(req.query);
+      const commissions = await storage.getCommissionEntries(salesRepId, status, limit, startDate, endDate);
       res.json(commissions);
     } catch (error: any) {
       console.error("Error fetching commissions:", error);
@@ -2189,6 +2202,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
       } else {
         res.status(500).json({ message: "Failed to fetch commission summary" });
+      }
+    }
+  });
+
+  // Mark commission as paid
+  app.patch("/api/crm/commissions/:id/mark-paid", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const commission = await storage.markCommissionAsPaid(req.params.id);
+      res.json(commission);
+    } catch (error: any) {
+      console.error("Error marking commission as paid:", error);
+      res.status(400).json({ message: "Failed to mark commission as paid", error: error.message });
+    }
+  });
+
+  // Update commission notes
+  app.patch("/api/crm/commissions/:id/notes", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const notesSchema = z.object({
+        notes: z.string().max(1000, "Notes cannot exceed 1000 characters").optional(),
+      });
+      
+      const { notes } = notesSchema.parse(req.body);
+      
+      // Check if commission exists before updating
+      const existingCommission = await storage.getCommissionEntry(req.params.id);
+      if (!existingCommission) {
+        return res.status(404).json({ message: "Commission entry not found" });
+      }
+      const commission = await storage.updateCommissionNotes(req.params.id, notes);
+      res.json(commission);
+    } catch (error: any) {
+      console.error("Error updating commission notes:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid notes data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to update commission notes", error: error.message });
+      }
+    }
+  });
+
+  // Export commissions
+  app.get("/api/crm/commissions/export", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const querySchema = z.object({
+        salesRepId: z.string().optional(),
+        status: z.string().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        format: z.enum(['csv', 'json']).default('csv'),
+      });
+
+      const filters = querySchema.parse(req.query);
+      const commissions = await storage.getCommissionEntriesForExport(filters);
+      
+      if (filters.format === 'csv') {
+        // Generate CSV
+        const csvHeaders = [
+          'Commission ID',
+          'Sales Rep',
+          'Invoice Number',
+          'Customer',
+          'Basis Amount',
+          'Commission %',
+          'Commission Amount',
+          'Currency',
+          'Status',
+          'Created Date',
+          'Approved Date',
+          'Paid Date',
+          'Notes'
+        ];
+        
+        const csvRows = commissions.map(comm => [
+          comm.id,
+          `${comm.salesRep?.firstName || ''} ${comm.salesRep?.lastName || ''}`.trim(),
+          comm.invoice?.invoiceNumber || '',
+          comm.invoice?.customer?.name || '',
+          comm.basisAmount,
+          comm.commissionPercent,
+          comm.commissionAmount,
+          comm.currency || 'USD',
+          comm.status || 'accrued',
+          comm.createdAt ? new Date(comm.createdAt).toISOString().split('T')[0] : '',
+          comm.approvedAt ? new Date(comm.approvedAt).toISOString().split('T')[0] : '',
+          comm.paidAt ? new Date(comm.paidAt).toISOString().split('T')[0] : '',
+          comm.notes || ''
+        ]);
+        
+        const csvContent = [csvHeaders, ...csvRows]
+          .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+          .join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="commissions-export-${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(csvContent);
+      } else {
+        res.json(commissions);
+      }
+    } catch (error: any) {
+      console.error("Error exporting commissions:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid export parameters", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to export commissions" });
+      }
+    }
+  });
+
+  // Bulk commission actions
+  app.post("/api/crm/commissions/bulk-actions", isAuthenticated, requireFinanceAccess, async (req, res) => {
+    try {
+      const bulkActionSchema = z.object({
+        commissionIds: z.array(z.string()).min(1, "At least one commission ID is required"),
+        action: z.enum(['approve', 'mark-paid', 'cancel']),
+        notes: z.string().optional(),
+      });
+      
+      const { commissionIds, action, notes } = bulkActionSchema.parse(req.body);
+      const userId = (req as any).user?.claims?.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Unable to identify user" });
+      }
+      
+      const results = await storage.bulkCommissionActions(commissionIds, action, userId, notes);
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error performing bulk commission actions:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid bulk action data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to perform bulk actions", error: error.message });
       }
     }
   });

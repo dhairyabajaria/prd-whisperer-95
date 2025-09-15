@@ -424,11 +424,29 @@ export interface IStorage {
   allocateReceiptToInvoice(receiptId: string, invoiceId: string, amount: number): Promise<{ receipt: Receipt; invoice: Invoice }>;
 
   // CRM Module - Commission operations
-  getCommissionEntries(salesRepId?: string, status?: string, limit?: number): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User })[]>;
+  getCommissionEntries(salesRepId?: string, status?: string, limit?: number, startDate?: string, endDate?: string): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User })[]>;
   getCommissionEntry(id: string): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User }) | undefined>;
   createCommissionEntry(commission: InsertCommissionEntry): Promise<CommissionEntry>;
   updateCommissionEntry(id: string, commission: Partial<InsertCommissionEntry>): Promise<CommissionEntry>;
   approveCommission(id: string, approverId: string): Promise<CommissionEntry>;
+  markCommissionAsPaid(id: string): Promise<CommissionEntry>;
+  updateCommissionNotes(id: string, notes?: string): Promise<CommissionEntry>;
+  getCommissionEntriesForExport(filters: {
+    salesRepId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<(CommissionEntry & { 
+    invoice: Invoice & { customer: Customer }; 
+    salesRep: User; 
+    approver?: User 
+  })[]>;
+  bulkCommissionActions(
+    commissionIds: string[], 
+    action: 'approve' | 'mark-paid' | 'cancel',
+    userId: string,
+    notes?: string
+  ): Promise<{ success: string[]; failed: { id: string; error: string }[] }>;
   getSalesRepCommissionSummary(salesRepId: string, startDate?: string, endDate?: string): Promise<{
     totalAccrued: number;
     totalApproved: number;
@@ -3635,8 +3653,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // CRM Module - Commission operations
-  async getCommissionEntries(salesRepId?: string, status?: string, limit = 100): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User })[]> {
+  async getCommissionEntries(salesRepId?: string, status?: string, limit = 100, startDate?: string, endDate?: string): Promise<(CommissionEntry & { invoice: Invoice; salesRep: User; approver?: User })[]> {
     const db = await getDb();
+    
+    const dateFilter = and(
+      startDate ? gte(commissionEntries.createdAt, new Date(startDate)) : sql`true`,
+      endDate ? lte(commissionEntries.createdAt, new Date(endDate)) : sql`true`
+    );
+
     return await db
       .select({
         commission: commissionEntries,
@@ -3651,7 +3675,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           salesRepId ? eq(commissionEntries.salesRepId, salesRepId) : sql`true`,
-          status ? sql`${commissionEntries.status} = ${status}` : sql`true`
+          status ? sql`${commissionEntries.status} = ${status}` : sql`true`,
+          dateFilter
         )
       )
       .limit(limit)
@@ -3754,6 +3779,130 @@ export class DatabaseStorage implements IStorage {
       ...totals,
       entries: entries.map(row => ({ ...row.commission, invoice: row.invoice! })),
     };
+  }
+
+  async markCommissionAsPaid(id: string): Promise<CommissionEntry> {
+    const db = await getDb();
+    const [commission] = await db
+      .update(commissionEntries)
+      .set({ 
+        status: 'paid',
+        paidAt: new Date()
+      })
+      .where(eq(commissionEntries.id, id))
+      .returning();
+    return commission;
+  }
+
+  async updateCommissionNotes(id: string, notes?: string): Promise<CommissionEntry> {
+    const db = await getDb();
+    const [commission] = await db
+      .update(commissionEntries)
+      .set({ notes })
+      .where(eq(commissionEntries.id, id))
+      .returning();
+    return commission;
+  }
+
+  async getCommissionEntriesForExport(filters: {
+    salesRepId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<(CommissionEntry & { 
+    invoice: Invoice & { customer: Customer }; 
+    salesRep: User; 
+    approver?: User 
+  })[]> {
+    const db = await getDb();
+    
+    const dateFilter = and(
+      filters.startDate ? gte(commissionEntries.createdAt, new Date(filters.startDate)) : sql`true`,
+      filters.endDate ? lte(commissionEntries.createdAt, new Date(filters.endDate)) : sql`true`
+    );
+
+    const rows = await db
+      .select({
+        commission: commissionEntries,
+        invoice: invoices,
+        customer: customers,
+        salesRep: users,
+        approver: sql<User>`approver_user.*`.as('approver'),
+      })
+      .from(commissionEntries)
+      .leftJoin(invoices, eq(commissionEntries.invoiceId, invoices.id))
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .leftJoin(users, eq(commissionEntries.salesRepId, users.id))
+      .leftJoin(sql`users AS approver_user`, sql`${commissionEntries.approvedBy} = approver_user.id`)
+      .where(
+        and(
+          filters.salesRepId ? eq(commissionEntries.salesRepId, filters.salesRepId) : sql`true`,
+          filters.status ? sql`${commissionEntries.status} = ${filters.status}` : sql`true`,
+          dateFilter
+        )
+      )
+      .orderBy(desc(commissionEntries.createdAt));
+
+    return rows.map(row => ({
+      ...row.commission,
+      invoice: { ...row.invoice!, customer: row.customer! },
+      salesRep: row.salesRep!,
+      approver: row.approver || undefined,
+    }));
+  }
+
+  async bulkCommissionActions(
+    commissionIds: string[], 
+    action: 'approve' | 'mark-paid' | 'cancel',
+    userId: string,
+    notes?: string
+  ): Promise<{ success: string[]; failed: { id: string; error: string }[] }> {
+    const db = await getDb();
+    const results = { success: [], failed: [] as { id: string; error: string }[] };
+    
+    for (const commissionId of commissionIds) {
+      try {
+        let updateData: any = {};
+        
+        switch (action) {
+          case 'approve':
+            updateData = {
+              status: 'approved',
+              approvedBy: userId,
+              approvedAt: new Date(),
+              ...(notes && { notes })
+            };
+            break;
+          case 'mark-paid':
+            updateData = {
+              status: 'paid',
+              paidAt: new Date(),
+              ...(notes && { notes })
+            };
+            break;
+          case 'cancel':
+            updateData = {
+              status: 'cancelled',
+              ...(notes && { notes })
+            };
+            break;
+        }
+        
+        await db
+          .update(commissionEntries)
+          .set(updateData)
+          .where(eq(commissionEntries.id, commissionId));
+          
+        results.success.push(commissionId);
+      } catch (error) {
+        results.failed.push({
+          id: commissionId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+    
+    return results;
   }
 
   // CRM Module - Credit Override operations

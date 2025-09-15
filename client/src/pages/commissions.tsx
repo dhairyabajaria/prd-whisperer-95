@@ -4,19 +4,24 @@ import { Link } from "wouter";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
 import AIChatModal from "@/components/ai-chat-modal";
+import CommissionDetailDrawer from "@/components/commission-detail-drawer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DollarSign, Search, Plus, Calendar, User, Eye, CheckCircle, Clock, XCircle, TrendingUp } from "lucide-react";
-import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { DollarSign, Search, Plus, Calendar as CalendarIcon, User, Eye, CheckCircle, Clock, XCircle, TrendingUp, Download, MoreHorizontal, Filter, X } from "lucide-react";
+import { format, subDays, addDays } from "date-fns";
 import { type CommissionEntry, type Invoice, type User as UserType } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 interface CommissionWithRelations extends CommissionEntry {
   invoice: Invoice & {
@@ -35,6 +40,8 @@ interface CommissionSummary {
   paidCommissions: number;
   cancelledCommissions: number;
   currency: string;
+  isMultiCurrency?: boolean;
+  currencies?: string[];
 }
 
 export default function Commissions() {
@@ -43,28 +50,89 @@ export default function Commissions() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [salesRepFilter, setSalesRepFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [selectedCommissionId, setSelectedCommissionId] = useState<string | null>(null);
+  const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  const [selectedCommissions, setSelectedCommissions] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   const { data: commissions, isLoading, error } = useQuery<CommissionWithRelations[]>({
-    queryKey: ["/api/crm/commissions"],
+    queryKey: [
+      "/api/crm/commissions", 
+      { 
+        salesRepId: salesRepFilter !== "all" ? salesRepFilter : undefined, 
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
+        endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined
+      }
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (salesRepFilter !== "all") params.append("salesRepId", salesRepFilter);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (startDate) params.append("startDate", format(startDate, "yyyy-MM-dd"));
+      if (endDate) params.append("endDate", format(endDate, "yyyy-MM-dd"));
+      
+      const response = await fetch(`/api/crm/commissions?${params}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch commissions");
+      }
+      return response.json();
+    },
   });
 
-  // Calculate summary from commission entries
-  const summary: CommissionSummary | undefined = commissions ? {
-    totalCommissions: commissions.reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0),
-    pendingCommissions: commissions
-      .filter(comm => comm.status === 'accrued')
-      .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0),
-    approvedCommissions: commissions
-      .filter(comm => comm.status === 'approved')
-      .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0),
-    paidCommissions: commissions
-      .filter(comm => comm.status === 'paid')
-      .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0),
-    cancelledCommissions: commissions
-      .filter(comm => comm.status === 'cancelled')
-      .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0),
-    currency: "USD"
+  // Calculate currency-grouped summaries from commission entries
+  const currencyGroupedSummary = commissions ? commissions.reduce((acc, comm) => {
+    const currency = comm.currency || 'USD';
+    if (!acc[currency]) {
+      acc[currency] = {
+        totalCommissions: 0,
+        pendingCommissions: 0,
+        approvedCommissions: 0,
+        paidCommissions: 0,
+        cancelledCommissions: 0,
+      };
+    }
+    
+    const amount = parseFloat(comm.commissionAmount);
+    acc[currency].totalCommissions += amount;
+    
+    switch (comm.status) {
+      case 'accrued':
+        acc[currency].pendingCommissions += amount;
+        break;
+      case 'approved':
+        acc[currency].approvedCommissions += amount;
+        break;
+      case 'paid':
+        acc[currency].paidCommissions += amount;
+        break;
+      case 'cancelled':
+        acc[currency].cancelledCommissions += amount;
+        break;
+    }
+    
+    return acc;
+  }, {} as Record<string, Omit<CommissionSummary, 'currency'>>) : {};
+
+  // Get primary currency (most common) or default to USD
+  const currencies = Object.keys(currencyGroupedSummary);
+  const primaryCurrency = currencies.length > 0 
+    ? currencies.reduce((a, b) => 
+        currencyGroupedSummary[a].totalCommissions > currencyGroupedSummary[b].totalCommissions ? a : b
+      ) 
+    : 'USD';
+
+  // Create summary for primary currency with indication of multi-currency
+  const summary: CommissionSummary | undefined = commissions && currencies.length > 0 ? {
+    ...currencyGroupedSummary[primaryCurrency],
+    currency: primaryCurrency,
+    isMultiCurrency: currencies.length > 1,
+    currencies: currencies
   } : undefined;
   
   const summaryLoading = isLoading;
@@ -91,6 +159,82 @@ export default function Commissions() {
         description: error.message || "Failed to approve commission",
         variant: "destructive",
       });
+    },
+  });
+
+  const bulkActionMutation = useMutation({
+    mutationFn: async (data: { commissionIds: string[]; action: string; notes?: string }) => {
+      return apiRequest(`/api/crm/commissions/bulk-actions`, "POST", data);
+    },
+    onSuccess: (response) => {
+      const data = response as unknown as { success: string[]; failed: { id: string; error: string }[] };
+      const { success, failed } = data;
+      if (success.length > 0) {
+        toast({
+          title: "Success",
+          description: `${success.length} commission(s) updated successfully`,
+        });
+      }
+      if (failed.length > 0) {
+        toast({
+          title: "Partial Success",
+          description: `${failed.length} commission(s) failed to update`,
+          variant: "destructive",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/commissions"] });
+      setSelectedCommissions(new Set());
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to perform bulk action",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: async (params: { format?: string; salesRepId?: string; status?: string; startDate?: string; endDate?: string }) => {
+      const queryParams = new URLSearchParams();
+      if (params.salesRepId && params.salesRepId !== 'all') queryParams.append('salesRepId', params.salesRepId);
+      if (params.status && params.status !== 'all') queryParams.append('status', params.status);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.format) queryParams.append('format', params.format);
+      
+      const response = await fetch(`/api/crm/commissions/export?${queryParams}`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `commissions-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Commission report exported successfully",
+      });
+      setIsExporting(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to export commissions",
+        variant: "destructive",
+      });
+      setIsExporting(false);
     },
   });
 
@@ -150,6 +294,94 @@ export default function Commissions() {
   const canApproveCommission = (commission: CommissionWithRelations) => {
     return user?.role === 'finance' || user?.role === 'admin';
   };
+
+  // Helper functions for bulk actions and selection
+  const handleSelectCommission = (commissionId: string, checked: boolean) => {
+    const newSelected = new Set(selectedCommissions);
+    if (checked) {
+      newSelected.add(commissionId);
+    } else {
+      newSelected.delete(commissionId);
+    }
+    setSelectedCommissions(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = filteredCommissions.map(c => c.id);
+      setSelectedCommissions(new Set(allIds));
+    } else {
+      setSelectedCommissions(new Set());
+    }
+  };
+
+  const handleBulkAction = (action: string) => {
+    if (selectedCommissions.size === 0) {
+      toast({
+        title: "No Selection",
+        description: "Please select commissions to perform bulk actions",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    bulkActionMutation.mutate({
+      commissionIds: Array.from(selectedCommissions),
+      action,
+    });
+  };
+
+  const handleExport = () => {
+    setIsExporting(true);
+    exportMutation.mutate({
+      salesRepId: salesRepFilter,
+      status: statusFilter,
+      startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
+      endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
+      format: 'csv'
+    });
+  };
+
+  // Date range preset functions
+  const setDateRangePreset = (preset: string) => {
+    const today = new Date();
+    switch (preset) {
+      case 'today':
+        setStartDate(today);
+        setEndDate(today);
+        break;
+      case 'yesterday':
+        const yesterday = subDays(today, 1);
+        setStartDate(yesterday);
+        setEndDate(yesterday);
+        break;
+      case 'last7days':
+        setStartDate(subDays(today, 7));
+        setEndDate(today);
+        break;
+      case 'last30days':
+        setStartDate(subDays(today, 30));
+        setEndDate(today);
+        break;
+      case 'thisMonth':
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        setStartDate(startOfMonth);
+        setEndDate(today);
+        break;
+      case 'clear':
+        setStartDate(undefined);
+        setEndDate(undefined);
+        break;
+    }
+  };
+
+  const handleCommissionClick = (commissionId: string) => {
+    setSelectedCommissionId(commissionId);
+    setIsDetailDrawerOpen(true);
+  };
+
+  const areAllSelected = filteredCommissions.length > 0 && selectedCommissions.size === filteredCommissions.length;
+  const areSomeSelected = selectedCommissions.size > 0;
 
   if (error) {
     return (
@@ -224,14 +456,270 @@ export default function Commissions() {
                 <SelectContent>
                   <SelectItem value="all">All Sales Reps</SelectItem>
                   {salesReps?.map((rep) => (
-                    <SelectItem key={rep.id} value={rep.id}>
+                    <SelectItem key={rep.id} value={rep.id} data-testid={`option-salesrep-${rep.id}`}>
                       {rep.firstName} {rep.lastName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Date Range Filter */}
+              <div className="flex items-center space-x-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-56 justify-start text-left font-normal",
+                        (!startDate && !endDate) && "text-muted-foreground"
+                      )}
+                      data-testid="button-date-range-filter"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate && endDate ? (
+                        `${format(startDate, "MMM dd")} - ${format(endDate, "MMM dd, yyyy")}`
+                      ) : startDate ? (
+                        `${format(startDate, "MMM dd, yyyy")} - No end date`
+                      ) : endDate ? (
+                        `No start date - ${format(endDate, "MMM dd, yyyy")}`
+                      ) : (
+                        "Select date range"
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Date Range Presets</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRangePreset('today')}
+                            data-testid="preset-today"
+                          >
+                            Today
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRangePreset('yesterday')}
+                            data-testid="preset-yesterday"
+                          >
+                            Yesterday
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRangePreset('last7days')}
+                            data-testid="preset-last7days"
+                          >
+                            Last 7 days
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRangePreset('last30days')}
+                            data-testid="preset-last30days"
+                          >
+                            Last 30 days
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRangePreset('thisMonth')}
+                            data-testid="preset-thismonth"
+                          >
+                            This month
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDateRangePreset('clear')}
+                            data-testid="preset-clear"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Start Date</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !startDate && "text-muted-foreground"
+                                )}
+                                data-testid="button-start-date"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {startDate ? format(startDate, "PPP") : "Pick start date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={startDate}
+                                onSelect={setStartDate}
+                                disabled={(date) => endDate ? date > endDate : false}
+                                initialFocus
+                                data-testid="calendar-start-date"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">End Date</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !endDate && "text-muted-foreground"
+                                )}
+                                data-testid="button-end-date"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {endDate ? format(endDate, "PPP") : "Pick end date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={endDate}
+                                onSelect={setEndDate}
+                                disabled={(date) => startDate ? date < startDate : false}
+                                initialFocus
+                                data-testid="calendar-end-date"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
+                {(startDate || endDate) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDateRangePreset('clear')}
+                    data-testid="button-clear-date-filter"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={isExporting || exportMutation.isPending}
+                data-testid="button-export-commissions"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                {isExporting ? "Exporting..." : "Export"}
+              </Button>
             </div>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {areSomeSelected && (
+            <div className="bg-muted/50 border rounded-lg p-4 mb-6" data-testid="bulk-actions-bar">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm font-medium">
+                    {selectedCommissions.size} commission{selectedCommissions.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedCommissions(new Set())}
+                    data-testid="button-clear-selection"
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  {canApproveCommission({ status: 'accrued' } as any) && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          disabled={bulkActionMutation.isPending}
+                          data-testid="button-bulk-approve"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Approve All
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Bulk Approve Commissions</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to approve {selectedCommissions.size} commission entries?
+                            This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleBulkAction('approve')}
+                            className="bg-primary text-primary-foreground"
+                          >
+                            Yes, Approve All
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  
+                  {canApproveCommission({ status: 'approved' } as any) && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={bulkActionMutation.isPending}
+                          data-testid="button-bulk-mark-paid"
+                        >
+                          <DollarSign className="w-4 h-4 mr-1" />
+                          Mark as Paid
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Bulk Mark as Paid</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to mark {selectedCommissions.size} commission entries as paid?
+                            This will update their status and record the payment date.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleBulkAction('mark-paid')}
+                            className="bg-green-600 text-white"
+                          >
+                            Yes, Mark as Paid
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Commission Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -249,7 +737,9 @@ export default function Commissions() {
                       {formatCurrency(summary?.totalCommissions || 0, summary?.currency)}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      All commission entries
+                      {summary?.isMultiCurrency 
+                        ? `All commissions (${summary.currencies?.length} currencies)` 
+                        : 'All commission entries'}
                     </p>
                   </>
                 )}
@@ -268,6 +758,7 @@ export default function Commissions() {
                   <>
                     <div className="text-2xl font-bold text-orange-600" data-testid="text-pending-commissions">
                       {formatCurrency(summary?.pendingCommissions || 0, summary?.currency)}
+                      {summary?.isMultiCurrency && <span className="text-xs ml-1">*</span>}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Awaiting approval
@@ -289,6 +780,7 @@ export default function Commissions() {
                   <>
                     <div className="text-2xl font-bold text-blue-600" data-testid="text-approved-commissions">
                       {formatCurrency(summary?.approvedCommissions || 0, summary?.currency)}
+                      {summary?.isMultiCurrency && <span className="text-xs ml-1">*</span>}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Ready for payment
@@ -310,9 +802,12 @@ export default function Commissions() {
                   <>
                     <div className="text-2xl font-bold text-green-600" data-testid="text-paid-commissions">
                       {formatCurrency(summary?.paidCommissions || 0, summary?.currency)}
+                      {summary?.isMultiCurrency && <span className="text-xs ml-1">*</span>}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Completed payments
+                      {summary?.isMultiCurrency 
+                        ? 'Completed payments (* mixed currencies)' 
+                        : 'Completed payments'}
                     </p>
                   </>
                 )}
@@ -323,13 +818,28 @@ export default function Commissions() {
           {/* Commission Entries Table */}
           <Card data-testid="card-commissions-table">
             <CardHeader>
-              <CardTitle>Commission Entries</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Commission Entries</CardTitle>
+                {filteredCommissions.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={areAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                    <label className="text-sm text-muted-foreground">
+                      Select All ({filteredCommissions.length})
+                    </label>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="space-y-4">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="flex items-center space-x-4">
+                      <Skeleton className="h-5 w-5" />
                       <Skeleton className="h-12 w-12 rounded-lg" />
                       <div className="space-y-2 flex-1">
                         <Skeleton className="h-4 w-1/4" />
@@ -356,11 +866,20 @@ export default function Commissions() {
                     {filteredCommissions.map((commission) => (
                       <div 
                         key={commission.id} 
-                        className="bg-card border border-border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+                        className={`bg-card border border-border rounded-lg p-4 hover:bg-accent/50 transition-colors cursor-pointer ${
+                          selectedCommissions.has(commission.id) ? 'ring-2 ring-primary ring-opacity-50 bg-accent/30' : ''
+                        }`}
                         data-testid={`commission-entry-${commission.id}`}
+                        onClick={() => handleCommissionClick(commission.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
+                            <Checkbox
+                              checked={selectedCommissions.has(commission.id)}
+                              onCheckedChange={(checked) => handleSelectCommission(commission.id, checked as boolean)}
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`checkbox-commission-${commission.id}`}
+                            />
                             <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                               <DollarSign className="w-6 h-6 text-primary" />
                             </div>
@@ -429,6 +948,7 @@ export default function Commissions() {
                                     size="sm"
                                     disabled={approveMutation.isPending}
                                     data-testid={`button-approve-${commission.id}`}
+                                    onClick={(e) => e.stopPropagation()}
                                   >
                                     <CheckCircle className="w-4 h-4 mr-1" />
                                     Approve
@@ -458,13 +978,14 @@ export default function Commissions() {
                             <Button
                               variant="outline"
                               size="sm"
-                              asChild
-                              data-testid={`button-view-${commission.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCommissionClick(commission.id);
+                              }}
+                              data-testid={`button-details-${commission.id}`}
                             >
-                              <Link href={`/finance/invoices/${commission.invoiceId}`}>
-                                <Eye className="w-4 h-4 mr-1" />
-                                View Invoice
-                              </Link>
+                              <Eye className="w-4 h-4 mr-1" />
+                              Details
                             </Button>
                           </div>
                         </div>
@@ -493,6 +1014,15 @@ export default function Commissions() {
       </div>
 
       {isChatOpen && <AIChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />}
+      
+      <CommissionDetailDrawer
+        commissionId={selectedCommissionId}
+        isOpen={isDetailDrawerOpen}
+        onClose={() => {
+          setIsDetailDrawerOpen(false);
+          setSelectedCommissionId(null);
+        }}
+      />
     </div>
   );
 }
