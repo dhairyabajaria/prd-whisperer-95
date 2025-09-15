@@ -252,7 +252,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3, // Low temperature for consistency
+        // temperature: 0.3, // Low temperature for consistency - gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -437,7 +437,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        // temperature: 0.7, // gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"recommendations": []}');
@@ -501,7 +501,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.6,
+        // temperature: 0.6, // gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"optimizations": []}');
@@ -563,7 +563,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        // temperature: 0.7, // gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"insights": []}');
@@ -709,7 +709,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.6,
+        // temperature: 0.6, // gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"analyses": []}');
@@ -909,7 +909,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.6,
+        // temperature: 0.6, // gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"analyses": []}');
@@ -984,7 +984,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        // temperature: 0.7, // gpt-5 only supports default (1)
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"insights": []}');
