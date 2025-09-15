@@ -5,6 +5,24 @@ import OpenAI from "openai";
 // Helper function to check if OpenAI is properly configured
 export function isOpenAIConfigured(): boolean {
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+  
+  // Debug logging to understand what's happening
+  const rawApiKey = process.env.OPENAI_API_KEY;
+  const rawApiKeyEnvVar = process.env.OPENAI_API_KEY_ENV_VAR;
+  
+  console.log('🔍 OpenAI Configuration Debug:', {
+    hasOPENAI_API_KEY: !!rawApiKey,
+    hasOPENAI_API_KEY_ENV_VAR: !!rawApiKeyEnvVar,
+    rawKeyType: typeof rawApiKey,
+    rawKeyLength: rawApiKey?.length || 0,
+    rawKeyValue: rawApiKey === undefined ? 'undefined' : rawApiKey === null ? 'null' : rawApiKey === '' ? 'empty_string' : 'has_value',
+    apiKeyLength: apiKey?.length || 0,
+    apiKeyPrefix: apiKey?.substring(0, 15) || 'none',
+    isDefaultKey: apiKey === 'default_key',
+    envKeys: Object.keys(process.env).filter(key => key.includes('OPENAI')).sort(),
+    allEnvKeysCount: Object.keys(process.env).length
+  });
+  
   return !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0);
 }
 
