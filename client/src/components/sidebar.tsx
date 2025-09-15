@@ -19,7 +19,8 @@ import {
   Warehouse,
   Receipt,
   DollarSign,
-  Brain
+  Brain,
+  GitBranch
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -79,6 +80,12 @@ const navigation = [
     href: "/commissions",
     icon: DollarSign,
     roles: ['admin', 'sales', 'finance']
+  },
+  {
+    name: "Pipeline",
+    href: "/pipeline",
+    icon: GitBranch,
+    roles: ['admin', 'sales']
   },
   {
     name: "Purchases", 
