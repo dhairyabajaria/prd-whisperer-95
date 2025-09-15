@@ -320,7 +320,7 @@ export default function WarehousesPage() {
                           <FormItem>
                             <FormLabel>Location</FormLabel>
                             <FormControl>
-                              <Input data-testid="input-warehouse-location" placeholder="e.g., Luanda, Angola" {...field} />
+                              <Input data-testid="input-warehouse-location" placeholder="e.g., Luanda, Angola" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -387,7 +387,7 @@ export default function WarehousesPage() {
                             <FormControl>
                               <Switch
                                 data-testid="switch-warehouse-active"
-                                checked={field.value}
+                                checked={field.value ?? false}
                                 onCheckedChange={field.onChange}
                               />
                             </FormControl>

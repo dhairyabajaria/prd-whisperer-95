@@ -331,7 +331,7 @@ export default function SuppliersPage() {
                             <FormItem>
                               <FormLabel>Email</FormLabel>
                               <FormControl>
-                                <Input data-testid="input-supplier-email" type="email" placeholder="orders@supplier.com" {...field} />
+                                <Input data-testid="input-supplier-email" type="email" placeholder="orders@supplier.com" {...field} value={field.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -345,7 +345,7 @@ export default function SuppliersPage() {
                             <FormItem>
                               <FormLabel>Phone</FormLabel>
                               <FormControl>
-                                <Input data-testid="input-supplier-phone" placeholder="+244-123-456-789" {...field} />
+                                <Input data-testid="input-supplier-phone" placeholder="+244-123-456-789" {...field} value={field.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -360,7 +360,7 @@ export default function SuppliersPage() {
                           <FormItem>
                             <FormLabel>Address</FormLabel>
                             <FormControl>
-                              <Input data-testid="input-supplier-address" placeholder="123 Supplier Street, City, Country" {...field} />
+                              <Input data-testid="input-supplier-address" placeholder="123 Supplier Street, City, Country" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -453,7 +453,7 @@ export default function SuppliersPage() {
                               <FormControl>
                                 <Switch
                                   data-testid="switch-supplier-active"
-                                  checked={field.value}
+                                  checked={field.value ?? false}
                                   onCheckedChange={field.onChange}
                                 />
                               </FormControl>
