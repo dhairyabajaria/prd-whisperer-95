@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storagePromise, getStorage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { aiService, isOpenAIConfigured } from "./ai";
 import { externalIntegrationsService } from "./external-integrations";
@@ -78,6 +78,7 @@ const requireRole = (allowedRoles: string[]): RequestHandler => {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
+      const storage = await getStorage();
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(401).json({ message: "User not found" });
@@ -126,6 +127,7 @@ const requireTimeTrackingAccess: RequestHandler = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const storage = await getStorage();
     const user = await storage.getUser(userId);
     if (!user) {
       return res.status(401).json({ message: "User not found" });
@@ -168,6 +170,11 @@ const requireTimeTrackingAccess: RequestHandler = async (req, res, next) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize storage first
+  console.log('Waiting for storage initialization...');
+  const storage = await getStorage();
+  console.log('✅ Storage ready for routes');
+
   // Health check endpoint (no database required)
   app.get('/api/health', (req, res) => {
     res.json({ 
