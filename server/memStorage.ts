@@ -68,6 +68,8 @@ import type {
   InsertPipelineConfiguration,
   Communication,
   InsertCommunication,
+  SentimentAnalysis,
+  InsertSentimentAnalysis,
 } from "@shared/schema";
 
 // In-memory storage implementation for development
@@ -118,6 +120,9 @@ export class MemStorage implements IStorage {
   private leadScoringRules = new Map<string, LeadScoringRule>();
   private pipelineConfiguration = new Map<string, PipelineConfiguration>();
   private communications = new Map<string, Communication>();
+  
+  // Sentiment analysis collections
+  private sentimentAnalyses = new Map<string, SentimentAnalysis>();
 
   constructor() {
     this.seedData();
@@ -692,6 +697,56 @@ export class MemStorage implements IStorage {
     ];
 
     communicationsData.forEach(comm => this.communications.set(comm.id, comm));
+    
+    // Seed sentiment analyses
+    const sentimentData = [
+      {
+        id: "sent-1",
+        communicationId: "comm-1",
+        customerId: customer1.id,
+        score: "0.7",
+        label: "positive" as const,
+        confidence: "0.85",
+        aspects: ["satisfaction", "delivery", "quality"],
+        analyzedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+      },
+      {
+        id: "sent-2",
+        communicationId: "comm-1",
+        customerId: customer1.id,
+        score: "0.3",
+        label: "positive" as const,
+        confidence: "0.72",
+        aspects: ["response_time", "availability"],
+        analyzedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+      },
+      {
+        id: "sent-3",
+        communicationId: "comm-1",
+        customerId: customer1.id,
+        score: "-0.2",
+        label: "negative" as const,
+        confidence: "0.68",
+        aspects: ["pricing", "delay"],
+        analyzedAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+      },
+      {
+        id: "sent-4",
+        communicationId: "comm-1",
+        customerId: customer1.id,
+        score: "0.0",
+        label: "neutral" as const,
+        confidence: "0.55",
+        aspects: ["inquiry", "information"],
+        analyzedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+      },
+    ];
+
+    sentimentData.forEach(sentiment => this.sentimentAnalyses.set(sentiment.id, sentiment));
     
     // Seed FX rates with common currency pairs including India and UAE markets
     const today = new Date().toISOString().split('T')[0];
@@ -3012,6 +3067,170 @@ export class MemStorage implements IStorage {
     
     this.approvals.set(id, updatedApproval);
     return updatedApproval;
+  }
+
+  // Sentiment Analysis operations
+  async upsertSentiment(sentiment: InsertSentimentAnalysis): Promise<SentimentAnalysis> {
+    // Check if sentiment already exists for this communication
+    const existingSentiment = Array.from(this.sentimentAnalyses.values())
+      .find(s => s.communicationId === sentiment.communicationId);
+    
+    const id = existingSentiment?.id || this.generateId();
+    const now = new Date();
+    
+    const sentimentData: SentimentAnalysis = {
+      id,
+      communicationId: sentiment.communicationId,
+      customerId: sentiment.customerId,
+      score: sentiment.score,
+      label: sentiment.label,
+      confidence: sentiment.confidence,
+      aspects: sentiment.aspects || [],
+      analyzedAt: now,
+      createdAt: now,
+    };
+    
+    this.sentimentAnalyses.set(id, sentimentData);
+    return sentimentData;
+  }
+
+  async getSentimentByCommunication(communicationId: string): Promise<SentimentAnalysis | undefined> {
+    return Array.from(this.sentimentAnalyses.values())
+      .find(sentiment => sentiment.communicationId === communicationId);
+  }
+
+  async listSentimentsByCustomer(customerId: string, limit = 50): Promise<(SentimentAnalysis & { communication: Communication })[]> {
+    const customerSentiments = Array.from(this.sentimentAnalyses.values())
+      .filter(sentiment => sentiment.customerId === customerId)
+      .sort((a, b) => (b.analyzedAt?.getTime() || 0) - (a.analyzedAt?.getTime() || 0))
+      .slice(0, limit);
+    
+    return customerSentiments.map(sentiment => ({
+      ...sentiment,
+      communication: this.communications.get(sentiment.communicationId)!,
+    }));
+  }
+
+  async getCustomerSentimentSummary(customerId: string): Promise<{
+    totalCommunications: number;
+    averageScore: number;
+    sentimentDistribution: { negative: number; neutral: number; positive: number };
+    recentTrend: 'improving' | 'declining' | 'stable';
+    lastAnalyzedAt: Date | null;
+  }> {
+    const customerSentiments = Array.from(this.sentimentAnalyses.values())
+      .filter(sentiment => sentiment.customerId === customerId);
+    
+    if (customerSentiments.length === 0) {
+      return {
+        totalCommunications: 0,
+        averageScore: 0,
+        sentimentDistribution: { negative: 0, neutral: 0, positive: 0 },
+        recentTrend: 'stable',
+        lastAnalyzedAt: null,
+      };
+    }
+    
+    // Calculate metrics
+    const totalCommunications = customerSentiments.length;
+    const averageScore = customerSentiments.reduce((sum, s) => sum + parseFloat(s.score), 0) / totalCommunications;
+    
+    const distribution = customerSentiments.reduce((acc, s) => {
+      acc[s.label]++;
+      return acc;
+    }, { negative: 0, neutral: 0, positive: 0 });
+    
+    // Calculate trend (compare recent vs older sentiments)
+    const sorted = customerSentiments.sort((a, b) => (b.analyzedAt?.getTime() || 0) - (a.analyzedAt?.getTime() || 0));
+    const recentCount = Math.ceil(totalCommunications / 2);
+    const recent = sorted.slice(0, recentCount);
+    const older = sorted.slice(recentCount);
+    
+    const recentAvg = recent.reduce((sum, s) => sum + parseFloat(s.score), 0) / recent.length;
+    const olderAvg = older.length > 0 ? older.reduce((sum, s) => sum + parseFloat(s.score), 0) / older.length : recentAvg;
+    
+    let recentTrend: 'improving' | 'declining' | 'stable' = 'stable';
+    const diff = recentAvg - olderAvg;
+    if (diff > 0.1) recentTrend = 'improving';
+    else if (diff < -0.1) recentTrend = 'declining';
+    
+    return {
+      totalCommunications,
+      averageScore,
+      sentimentDistribution: distribution,
+      recentTrend,
+      lastAnalyzedAt: sorted[0]?.analyzedAt || null,
+    };
+  }
+
+  async getGlobalSentimentSummary(): Promise<{
+    totalCommunications: number;
+    averageScore: number;
+    sentimentDistribution: { negative: number; neutral: number; positive: number };
+    topNegativeCustomers: { customerId: string; customerName: string; averageScore: number }[];
+    topPositiveCustomers: { customerId: string; customerName: string; averageScore: number }[];
+  }> {
+    const allSentiments = Array.from(this.sentimentAnalyses.values());
+    
+    if (allSentiments.length === 0) {
+      return {
+        totalCommunications: 0,
+        averageScore: 0,
+        sentimentDistribution: { negative: 0, neutral: 0, positive: 0 },
+        topNegativeCustomers: [],
+        topPositiveCustomers: [],
+      };
+    }
+    
+    // Calculate global metrics
+    const totalCommunications = allSentiments.length;
+    const averageScore = allSentiments.reduce((sum, s) => sum + parseFloat(s.score), 0) / totalCommunications;
+    
+    const sentimentDistribution = allSentiments.reduce((acc, s) => {
+      acc[s.label]++;
+      return acc;
+    }, { negative: 0, neutral: 0, positive: 0 });
+    
+    // Calculate customer averages
+    const customerSentiments = new Map<string, { scores: number[]; name: string }>();
+    
+    allSentiments.forEach(sentiment => {
+      if (!customerSentiments.has(sentiment.customerId)) {
+        const customer = this.customers.get(sentiment.customerId);
+        customerSentiments.set(sentiment.customerId, {
+          scores: [],
+          name: customer?.name || 'Unknown Customer'
+        });
+      }
+      customerSentiments.get(sentiment.customerId)!.scores.push(parseFloat(sentiment.score));
+    });
+    
+    // Calculate averages and sort
+    const customerAverages: { customerId: string; customerName: string; averageScore: number }[] = [];
+    
+    customerSentiments.forEach((data, customerId) => {
+      if (data.scores.length >= 2) { // Only include customers with at least 2 communications
+        const avg = data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length;
+        customerAverages.push({
+          customerId,
+          customerName: data.name,
+          averageScore: avg
+        });
+      }
+    });
+    
+    // Sort and get top 5 negative and positive customers
+    const sortedByScore = [...customerAverages].sort((a, b) => a.averageScore - b.averageScore);
+    const topNegativeCustomers = sortedByScore.slice(0, 5);
+    const topPositiveCustomers = sortedByScore.slice(-5).reverse();
+    
+    return {
+      totalCommunications,
+      averageScore,
+      sentimentDistribution,
+      topNegativeCustomers,
+      topPositiveCustomers,
+    };
   }
   async getGoodsReceipts(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async getGoodsReceipt(): Promise<any> { throw new Error("Not implemented in memory storage"); }
