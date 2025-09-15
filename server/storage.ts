@@ -3558,7 +3558,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // CRM Module - Receipt operations
-  async getReceipts(limit = 100, customerId?: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User })[]> {
+  async getReceipts(limit = 100, customerId?: string): Promise<(Omit<Receipt, 'receivedBy'> & { customer: Customer; invoice?: Invoice; receivedBy: User })[]> {
     const db = await getDb();
     return await db
       .select({
@@ -3582,7 +3582,7 @@ export class DatabaseStorage implements IStorage {
       })));
   }
 
-  async getReceipt(id: string): Promise<(Receipt & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined> {
+  async getReceipt(id: string): Promise<(Omit<Receipt, 'receivedBy'> & { customer: Customer; invoice?: Invoice; receivedBy: User }) | undefined> {
     const db = await getDb();
     const [row] = await db
       .select({
@@ -5018,7 +5018,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Goods Receipt operations
-  async getGoodsReceipts(limit = 50, poId?: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]> {
+  async getGoodsReceipts(limit = 50, poId?: string): Promise<(Omit<GoodsReceipt, 'receivedBy'> & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] })[]> {
     const db = await getDb();
     
     let conditions = [];
@@ -5065,7 +5065,7 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  async getGoodsReceipt(id: string): Promise<(GoodsReceipt & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined> {
+  async getGoodsReceipt(id: string): Promise<(Omit<GoodsReceipt, 'receivedBy'> & { purchaseOrder: PurchaseOrder & { supplier: Supplier }; warehouse: Warehouse; receivedBy: User; items: (GoodsReceiptItem & { product: Product })[] }) | undefined> {
     const db = await getDb();
     
     const [gr] = await db
@@ -5249,7 +5249,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Vendor Bill operations
-  async getVendorBills(limit = 50, supplierId?: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] })[]> {
+  async getVendorBills(limit = 50, supplierId?: string): Promise<(Omit<VendorBill, 'createdBy'> & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] })[]> {
     const db = await getDb();
     
     let conditions = [];
@@ -5294,7 +5294,7 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  async getVendorBill(id: string): Promise<(VendorBill & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined> {
+  async getVendorBill(id: string): Promise<(Omit<VendorBill, 'createdBy'> & { supplier: Supplier; purchaseOrder?: PurchaseOrder; createdBy: User; items: (VendorBillItem & { product?: Product })[] }) | undefined> {
     const db = await getDb();
     
     const [bill] = await db
@@ -7015,45 +7015,77 @@ export class DatabaseStorage implements IStorage {
     return { averageDays: 0, medianDays: 0, trends: [] };
   }
 
-  async getSentimentByCommunication(communicationId: string): Promise<SentimentAnalysis | undefined> {
-    return undefined;
-  }
-  
-  async listSentimentsByCustomer(customerId: string): Promise<SentimentAnalysis[]> {
-    return [];
-  }
-  
-  async getCustomerSentimentSummary(customerId: string): Promise<{ averageScore: number; totalAnalyses: number; trends: Array<{ date: string; score: number }> }> {
-    return { averageScore: 0, totalAnalyses: 0, trends: [] };
-  }
-  
-  async getGlobalSentimentSummary(): Promise<{ averageScore: number; totalAnalyses: number; distribution: Record<string, number> }> {
-    return { averageScore: 0, totalAnalyses: 0, distribution: {} };
+
+  // Additional missing method stubs
+  async updatePipelineConfiguration(configs: InsertPipelineConfiguration[]): Promise<PipelineConfiguration[]> {
+    throw new Error('Method not implemented');
   }
 
-  async getCrmDashboardMetrics(): Promise<{
-    totalLeads: number;
-    qualifiedLeads: number;
-    conversionRate: number;
-    averageLeadScore: number;
-    pipelineValue: number;
-    avgTimeToClose: number;
-    topSalesReps: { userId: string; userName: string; leadsConverted: number; totalValue: number }[];
-    leadsByStage: Record<string, number>;
-    recentActivity: Array<{ type: string; description: string; timestamp: Date; userId?: string; userName?: string }>;
-  }> {
-    return {
-      totalLeads: 0,
-      qualifiedLeads: 0,
-      conversionRate: 0,
-      averageLeadScore: 0,
-      pipelineValue: 0,
-      avgTimeToClose: 0,
-      topSalesReps: [],
-      leadsByStage: {},
-      recentActivity: []
-    };
+  async getLeadActivities(leadId: string, limit?: number): Promise<LeadActivity[]> {
+    throw new Error('Method not implemented');
   }
+
+  async createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity> {
+    throw new Error('Method not implemented');
+  }
+
+  async getLeadScoringHistory(leadId: string, limit?: number): Promise<LeadScoringHistory[]> {
+    throw new Error('Method not implemented');
+  }
+
+  async getLeadStageHistory(leadId: string): Promise<(LeadStageHistory & { movedBy?: User })[]> {
+    throw new Error('Method not implemented');
+  }
+
+  async createLeadScoringHistory(scoringData: InsertLeadScoringHistory): Promise<LeadScoringHistory> {
+    throw new Error('Method not implemented');
+  }
+
+  async createLeadStageHistory(stageData: InsertLeadStageHistory): Promise<LeadStageHistory> {
+    throw new Error('Method not implemented');
+  }
+
+  async getLeadScoringRules(isActive?: boolean): Promise<LeadScoringRule[]> {
+    throw new Error('Method not implemented');
+  }
+
+  async createLeadScoringRule(rule: InsertLeadScoringRule): Promise<LeadScoringRule> {
+    throw new Error('Method not implemented');
+  }
+
+  async updateLeadScoringRule(id: string, rule: Partial<InsertLeadScoringRule>): Promise<LeadScoringRule> {
+    throw new Error('Method not implemented');
+  }
+
+  async deleteLeadScoringRule(id: string): Promise<void> {
+    throw new Error('Method not implemented');
+  }
+
+  async createSentimentAnalysis(sentiment: InsertSentimentAnalysis): Promise<SentimentAnalysis> {
+    throw new Error('Method not implemented');
+  }
+
+  async getSentimentAnalysis(id: string): Promise<SentimentAnalysis | undefined> {
+    throw new Error('Method not implemented');
+  }
+
+  // Notification methods
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    throw new Error('Method not implemented');
+  }
+
+  async getUserNotifications(userId: string, limit?: number): Promise<Notification[]> {
+    throw new Error('Method not implemented');
+  }
+
+  async markNotificationAsRead(id: string): Promise<Notification> {
+    throw new Error('Method not implemented');
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    throw new Error('Method not implemented');
+  }
+  
 }
 
 import { MemStorage } from "./memStorage";
@@ -7103,19 +7135,38 @@ async function getReplitSecret(key: string): Promise<string | undefined> {
 // Async storage initialization
 async function initializeStorage(): Promise<IStorage> {
   try {
-    console.log('Storage initialization (Replit-aware):');
+    console.log('Storage initialization:');
     console.log('NODE_ENV:', process.env.NODE_ENV || 'undefined');
     
-    let databaseUrl = await getReplitSecret('DATABASE_URL');
+    // Check USE_DB_STORAGE flag (default false for safety)
+    const useDbStorage = process.env.USE_DB_STORAGE?.toLowerCase() === 'true';
+    console.log('USE_DB_STORAGE flag:', useDbStorage);
+    
+    if (!useDbStorage) {
+      console.log('📝 USE_DB_STORAGE is false, using memory storage for safety');
+      const memStorage = new MemStorage();
+      console.log('✅ Successfully initialized memory storage (flag-controlled)');
+      return memStorage;
+    }
+    
+    // First try direct environment access (same as drizzle config)
+    let databaseUrl = process.env.DATABASE_URL;
+    console.log('DATABASE_URL available (direct):', !!databaseUrl);
+    
+    // Fallback to getReplitSecret for other environments
+    if (!databaseUrl) {
+      console.log('DATABASE_URL not found via process.env, trying getReplitSecret...');
+      databaseUrl = await getReplitSecret('DATABASE_URL');
+    }
     
     // If still not found, try constructing from PG components
     if (!databaseUrl) {
       console.log('DATABASE_URL not found, trying PG components...');
-      const pgHost = await getReplitSecret('PGHOST');
-      const pgPort = await getReplitSecret('PGPORT');
-      const pgDatabase = await getReplitSecret('PGDATABASE');
-      const pgUser = await getReplitSecret('PGUSER');
-      const pgPassword = await getReplitSecret('PGPASSWORD');
+      const pgHost = process.env.PGHOST || await getReplitSecret('PGHOST');
+      const pgPort = process.env.PGPORT || await getReplitSecret('PGPORT');
+      const pgDatabase = process.env.PGDATABASE || await getReplitSecret('PGDATABASE');
+      const pgUser = process.env.PGUSER || await getReplitSecret('PGUSER');
+      const pgPassword = process.env.PGPASSWORD || await getReplitSecret('PGPASSWORD');
       
       console.log('PG components availability:', {
         PGHOST: !!pgHost,

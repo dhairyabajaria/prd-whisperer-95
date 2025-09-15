@@ -11,6 +11,7 @@ import {
   boolean,
   date,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -711,7 +712,10 @@ export const fxRates = pgTable("fx_rates", {
   asOfDate: date("as_of_date").notNull(),
   source: varchar("source").notNull(), // API source or manual
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Unique constraint to prevent duplicate rates for the same currency pair on the same date
+  { fxRateUnique: unique().on(table.baseCurrency, table.quoteCurrency, table.asOfDate) }
+]);
 
 // Competitor prices table
 export const competitorPrices = pgTable("competitor_prices", {
