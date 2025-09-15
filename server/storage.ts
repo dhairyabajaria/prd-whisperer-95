@@ -4866,7 +4866,7 @@ export class DatabaseStorage implements IStorage {
   async getPurchaseRequestApprovals(prId: string): Promise<(PurchaseRequestApproval & { approver: User; rule: ApprovalRule })[]> {
     const db = await getDb();
     
-    return await db
+    const results = await db
       .select({
         id: purchaseRequestApprovals.id,
         prId: purchaseRequestApprovals.prId,
@@ -4886,6 +4886,21 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(approvalRules, eq(purchaseRequestApprovals.ruleId, approvalRules.id))
       .where(eq(purchaseRequestApprovals.prId, prId))
       .orderBy(asc(purchaseRequestApprovals.level));
+    
+    return results.map(row => ({
+      id: row.id,
+      prId: row.prId,
+      ruleId: row.ruleId,
+      level: row.level,
+      status: row.status,
+      approverId: row.approverId,
+      decidedAt: row.decidedAt,
+      comment: row.comment,
+      notifiedAt: row.notifiedAt,
+      createdAt: row.createdAt,
+      approver: row.approver!,
+      rule: row.rule!,
+    }));
   }
 
   async getPendingApprovalsForUser(userId: string, limit = 50): Promise<(PurchaseRequestApproval & { purchaseRequest: PurchaseRequest & { requester: User; items: (PurchaseRequestItem & { product: Product })[] }; rule: ApprovalRule })[]> {
@@ -4921,8 +4936,18 @@ export class DatabaseStorage implements IStorage {
       const pr = await this.getPurchaseRequest(approval.prId);
       if (pr) {
         results.push({
-          ...approval,
+          id: approval.id,
+          prId: approval.prId,
+          ruleId: approval.ruleId,
+          level: approval.level,
+          status: approval.status,
+          approverId: approval.approverId,
+          decidedAt: approval.decidedAt,
+          comment: approval.comment,
+          notifiedAt: approval.notifiedAt,
+          createdAt: approval.createdAt,
           purchaseRequest: pr,
+          rule: approval.rule!,
         });
       }
     }
@@ -5051,7 +5076,7 @@ export class DatabaseStorage implements IStorage {
         })
         .from(goodsReceiptItems)
         .innerJoin(products, eq(goodsReceiptItems.productId, products.id))
-        .where(eq(goodsReceiptItems.grId, gr.id));
+        .where(eq(goodsReceiptItems.grId, gr.goodsReceipt.id));
       
       results.push({ 
         ...gr.goodsReceipt, 
@@ -5218,7 +5243,6 @@ export class DatabaseStorage implements IStorage {
         await tx
           .insert(stockMovements)
           .values({
-            productId: item.productId,
             warehouseId: grDetail.warehouseId,
             inventoryId: inventoryEntry.id,
             movementType: 'in',
@@ -5280,14 +5304,14 @@ export class DatabaseStorage implements IStorage {
         })
         .from(vendorBillItems)
         .leftJoin(products, eq(vendorBillItems.productId, products.id))
-        .where(eq(vendorBillItems.billId, bill.id));
+        .where(eq(vendorBillItems.billId, bill.vendorBill.id));
       
       results.push({ 
         ...bill.vendorBill, 
         supplier: bill.supplier,
-        purchaseOrder: bill.purchaseOrder,
+        purchaseOrder: bill.purchaseOrder || undefined,
         createdBy: bill.createdBy,
-        items: items.map(item => ({ ...item.vendorBillItem, product: item.product }))
+        items: items.map(item => ({ ...item.vendorBillItem, product: item.product || undefined }))
       });
     }
     
@@ -5324,9 +5348,9 @@ export class DatabaseStorage implements IStorage {
     return { 
       ...bill.vendorBill, 
       supplier: bill.supplier,
-      purchaseOrder: bill.purchaseOrder,
+      purchaseOrder: bill.purchaseOrder || undefined,
       createdBy: bill.createdBy,
-      items: items.map(item => ({ ...item.vendorBillItem, product: item.product }))
+      items: items.map(item => ({ ...item.vendorBillItem, product: item.product || undefined }))
     };
   }
 
@@ -5395,12 +5419,22 @@ export class DatabaseStorage implements IStorage {
     
     return await db
       .select({
-        ...matchResults,
+        id: matchResults.id,
+        poId: matchResults.poId,
+        grId: matchResults.grId,
+        billId: matchResults.billId,
+        status: matchResults.status,
+        quantityVariance: matchResults.quantityVariance,
+        priceVariance: matchResults.priceVariance,
+        matchDetails: matchResults.matchDetails,
+        resolvedBy: matchResults.resolvedBy,
+        resolvedAt: matchResults.resolvedAt,
+        createdAt: matchResults.createdAt,
         purchaseOrder: purchaseOrders,
         supplier: suppliers,
         goodsReceipt: goodsReceipts,
         vendorBill: vendorBills,
-        resolvedBy: users,
+        resolvedByUser: users,
       })
       .from(matchResults)
       .innerJoin(purchaseOrders, eq(matchResults.poId, purchaseOrders.id))
@@ -5677,7 +5711,14 @@ export class DatabaseStorage implements IStorage {
     
     return await db
       .select({
-        ...competitorPrices,
+        id: competitorPrices.id,
+        productId: competitorPrices.productId,
+        competitor: competitorPrices.competitor,
+        price: competitorPrices.price,
+        currency: competitorPrices.currency,
+        sourceUrl: competitorPrices.sourceUrl,
+        collectedAt: competitorPrices.collectedAt,
+        isActive: competitorPrices.isActive,
         product: products,
       })
       .from(competitorPrices)
@@ -5921,26 +5962,27 @@ export class DatabaseStorage implements IStorage {
     if (entityType) conditions.push(eq(aiInsights.entityType, entityType));
     if (entityId) conditions.push(eq(aiInsights.entityId, entityId));
     
-    return await db
+    const results = await db
       .select({
         insight: aiInsights,
-        generatedBy: sql<User>`gen_user.*`.as('generatedBy'),
-        reviewedBy: sql<User>`rev_user.*`.as('reviewedBy'),
-        appliedBy: sql<User>`app_user.*`.as('appliedBy'),
+        generatedBy: users,
+        reviewedBy: sql<User | null>`rev_user.*`,
+        appliedBy: sql<User | null>`app_user.*`,
       })
       .from(aiInsights)
-      .leftJoin(sql`${users} AS gen_user`, sql`${aiInsights.generatedBy} = gen_user.id`)
+      .leftJoin(users, eq(aiInsights.generatedBy, users.id))
       .leftJoin(sql`${users} AS rev_user`, sql`${aiInsights.reviewedBy} = rev_user.id`)
       .leftJoin(sql`${users} AS app_user`, sql`${aiInsights.appliedBy} = app_user.id`)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .limit(limit)
-      .orderBy(desc(aiInsights.createdAt))
-      .then(rows => rows.map(row => ({
-        ...row.insight,
-        generatedBy: row.generatedBy || undefined,
-        reviewedBy: row.reviewedBy || undefined,
-        appliedBy: row.appliedBy || undefined,
-      })));
+      .orderBy(desc(aiInsights.createdAt));
+    
+    return results.map(row => ({
+      ...row.insight,
+      generatedBy: row.generatedBy || undefined,
+      reviewedBy: row.reviewedBy || undefined,
+      appliedBy: row.appliedBy || undefined,
+    }));
   }
 
   async getAiInsight(id: string): Promise<(AiInsight & { generatedBy?: User; reviewedBy?: User; appliedBy?: User }) | undefined> {
@@ -5948,12 +5990,12 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db
       .select({
         insight: aiInsights,
-        generatedBy: sql<User>`gen_user.*`.as('generatedBy'),
-        reviewedBy: sql<User>`rev_user.*`.as('reviewedBy'),
-        appliedBy: sql<User>`app_user.*`.as('appliedBy'),
+        generatedBy: users,
+        reviewedBy: sql<User | null>`rev_user.*`,
+        appliedBy: sql<User | null>`app_user.*`,
       })
       .from(aiInsights)
-      .leftJoin(sql`${users} AS gen_user`, sql`${aiInsights.generatedBy} = gen_user.id`)
+      .leftJoin(users, eq(aiInsights.generatedBy, users.id))
       .leftJoin(sql`${users} AS rev_user`, sql`${aiInsights.reviewedBy} = rev_user.id`)
       .leftJoin(sql`${users} AS app_user`, sql`${aiInsights.appliedBy} = app_user.id`)
       .where(eq(aiInsights.id, id));
