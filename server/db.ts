@@ -11,71 +11,133 @@ let db: ReturnType<typeof drizzle> | null = null;
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 
-function initializeDatabase(): Promise<void> {
+// Async retry-based secret loading for Replit environment
+async function getReplitSecretAsync(
+  key: string, 
+  maxRetries = 5, 
+  delayMs = 1000
+): Promise<string | undefined> {
+  console.log(`🔍 [DB] Attempting to load secret: ${key}`);
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const value = process.env[key];
+    
+    if (value && value.trim().length > 0) {
+      console.log(`✅ [DB] Found ${key} on attempt ${attempt} (${value.length} chars)`);
+      return value.trim();
+    }
+    
+    console.log(`⏳ [DB] Attempt ${attempt}/${maxRetries}: ${key} empty or missing, waiting ${delayMs}ms...`);
+    
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      // Exponential backoff
+      delayMs = Math.min(delayMs * 1.5, 5000);
+    }
+  }
+  
+  console.log(`❌ [DB] Failed to load secret ${key} after ${maxRetries} attempts`);
+  return undefined;
+}
+
+// Enhanced DATABASE_URL construction with retry logic
+async function getDatabaseUrlAsync(): Promise<string | undefined> {
+  console.log('🔍 [DB] Attempting to get DATABASE_URL...');
+  
+  // First try direct access with retries
+  let databaseUrl = await getReplitSecretAsync('DATABASE_URL');
+  
+  if (databaseUrl) {
+    return databaseUrl;
+  }
+  
+  // Fallback: try to construct from PG components
+  console.log('🔧 [DB] Trying to construct DATABASE_URL from PG components...');
+  
+  const [pgHost, pgPort, pgDatabase, pgUser, pgPassword] = await Promise.all([
+    getReplitSecretAsync('PGHOST'),
+    getReplitSecretAsync('PGPORT'),
+    getReplitSecretAsync('PGDATABASE'),
+    getReplitSecretAsync('PGUSER'),
+    getReplitSecretAsync('PGPASSWORD'),
+  ]);
+  
+  if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
+    databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
+    console.log(`✅ [DB] Constructed DATABASE_URL from components`);
+    return databaseUrl;
+  }
+  
+  console.log('❌ [DB] Unable to get DATABASE_URL via any method');
+  return undefined;
+}
+
+async function initializeDatabase(): Promise<void> {
   if (initializationPromise) {
     return initializationPromise;
   }
 
-  initializationPromise = new Promise<void>((resolve, reject) => {
+  initializationPromise = (async () => {
     try {
-      console.log('🚀 Creating database connection...');
+      console.log('🚀 [DB] Starting database initialization...');
       
-      if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
-        throw new Error('DATABASE_URL is not set or empty');
+      // Get DATABASE_URL using async retry logic
+      const databaseUrl = await getDatabaseUrlAsync();
+      
+      if (!databaseUrl) {
+        throw new Error('DATABASE_URL could not be obtained after retries');
       }
-
-      const newPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      console.log('🚀 [DB] Creating database connection...');
+      const newPool = new Pool({ connectionString: databaseUrl });
       const newDb = drizzle({ client: newPool, schema });
       
-      // Test the connection before setting the globals
-      newPool.query('SELECT 1 as test').then(() => {
-        console.log('✅ Database connection test successful!');
-        // Only set globals after successful test
-        pool = newPool;
-        db = newDb;
-        isInitialized = true;
-        resolve();
-      }).catch((error) => {
-        console.error('❌ Database connection test failed:', error);
-        // Clean up the failed connection
-        newPool.end().catch(() => {});
-        reject(error);
-      });
+      // Test the connection
+      console.log('🧪 [DB] Testing database connection...');
+      await newPool.query('SELECT 1 as test');
+      
+      console.log('✅ [DB] Database connection test successful!');
+      
+      // Set globals after successful test
+      pool = newPool;
+      db = newDb;
+      isInitialized = true;
+      
+      console.log('🎉 [DB] Database initialization completed successfully!');
       
     } catch (error) {
-      console.error('❌ Database initialization failed:', error);
-      reject(error);
+      console.error('❌ [DB] Database initialization failed:', error);
+      
+      // Clean up on failure
+      if (pool) {
+        try {
+          await pool.end();
+        } catch (cleanupError) {
+          console.error('❌ [DB] Error cleaning up pool:', cleanupError);
+        }
+        pool = null;
+        db = null;
+        isInitialized = false;
+      }
+      
+      throw error;
     }
-  });
+  })();
 
   return initializationPromise;
 }
 
-// Simple database connection as per Replit integration blueprint
-console.log('🔧 Database initialization starting...');
-console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
+// Start async database initialization
+console.log('🔧 [DB] Starting enhanced database initialization with retry logic...');
 
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
-  console.error('❌ DATABASE_URL must be set. Did you forget to provision a database?');
-  console.log('Available DATABASE env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE')));
-  
-  // Try a short delay and check again (for Replit timing issues)
-  setTimeout(() => {
-    console.log('🔄 Retrying DATABASE_URL after delay...');
-    console.log('DATABASE_URL after delay:', !!process.env.DATABASE_URL, process.env.DATABASE_URL?.length || 0);
-    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
-      console.log('✅ DATABASE_URL now available, reinitializing...');
-      initializeDatabase().catch((error) => {
-        console.error('❌ Delayed database initialization failed:', error);
-      });
-    }
-  }, 2000);
-} else {
-  initializeDatabase().catch((error) => {
-    console.error('❌ Initial database initialization failed:', error);
+// Start initialization immediately (async)
+initializeDatabase()
+  .then(() => {
+    console.log('🎊 [DB] Database initialization completed successfully!');
+  })
+  .catch((error) => {
+    console.error('💥 [DB] Database initialization failed completely:', error);
   });
-}
 
 export { pool, db };
 
