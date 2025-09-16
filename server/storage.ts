@@ -1835,13 +1835,13 @@ export class DatabaseStorage implements IStorage {
     expiringProductsCount: number;
   }> {
     const db = await getDb();
-    // Total revenue from paid invoices
+    // Total revenue from confirmed sales orders (includes both invoiced and not-yet-invoiced revenue)
     const [revenueResult] = await db
       .select({
-        total: sql<number>`COALESCE(SUM(${invoices.paidAmount}), 0)`,
+        total: sql<number>`COALESCE(SUM(${salesOrders.totalAmount}), 0)`,
       })
-      .from(invoices)
-      .where(eq(invoices.status, 'paid'));
+      .from(salesOrders)
+      .where(eq(salesOrders.status, 'confirmed'));
 
     // Active products count
     const [productsResult] = await db
