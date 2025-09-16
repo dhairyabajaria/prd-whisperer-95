@@ -631,7 +631,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.8,
+        // temperature: 0.8, // GPT-5 only supports default (1) temperature
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{"response": "I\'m sorry, I couldn\'t process your query.", "actionable": false}');
