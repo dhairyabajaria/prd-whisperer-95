@@ -284,6 +284,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
         firstName: devUser.claims.first_name,
         lastName: devUser.claims.last_name,
         profileImageUrl: null,
+        role: 'admin', // Add admin role for dev user to access all modules
       });
       
       // Attach user to request

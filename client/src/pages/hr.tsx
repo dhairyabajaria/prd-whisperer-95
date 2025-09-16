@@ -327,7 +327,7 @@ export default function HRPage() {
     return matchesSearch && matchesDepartment;
   }) || [];
 
-  const departments = [...new Set(employees?.map(emp => emp.department).filter(Boolean))];
+  const departments = Array.from(new Set(employees?.map(emp => emp.department).filter(Boolean))) || [];
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -428,7 +428,7 @@ export default function HRPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All Departments</SelectItem>
-                      {departments.map((dept) => (
+                      {departments.filter(dept => dept && dept.trim()).map((dept) => (
                         <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                       ))}
                     </SelectContent>

@@ -7168,19 +7168,40 @@ export class DatabaseStorage implements IStorage {
 
   // Notification methods
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    throw new Error('Method not implemented');
+    const db = await getDb();
+    const result = await db.insert(notifications).values(notification).returning();
+    return result[0];
   }
 
-  async getUserNotifications(userId: string, limit?: number): Promise<Notification[]> {
-    throw new Error('Method not implemented');
+  async getUserNotifications(userId: string, limit: number = 50, unreadOnly: boolean = false): Promise<Notification[]> {
+    const db = await getDb();
+    let query = db.select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+    
+    if (unreadOnly) {
+      query = query.where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    }
+    
+    return await query;
   }
 
   async markNotificationAsRead(id: string): Promise<Notification> {
-    throw new Error('Method not implemented');
+    const db = await getDb();
+    const result = await db.update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id))
+      .returning();
+    return result[0];
   }
 
   async markAllNotificationsAsRead(userId: string): Promise<void> {
-    throw new Error('Method not implemented');
+    const db = await getDb();
+    await db.update(notifications)
+      .set({ isRead: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
   }
 
   async getUnreadNotificationCount(userId: string): Promise<number> {
