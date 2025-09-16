@@ -6,8 +6,8 @@ import OpenAI from "openai";
 export function isOpenAIConfigured(): boolean {
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
   
-  // SECURITY: Only log debug information in development environment
-  // Never log sensitive API key information in production
+  // SECURITY: Safe logging that never exposes secret data
+  // Only log configuration status with boolean flags
   if (process.env.NODE_ENV === 'development') {
     const rawApiKey = process.env.OPENAI_API_KEY;
     const rawApiKeyEnvVar = process.env.OPENAI_API_KEY_ENV_VAR;
@@ -16,13 +16,11 @@ export function isOpenAIConfigured(): boolean {
       hasOPENAI_API_KEY: !!rawApiKey,
       hasOPENAI_API_KEY_ENV_VAR: !!rawApiKeyEnvVar,
       rawKeyType: typeof rawApiKey,
-      rawKeyLength: rawApiKey?.length || 0,
-      rawKeyValue: rawApiKey === undefined ? 'undefined' : rawApiKey === null ? 'null' : rawApiKey === '' ? 'empty_string' : 'has_value',
-      apiKeyLength: apiKey?.length || 0,
-      apiKeyPrefix: apiKey?.substring(0, 15) || 'none',
+      rawKeyConfigured: !!(rawApiKey && rawApiKey.trim().length > 0),
+      apiKeyConfigured: !!(apiKey && apiKey.trim().length > 0 && apiKey !== 'default_key'),
       isDefaultKey: apiKey === 'default_key',
-      envKeys: Object.keys(process.env).filter(key => key.includes('OPENAI')).sort(),
-      allEnvKeysCount: Object.keys(process.env).length
+      openaiEnvVarsCount: Object.keys(process.env).filter(key => key.includes('OPENAI')).length,
+      totalEnvVarsCount: Object.keys(process.env).length
     });
   }
   

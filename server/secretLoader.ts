@@ -20,110 +20,67 @@ interface SecretLoadResult {
 function loadReplitSecret(key: string): SecretLoadResult {
   console.log(`🔍 [SECRET] Loading secret: ${key}`);
   
-  // Method 1: Check /tmp/replitdb (published apps)
-  try {
-    const replitDbPath = '/tmp/replitdb';
-    if (existsSync(replitDbPath)) {
-      const secretPath = join(replitDbPath, key);
-      if (existsSync(secretPath)) {
-        const value = readFileSync(secretPath, 'utf8').trim();
-        if (value && value.length > 0) {
-          console.log(`✅ [SECRET] Found ${key} in replitdb (${value.length} chars)`);
-          return { value, source: 'replitdb' };
-        }
-      }
-    }
-  } catch (error) {
-    console.log(`⚠️ [SECRET] Failed to read ${key} from replitdb:`, error);
-  }
-  
-  // Method 2: Try Replit secret API if available (development environment)
-  try {
-    // In Replit environment, check if we can access secrets through different means
-    if (typeof process !== 'undefined' && process.env.REPL_ID) {
-      console.log(`🔧 [SECRET] In Replit environment, attempting alternative secret access for ${key}`);
-      
-      // Try to read from environment but handle Replit's specific setup
-      const value = process.env[key];
-      if (value !== undefined && value !== null) {
-        if (value.trim().length > 0) {
-          console.log(`✅ [SECRET] Found ${key} in Replit env (${value.length} chars)`);
-          return { value: value.trim(), source: 'env' };
-        } else {
-          console.log(`⚠️ [SECRET] ${key} exists but is empty in Replit env - secret may need refresh`);
-          return { source: 'none', error: 'Secret exists but is empty - may need refresh' };
-        }
-      }
-    }
-  } catch (error) {
-    console.log(`⚠️ [SECRET] Failed to read ${key} from Replit environment:`, error);
-  }
-  
-  // Method 3: Check standard environment variables (fallback)
+  // Safe debugging approach - no secret data exposure
   try {
     const value = process.env[key];
-    if (value && value.trim().length > 0) {
-      console.log(`✅ [SECRET] Found ${key} in standard env vars (${value.length} chars)`);
-      return { value: value.trim(), source: 'env' };
+    console.log(`🔧 [SECRET] DEBUG ${key}:`, {
+      exists: key in process.env,
+      type: typeof value,
+      isUndefined: value === undefined,
+      isNull: value === null,
+      isEmpty: value === '',
+      hasValue: !!(value && value.trim().length > 0)
+    });
+    
+    if (value !== undefined && value !== null && value !== '') {
+      console.log(`✅ [SECRET] Found ${key}`);
+      return { value, source: 'env' };
     }
   } catch (error) {
-    console.log(`⚠️ [SECRET] Failed to read ${key} from env vars:`, error);
+    console.log(`⚠️ [SECRET] Failed to read ${key}:`, error);
   }
   
-  console.log(`❌ [SECRET] Secret ${key} not found in any source`);
-  return { source: 'none', error: 'Secret not found in replitdb or env vars' };
+  console.log(`❌ [SECRET] Secret ${key} not found or empty`);
+  return { source: 'none', error: 'Secret not found or empty' };
 }
 
 /**
- * Async retry-based secret loading with exponential backoff
+ * Simplified async secret loading without retries
  * @param key - The secret key to load
- * @param maxRetries - Maximum number of retry attempts
- * @param delayMs - Initial delay between retries in milliseconds
  * @returns Promise<string | undefined>
  */
 export async function getReplitSecretAsync(
   key: string, 
-  maxRetries = 5, 
-  delayMs = 1000
+  maxRetries = 1, 
+  delayMs = 0
 ): Promise<string | undefined> {
-  console.log(`🔄 [SECRET] Starting async load for: ${key} (max retries: ${maxRetries})`);
+  console.log(`🔄 [SECRET] Loading ${key}...`);
   
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const result = loadReplitSecret(key);
-    
-    if (result.value) {
-      console.log(`✅ [SECRET] Successfully loaded ${key} on attempt ${attempt} from ${result.source}`);
-      return result.value;
-    }
-    
-    if (attempt < maxRetries) {
-      console.log(`⏳ [SECRET] Attempt ${attempt}/${maxRetries} failed for ${key}, waiting ${delayMs}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      // Exponential backoff with jitter
-      delayMs = Math.min(delayMs * 1.5 + Math.random() * 100, 5000);
-    }
+  const result = loadReplitSecret(key);
+  
+  if (result.value) {
+    console.log(`✅ [SECRET] Successfully loaded ${key} from ${result.source}`);
+    return result.value;
   }
   
-  console.log(`❌ [SECRET] Failed to load ${key} after ${maxRetries} attempts`);
+  console.log(`❌ [SECRET] Failed to load ${key}: ${result.error}`);
   return undefined;
 }
 
 /**
- * Load multiple secrets in parallel with retry logic
+ * Load multiple secrets in parallel
  * @param keys - Array of secret keys to load
- * @param maxRetries - Maximum number of retry attempts per secret
- * @param delayMs - Initial delay between retries
  * @returns Promise<Record<string, string | undefined>>
  */
 export async function getReplitSecretsAsync(
   keys: string[], 
-  maxRetries = 5, 
-  delayMs = 1000
+  maxRetries = 1, 
+  delayMs = 0
 ): Promise<Record<string, string | undefined>> {
-  console.log(`🔄 [SECRET] Loading multiple secrets in parallel: ${keys.join(', ')}`);
+  console.log(`🔄 [SECRET] Loading multiple secrets: ${keys.join(', ')}`);
   
   const promises = keys.map(key => 
-    getReplitSecretAsync(key, maxRetries, delayMs).then(value => ({ key, value }))
+    getReplitSecretAsync(key).then(value => ({ key, value }))
   );
   
   const results = await Promise.all(promises);
@@ -140,20 +97,15 @@ export async function getReplitSecretsAsync(
 }
 
 /**
- * Enhanced DATABASE_URL construction with retry logic
+ * Enhanced DATABASE_URL construction
  * Tries direct DATABASE_URL first, then constructs from PG components
- * @param maxRetries - Maximum retry attempts
- * @param delayMs - Initial delay between retries
  * @returns Promise<string | undefined>
  */
-export async function getDatabaseUrlAsync(
-  maxRetries = 5, 
-  delayMs = 1000
-): Promise<string | undefined> {
+export async function getDatabaseUrlAsync(): Promise<string | undefined> {
   console.log('🔍 [SECRET] Attempting to get DATABASE_URL...');
   
   // First try direct DATABASE_URL access
-  let databaseUrl = await getReplitSecretAsync('DATABASE_URL', maxRetries, delayMs);
+  let databaseUrl = await getReplitSecretAsync('DATABASE_URL');
   
   if (databaseUrl) {
     console.log('✅ [SECRET] Found direct DATABASE_URL');
@@ -165,7 +117,7 @@ export async function getDatabaseUrlAsync(
   
   const secrets = await getReplitSecretsAsync([
     'PGHOST', 'PGPORT', 'PGDATABASE', 'PGUSER', 'PGPASSWORD'
-  ], maxRetries, delayMs);
+  ]);
   
   const { PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD } = secrets;
   
@@ -204,6 +156,6 @@ export function debugSecretSources(): void {
   console.log('- Database environment variables:');
   for (const key of dbKeys) {
     const value = process.env[key];
-    console.log(`  ${key}: ${value ? 'present' : 'missing'} (${value ? value.length : 0} chars)`);
+    console.log(`  ${key}: ${value ? 'configured' : 'missing'}`);
   }
 }
