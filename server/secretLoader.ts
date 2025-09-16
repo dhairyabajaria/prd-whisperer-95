@@ -20,28 +20,63 @@ interface SecretLoadResult {
 function loadReplitSecret(key: string): SecretLoadResult {
   console.log(`🔍 [SECRET] Loading secret: ${key}`);
   
-  // Safe debugging approach - no secret data exposure
+  // First try direct process.env access
   try {
-    const value = process.env[key];
+    const envValue = process.env[key];
     console.log(`🔧 [SECRET] DEBUG ${key}:`, {
       exists: key in process.env,
-      type: typeof value,
-      isUndefined: value === undefined,
-      isNull: value === null,
-      isEmpty: value === '',
-      hasValue: !!(value && value.trim().length > 0)
+      type: typeof envValue,
+      isUndefined: envValue === undefined,
+      isNull: envValue === null,
+      isEmpty: envValue === '',
+      hasValue: !!(envValue && envValue.trim().length > 0)
     });
     
-    if (value !== undefined && value !== null && value !== '') {
-      console.log(`✅ [SECRET] Found ${key}`);
-      return { value, source: 'env' };
+    if (envValue && envValue.trim().length > 0) {
+      console.log(`✅ [SECRET] Found ${key} in process.env`);
+      return { value: envValue.trim(), source: 'env' };
     }
   } catch (error) {
-    console.log(`⚠️ [SECRET] Failed to read ${key}:`, error);
+    console.log(`⚠️ [SECRET] Failed to read ${key} from process.env:`, error);
   }
   
-  console.log(`❌ [SECRET] Secret ${key} not found or empty`);
-  return { source: 'none', error: 'Secret not found or empty' };
+  // Try to read from Replit's secret file system if it exists
+  try {
+    const secretPath = `/tmp/replitdb/${key}`;
+    if (existsSync(secretPath)) {
+      const secretValue = readFileSync(secretPath, 'utf8').trim();
+      if (secretValue && secretValue.length > 0) {
+        console.log(`✅ [SECRET] Found ${key} in replitdb`);
+        return { value: secretValue, source: 'replitdb' };
+      }
+    }
+  } catch (error) {
+    console.log(`⚠️ [SECRET] Failed to read ${key} from replitdb:`, error);
+  }
+  
+  // Try reading environment files that might contain secrets
+  try {
+    const envFile = '.env';
+    if (existsSync(envFile)) {
+      const envContent = readFileSync(envFile, 'utf8');
+      const lines = envContent.split('\n');
+      for (const line of lines) {
+        const [envKey, ...valueParts] = line.split('=');
+        if (envKey?.trim() === key && valueParts.length > 0) {
+          const value = valueParts.join('=').trim().replace(/^["']|["']$/g, '');
+          if (value && value.length > 0) {
+            console.log(`✅ [SECRET] Found ${key} in .env file`);
+            return { value, source: 'env' };
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log(`⚠️ [SECRET] Failed to read ${key} from .env file:`, error);
+  }
+  
+  console.log(`❌ [SECRET] Secret ${key} not found or empty in any source`);
+  return { source: 'none', error: 'Secret not found or empty in any source' };
 }
 
 /**

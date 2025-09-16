@@ -1,18 +1,19 @@
 import OpenAI from "openai";
+import { getReplitSecretAsync } from "./secretLoader";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
 // Helper function to check if OpenAI is properly configured
-export function isOpenAIConfigured(): boolean {
-  // Get the API key directly
-  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+export async function isOpenAIConfigured(): Promise<boolean> {
+  // Get the API key using robust secret loading
+  const apiKey = await getReplitSecretAsync('OPENAI_API_KEY') || await getReplitSecretAsync('OPENAI_API_KEY_ENV_VAR');
   
   // Enhanced debug logging in development
   if (process.env.NODE_ENV === 'development') {
     console.log('🔍 OpenAI Configuration Debug (DEV ONLY):', {
       hasOPENAI_API_KEY: !!(process.env.OPENAI_API_KEY),
       hasOPENAI_API_KEY_ENV_VAR: !!(process.env.OPENAI_API_KEY_ENV_VAR),
-      apiKeyExists: !!(apiKey),
+      apiKeyFromRobustLoader: !!(apiKey),
       apiKeyLength: apiKey ? apiKey.length : 0,
       apiKeyStartsWith: apiKey ? apiKey.substring(0, 7) + '...' : 'none',
       isConfigured: !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0),
@@ -31,9 +32,9 @@ export function isOpenAIConfigured(): boolean {
 let openai: OpenAI | null = null;
 
 // Function to get or initialize OpenAI client
-export function getOpenAIClient(): OpenAI | null {
-  if (!openai && isOpenAIConfigured()) {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+export async function getOpenAIClient(): Promise<OpenAI | null> {
+  if (!openai && await isOpenAIConfigured()) {
+    const apiKey = await getReplitSecretAsync('OPENAI_API_KEY') || await getReplitSecretAsync('OPENAI_API_KEY_ENV_VAR');
     if (apiKey) {
       openai = new OpenAI({ apiKey });
       console.log('🚀 [AI] OpenAI client initialized successfully');
@@ -208,7 +209,7 @@ export class AIService {
     const startTime = Date.now();
     
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, using fallback sentiment analysis');
       return this.generateFallbackSentiment(text);
@@ -317,7 +318,7 @@ export class AIService {
       });
 
       // Small delay between batches to respect rate limits
-      if (batches.length > 1 && isOpenAIConfigured()) {
+      if (batches.length > 1 && await isOpenAIConfigured()) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
@@ -404,7 +405,7 @@ export class AIService {
     }>
   ): Promise<InventoryRecommendation[]> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback inventory recommendations');
       return this.generateFallbackInventoryRecommendations(inventoryData);
@@ -470,7 +471,7 @@ export class AIService {
     }>
   ): Promise<PriceOptimization[]> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback price optimizations');
       return this.generateFallbackPriceOptimizations(productData);
@@ -533,7 +534,7 @@ export class AIService {
     }
   ): Promise<AIInsight[]> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback business insights');
       return this.generateFallbackBusinessInsights();
@@ -592,7 +593,7 @@ export class AIService {
     businessContext: any
   ): Promise<{ response: string; actionable: boolean; suggestedActions?: string[] }> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback chat response');
       return {
@@ -681,7 +682,7 @@ export class AIService {
     recommendations: string[];
   }>> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning empty customer sentiment analysis');
       return [];
@@ -761,7 +762,7 @@ export class AIService {
     error?: string;
   }> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, OCR processing unavailable');
       return {
@@ -881,7 +882,7 @@ export class AIService {
     };
   }>> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning empty competitor price analysis');
       return [];
@@ -958,7 +959,7 @@ export class AIService {
     }
   ): Promise<AIInsight[]> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning empty purchase insights');
       return [];
@@ -1033,7 +1034,7 @@ export class AIService {
     priorityScore: number;
   }>> {
     // Get OpenAI client
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     if (!openaiClient) {
       console.log('OpenAI not configured, returning empty purchase risk analysis');
       return [];
