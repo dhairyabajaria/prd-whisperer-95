@@ -4,35 +4,42 @@ import OpenAI from "openai";
 
 // Helper function to check if OpenAI is properly configured
 export function isOpenAIConfigured(): boolean {
+  // Get the API key directly
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
   
-  // SECURITY: Safe logging that never exposes secret data
-  // Only log configuration status with boolean flags
+  // Enhanced debug logging in development
   if (process.env.NODE_ENV === 'development') {
-    const rawApiKey = process.env.OPENAI_API_KEY;
-    const rawApiKeyEnvVar = process.env.OPENAI_API_KEY_ENV_VAR;
-    
     console.log('🔍 OpenAI Configuration Debug (DEV ONLY):', {
-      hasOPENAI_API_KEY: !!rawApiKey,
-      hasOPENAI_API_KEY_ENV_VAR: !!rawApiKeyEnvVar,
-      rawKeyType: typeof rawApiKey,
-      rawKeyConfigured: !!(rawApiKey && rawApiKey.trim().length > 0),
-      apiKeyConfigured: !!(apiKey && apiKey.trim().length > 0 && apiKey !== 'default_key'),
-      isDefaultKey: apiKey === 'default_key',
+      hasOPENAI_API_KEY: !!(process.env.OPENAI_API_KEY),
+      hasOPENAI_API_KEY_ENV_VAR: !!(process.env.OPENAI_API_KEY_ENV_VAR),
+      apiKeyExists: !!(apiKey),
+      apiKeyLength: apiKey ? apiKey.length : 0,
+      apiKeyStartsWith: apiKey ? apiKey.substring(0, 7) + '...' : 'none',
+      isConfigured: !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0),
       openaiEnvVarsCount: Object.keys(process.env).filter(key => key.includes('OPENAI')).length,
       totalEnvVarsCount: Object.keys(process.env).length
     });
   }
   
-  return !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0);
+  const isConfigured = !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0);
+  console.log(`🤖 [AI] OpenAI configured: ${isConfigured}`);
+  
+  return isConfigured;
 }
 
-// Only initialize OpenAI if we have a valid API key
+// Only initialize OpenAI if we have a valid API key  
 let openai: OpenAI | null = null;
-if (isOpenAIConfigured()) {
-  openai = new OpenAI({ 
-    apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR
-  });
+
+// Function to get or initialize OpenAI client
+export function getOpenAIClient(): OpenAI | null {
+  if (!openai && isOpenAIConfigured()) {
+    const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+    if (apiKey) {
+      openai = new OpenAI({ apiKey });
+      console.log('🚀 [AI] OpenAI client initialized successfully');
+    }
+  }
+  return openai;
 }
 
 export interface InventoryRecommendation {
@@ -200,8 +207,9 @@ export class AIService {
   async analyzeTextSentiment(text: string): Promise<SentimentResult> {
     const startTime = Date.now();
     
-    // Return fallback if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, using fallback sentiment analysis');
       return this.generateFallbackSentiment(text);
     }
@@ -240,7 +248,7 @@ export class AIService {
         - aspects: string[] (key topics/aspects identified)
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -395,8 +403,9 @@ export class AIService {
       minStockLevel: number;
     }>
   ): Promise<InventoryRecommendation[]> {
-    // Return fallback data if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback inventory recommendations');
       return this.generateFallbackInventoryRecommendations(inventoryData);
     }
@@ -425,7 +434,7 @@ export class AIService {
         - suggestedSupplier: string (if applicable)
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -460,8 +469,9 @@ export class AIService {
       marginPercentage: number;
     }>
   ): Promise<PriceOptimization[]> {
-    // Return fallback data if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback price optimizations');
       return this.generateFallbackPriceOptimizations(productData);
     }
@@ -489,7 +499,7 @@ export class AIService {
         - competitorData: string summary
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -522,8 +532,9 @@ export class AIService {
       financialMetrics: any;
     }
   ): Promise<AIInsight[]> {
-    // Return fallback data if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback business insights');
       return this.generateFallbackBusinessInsights();
     }
@@ -551,7 +562,7 @@ export class AIService {
         - data: relevant data object
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -580,8 +591,9 @@ export class AIService {
     query: string,
     businessContext: any
   ): Promise<{ response: string; actionable: boolean; suggestedActions?: string[] }> {
-    // Return fallback response if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning fallback chat response');
       return {
         response: "AI chat is currently unavailable. Please contact your administrator to configure AI services, or try using the standard dashboard features.",
@@ -616,7 +628,7 @@ export class AIService {
         - suggestedActions: string[] (if actionable, list of suggested actions)
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -697,7 +709,7 @@ export class AIService {
         - recommendations: string[] of actionable items
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -814,7 +826,7 @@ export class AIService {
         ];
       }
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages,
         response_format: { type: "json_object" },
@@ -897,7 +909,7 @@ export class AIService {
         - potentialImpact: {revenueChange: number, marginChange: number, competitiveAdvantage: string}
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -972,7 +984,7 @@ export class AIService {
         - data: relevant metrics and recommendations
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
@@ -1046,7 +1058,7 @@ export class AIService {
         - priorityScore: number (0-100)
       `;
 
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
