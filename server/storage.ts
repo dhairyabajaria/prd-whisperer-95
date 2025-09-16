@@ -7227,42 +7227,29 @@ import { MemStorage } from "./memStorage";
 // Import fs properly for ES modules
 import * as fs from 'fs';
 
-// Enhanced secret access for Replit environment
-async function getReplitSecret(key: string): Promise<string | undefined> {
-  console.log(`🔍 Attempting to retrieve secret: ${key}`);
+// Enhanced secret access with debugging for Replit environment
+function getReplitSecret(key: string): string | undefined {
+  console.log(`🔍 [STORAGE] Debugging secret access for: ${key}`);
   
-  // Method 1: Direct process.env access
-  let value = process.env[key];
-  if (value && value.trim() !== '') {
-    console.log(`✅ Found ${key} via process.env (${value.length} chars)`);
-    return value;
+  // Check if the key exists in process.env
+  const hasKey = key in process.env;
+  const value = process.env[key];
+  const valueType = typeof value;
+  const valueLength = value ? value.length : 0;
+  const trimmedValue = value ? value.trim() : '';
+  
+  console.log(`   - Key exists in process.env: ${hasKey}`);
+  console.log(`   - Value type: ${valueType}`);
+  console.log(`   - Value length: ${valueLength}`);
+  console.log(`   - Value after trim: ${trimmedValue.length} chars`);
+  console.log(`   - Value is truthy: ${!!value}`);
+  
+  if (trimmedValue && trimmedValue.length > 0) {
+    console.log(`✅ Found ${key} in environment (${trimmedValue.length} chars)`);
+    return trimmedValue;
   }
   
-  // Method 2: Try multiple delays for Replit environment loading
-  for (const delay of [100, 500, 1000]) {
-    await new Promise(resolve => setTimeout(resolve, delay));
-    value = process.env[key];
-    if (value && value.trim() !== '') {
-      console.log(`✅ Found ${key} via delayed access (${delay}ms delay, ${value.length} chars)`);
-      return value;
-    }
-  }
-  
-  // Method 3: Try file system access for Replit secrets
-  try {
-    const secretPath = `/tmp/secrets/${key}`;
-    if (fs.existsSync(secretPath)) {
-      value = fs.readFileSync(secretPath, 'utf8').trim();
-      if (value) {
-        console.log(`✅ Found ${key} via filesystem (${value.length} chars)`);
-        return value;
-      }
-    }
-  } catch (e) {
-    console.log(`⚠️ Filesystem access failed for ${key}:`, e);
-  }
-  
-  console.log(`❌ Unable to find secret: ${key} after all attempts`);
+  console.log(`❌ Secret ${key} not accessible - value: "${value}"`);
   return undefined;
 }
 
@@ -7298,17 +7285,17 @@ async function initializeStorage(): Promise<IStorage> {
     // Fallback to getReplitSecret for other environments
     if (!databaseUrl) {
       console.log('DATABASE_URL not found via process.env, trying getReplitSecret...');
-      databaseUrl = await getReplitSecret('DATABASE_URL');
+      databaseUrl = getReplitSecret('DATABASE_URL');
     }
     
     // If still not found, try constructing from PG components
     if (!databaseUrl) {
       console.log('DATABASE_URL not found, trying PG components...');
-      const pgHost = process.env.PGHOST || await getReplitSecret('PGHOST');
-      const pgPort = process.env.PGPORT || await getReplitSecret('PGPORT');
-      const pgDatabase = process.env.PGDATABASE || await getReplitSecret('PGDATABASE');
-      const pgUser = process.env.PGUSER || await getReplitSecret('PGUSER');
-      const pgPassword = process.env.PGPASSWORD || await getReplitSecret('PGPASSWORD');
+      const pgHost = process.env.PGHOST || getReplitSecret('PGHOST');
+      const pgPort = process.env.PGPORT || getReplitSecret('PGPORT');
+      const pgDatabase = process.env.PGDATABASE || getReplitSecret('PGDATABASE');
+      const pgUser = process.env.PGUSER || getReplitSecret('PGUSER');
+      const pgPassword = process.env.PGPASSWORD || getReplitSecret('PGPASSWORD');
       
       console.log('PG components availability:', {
         PGHOST: !!pgHost,

@@ -1,101 +1,114 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { sql } from 'drizzle-orm';
 import ws from "ws";
-import fs from "fs";
 import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-// Simplified database connection as per Replit integration blueprint
-let db: ReturnType<typeof drizzle> | null = null;
+// Initialize variables first
 let pool: Pool | null = null;
+let db: ReturnType<typeof drizzle> | null = null;
+let isInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
-
-// Enhanced secret access for database connection (matching storage.ts)
-async function getReplitSecret(key: string): Promise<string | undefined> {
-  // Try direct process.env access first
-  let value = process.env[key];
-  if (value && value.trim() !== '') {
-    return value;
+function initializeDatabase(): Promise<void> {
+  if (initializationPromise) {
+    return initializationPromise;
   }
-  
-  // Try with progressive delays for Replit environment loading
-  for (const delay of [100, 500, 1000, 2000]) {
-    await new Promise(resolve => setTimeout(resolve, delay));
-    value = process.env[key];
-    if (value && value.trim() !== '') {
-      console.log(`✅ Found ${key} via delayed access (${delay}ms delay)`);
-      return value;
+
+  initializationPromise = new Promise<void>((resolve, reject) => {
+    try {
+      console.log('🚀 Creating database connection...');
+      
+      if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
+        throw new Error('DATABASE_URL is not set or empty');
+      }
+
+      const newPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const newDb = drizzle({ client: newPool, schema });
+      
+      // Test the connection before setting the globals
+      newPool.query('SELECT 1 as test').then(() => {
+        console.log('✅ Database connection test successful!');
+        // Only set globals after successful test
+        pool = newPool;
+        db = newDb;
+        isInitialized = true;
+        resolve();
+      }).catch((error) => {
+        console.error('❌ Database connection test failed:', error);
+        // Clean up the failed connection
+        newPool.end().catch(() => {});
+        reject(error);
+      });
+      
+    } catch (error) {
+      console.error('❌ Database initialization failed:', error);
+      reject(error);
     }
-  }
-  
-  return undefined;
+  });
+
+  return initializationPromise;
 }
 
-// Async database initialization with enhanced secret access
-async function initializeDatabase() {
-  console.log('🔧 Database initialization:');
-  console.log('NODE_ENV:', process.env.NODE_ENV || 'undefined');
+// Simple database connection as per Replit integration blueprint
+console.log('🔧 Database initialization starting...');
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
+
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
+  console.error('❌ DATABASE_URL must be set. Did you forget to provision a database?');
+  console.log('Available DATABASE env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE')));
   
-  let databaseUrl = '';
-  
-  // Method 1: Direct DATABASE_URL access
-  databaseUrl = await getReplitSecret('DATABASE_URL') || '';
-  
-  // Method 2: Construct from PG components if DATABASE_URL not found
-  if (!databaseUrl) {
-    console.log('🔍 DATABASE_URL not found, constructing from PG components...');
-    
-    const pgHost = await getReplitSecret('PGHOST');
-    const pgPort = await getReplitSecret('PGPORT');
-    const pgDatabase = await getReplitSecret('PGDATABASE');
-    const pgUser = await getReplitSecret('PGUSER');
-    const pgPassword = await getReplitSecret('PGPASSWORD');
-    
-    console.log('PG Components retrieved:', {
-      PGHOST: pgHost ? `${pgHost.substring(0, 10)}...` : 'empty',
-      PGPORT: pgPort || 'empty',
-      PGDATABASE: pgDatabase || 'empty', 
-      PGUSER: pgUser || 'empty',
-      PGPASSWORD: pgPassword ? 'set' : 'empty'
-    });
-    
-    if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
-      databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-      console.log('✅ Successfully constructed DATABASE_URL from PG components');
+  // Try a short delay and check again (for Replit timing issues)
+  setTimeout(() => {
+    console.log('🔄 Retrying DATABASE_URL after delay...');
+    console.log('DATABASE_URL after delay:', !!process.env.DATABASE_URL, process.env.DATABASE_URL?.length || 0);
+    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
+      console.log('✅ DATABASE_URL now available, reinitializing...');
+      initializeDatabase().catch((error) => {
+        console.error('❌ Delayed database initialization failed:', error);
+      });
     }
-  }
-
-  if (!databaseUrl) {
-    console.error('❌ Unable to access DATABASE_URL or construct from components. Database connection failed.');
-    console.log('Available env vars with DATABASE/PG:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PG')));
-    return;
-  }
-
-  try {
-    console.log('🚀 Initializing database connection...');
-    pool = new Pool({ connectionString: databaseUrl });
-    db = drizzle({ client: pool, schema });
-    
-    // Test the connection
-    await pool.query('SELECT 1');
-    console.log('✅ Database connection initialized and tested successfully!');
-  } catch (error) {
-    console.error('❌ Database initialization failed:', error);
-    console.log('Database URL format check:', databaseUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
-  }
+  }, 2000);
+} else {
+  initializeDatabase().catch((error) => {
+    console.error('❌ Initial database initialization failed:', error);
+  });
 }
-
-// Initialize database connection asynchronously
-initializeDatabase();
 
 export { pool, db };
 
 // For backward compatibility with existing code
 export async function getDb() {
-  if (!db) {
-    throw new Error("DATABASE_URL must be set and valid. Database connection not available.");
+  // If already initialized, return immediately
+  if (isInitialized && db) {
+    return db;
   }
-  return db;
+  
+  // If not initialized, wait for initialization to complete
+  if (initializationPromise) {
+    try {
+      await initializationPromise;
+      if (db) {
+        return db;
+      }
+    } catch (error) {
+      console.error('Database initialization failed during getDb():', error);
+    }
+  }
+  
+  // Try to initialize if not already attempted
+  if (!initializationPromise) {
+    try {
+      await initializeDatabase();
+      if (db) {
+        return db;
+      }
+    } catch (error) {
+      console.error('Database initialization failed during getDb() retry:', error);
+    }
+  }
+  
+  throw new Error("Database connection not available. Check DATABASE_URL and initialization logs.");
 }
