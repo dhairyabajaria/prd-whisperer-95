@@ -545,12 +545,14 @@ async function seedDatabase() {
     const seedLeads = await db.insert(leads).values([
       {
         id: "lead-001",
-        companyName: "Hospital Militar Central",
-        contactName: "Dr. Fernando Silva",
+        firstName: "Fernando",
+        lastName: "Silva",
+        company: "Hospital Militar Central",
+        position: "Doctor",
         email: "fernando.silva@hmc.ao",
         phone: "+244 222 678 901",
-        status: "qualified",
-        stage: "needs_analysis",
+        leadStatus: "qualified",
+        pipelineStage: "needs_analysis",
         source: "referral",
         estimatedValue: "75000.00",
         probability: 65,
@@ -559,12 +561,14 @@ async function seedDatabase() {
       },
       {
         id: "lead-002", 
-        companyName: "Rede de Farmácias Popular",
-        contactName: "Ana Costa",
+        firstName: "Ana",
+        lastName: "Costa",
+        company: "Rede de Farmácias Popular",
+        position: "Manager",
         email: "ana.costa@farmacpopular.ao",
         phone: "+244 222 345 678",
-        status: "new",
-        stage: "initial_contact",
+        leadStatus: "new",
+        pipelineStage: "initial_contact",
         source: "website",
         estimatedValue: "45000.00",
         probability: 25,
@@ -573,12 +577,14 @@ async function seedDatabase() {
       },
       {
         id: "lead-003",
-        companyName: "Centro Médico Girassol",
-        contactName: "Dr. Paulo Mendes",
+        firstName: "Paulo",
+        lastName: "Mendes",
+        company: "Centro Médico Girassol",
+        position: "Doctor",
         email: "paulo.mendes@cmgirassol.ao", 
         phone: "+244 222 456 789",
-        status: "qualified",
-        stage: "proposal_sent",
+        leadStatus: "qualified",
+        pipelineStage: "proposal_sent",
         source: "cold_call",
         estimatedValue: "28000.00",
         probability: 80,
@@ -588,31 +594,8 @@ async function seedDatabase() {
     ]).onConflictDoNothing().returning();
     console.log(`✅ Created ${seedLeads.length} leads`);
 
-    // 15. Seed Commission Entries
-    console.log("💰 Seeding commission entries...");
-    const seedCommissions = await db.insert(commissionEntries).values([
-      {
-        id: "comm-001",
-        salesRepId: "sales-user-001",
-        orderId: "so-2024-001",
-        orderAmount: "14375.00",
-        commissionRate: "3.00",
-        commissionAmount: "431.25",
-        status: "accrued",
-        calculatedAt: new Date("2024-09-10"),
-      },
-      {
-        id: "comm-002",
-        salesRepId: "sales-user-002",
-        orderId: "so-2024-002",
-        orderAmount: "3737.50",
-        commissionRate: "2.50",
-        commissionAmount: "93.44",
-        status: "accrued", 
-        calculatedAt: new Date("2024-09-12"),
-      }
-    ]).onConflictDoNothing().returning();
-    console.log(`✅ Created ${seedCommissions.length} commission entries`);
+    // 15. Commission Entries (skipped - requires invoices to be created first)
+    console.log("💰 Skipping commission entries (requires invoices)...");
 
     // 16. Seed Employees
     console.log("👨‍💼 Seeding employees...");

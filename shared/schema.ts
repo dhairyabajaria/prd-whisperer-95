@@ -384,7 +384,7 @@ export const sentimentLabelEnum = pgEnum('sentiment_label', [
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -397,7 +397,7 @@ export const users = pgTable("users", {
 
 // System settings table for application configuration
 export const systemSettings = pgTable("system_settings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   key: varchar("key", { length: 255 }).notNull().unique(),
   value: text("value"),
   category: settingCategoryEnum("category").default('general'),
@@ -411,7 +411,7 @@ export const systemSettings = pgTable("system_settings", {
 
 // Customers table
 export const customers = pgTable("customers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email"),
   phone: varchar("phone"),
@@ -427,7 +427,7 @@ export const customers = pgTable("customers", {
 
 // Suppliers table
 export const suppliers = pgTable("suppliers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email"),
   phone: varchar("phone"),
@@ -442,7 +442,7 @@ export const suppliers = pgTable("suppliers", {
 
 // Warehouses table
 export const warehouses = pgTable("warehouses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   location: varchar("location"),
   type: varchar("type").default('standard'), // standard, cold_storage, branch
@@ -453,7 +453,7 @@ export const warehouses = pgTable("warehouses", {
 
 // Products table
 export const products = pgTable("products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   sku: varchar("sku", { length: 100 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
@@ -470,7 +470,7 @@ export const products = pgTable("products", {
 
 // Inventory table with batch tracking
 export const inventory = pgTable("inventory", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   productId: varchar("product_id").references(() => products.id).notNull(),
   warehouseId: varchar("warehouse_id").references(() => warehouses.id).notNull(),
   batchNumber: varchar("batch_number"),
@@ -486,7 +486,7 @@ export const inventory = pgTable("inventory", {
 
 // Sales orders table
 export const salesOrders = pgTable("sales_orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   orderNumber: varchar("order_number").notNull().unique(),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   salesRepId: varchar("sales_rep_id").references(() => users.id),
@@ -503,7 +503,7 @@ export const salesOrders = pgTable("sales_orders", {
 
 // Sales order items table
 export const salesOrderItems = pgTable("sales_order_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   orderId: varchar("order_id").references(() => salesOrders.id).notNull(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   inventoryId: varchar("inventory_id").references(() => inventory.id), // for batch tracking
@@ -517,7 +517,7 @@ export const salesOrderItems = pgTable("sales_order_items", {
 
 // Purchase orders table (enhanced)
 export const purchaseOrders = pgTable("purchase_orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   orderNumber: varchar("order_number").notNull().unique(),
   prId: varchar("pr_id"), // Reference to purchase request (optional)
   supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
@@ -540,7 +540,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
 
 // Purchase order items table
 export const purchaseOrderItems = pgTable("purchase_order_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   orderId: varchar("order_id").references(() => purchaseOrders.id).notNull(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   quantity: integer("quantity").notNull(),
@@ -553,7 +553,7 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 
 // Purchase requests table
 export const purchaseRequests = pgTable("purchase_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   prNumber: varchar("pr_number").notNull().unique(),
   requesterId: varchar("requester_id").references(() => users.id).notNull(),
   supplierId: varchar("supplier_id").references(() => suppliers.id),
@@ -570,7 +570,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
 
 // Purchase request items table
 export const purchaseRequestItems = pgTable("purchase_request_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   prId: varchar("pr_id").references(() => purchaseRequests.id).notNull(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   quantity: integer("quantity").notNull(),
@@ -582,7 +582,7 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
 
 // Approvals table for workflow management
 export const approvals = pgTable("approvals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   entityType: varchar("entity_type").notNull(), // 'purchase_request', 'purchase_order', etc.
   entityId: varchar("entity_id").notNull(),
   step: integer("step").notNull(), // approval level/step
@@ -595,7 +595,7 @@ export const approvals = pgTable("approvals", {
 
 // Approval rules table for defining multi-level approval hierarchies
 export const approvalRules = pgTable("approval_rules", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   entityType: varchar("entity_type").notNull(), // 'purchase_request', 'purchase_order', etc.
   amountRangeMin: decimal("amount_range_min", { precision: 12, scale: 2 }).default('0'),
   amountRangeMax: decimal("amount_range_max", { precision: 12, scale: 2 }),
@@ -613,7 +613,7 @@ export const approvalRules = pgTable("approval_rules", {
 
 // Purchase request approvals table for tracking specific approval workflows
 export const purchaseRequestApprovals = pgTable("purchase_request_approvals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   prId: varchar("pr_id").references(() => purchaseRequests.id).notNull(),
   ruleId: varchar("rule_id").references(() => approvalRules.id).notNull(),
   level: integer("level").notNull(),
@@ -631,7 +631,7 @@ export const purchaseRequestApprovals = pgTable("purchase_request_approvals", {
 
 // Notifications table for workflow events
 export const notifications = pgTable("notifications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   type: varchar("type").notNull(), // 'pr_submitted', 'pr_approved', 'pr_rejected', etc.
   title: varchar("title").notNull(),
@@ -647,7 +647,7 @@ export const notifications = pgTable("notifications", {
 
 // Goods receipts table
 export const goodsReceipts = pgTable("goods_receipts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   grNumber: varchar("gr_number").notNull().unique(),
   poId: varchar("po_id").references(() => purchaseOrders.id).notNull(),
   warehouseId: varchar("warehouse_id").references(() => warehouses.id).notNull(),
@@ -660,7 +660,7 @@ export const goodsReceipts = pgTable("goods_receipts", {
 
 // Goods receipt items table
 export const goodsReceiptItems = pgTable("goods_receipt_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   grId: varchar("gr_id").references(() => goodsReceipts.id).notNull(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   quantity: integer("quantity").notNull(),
@@ -674,7 +674,7 @@ export const goodsReceiptItems = pgTable("goods_receipt_items", {
 
 // Vendor bills table
 export const vendorBills = pgTable("vendor_bills", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   billNumber: varchar("bill_number").notNull().unique(),
   supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
   poId: varchar("po_id").references(() => purchaseOrders.id),
@@ -693,7 +693,7 @@ export const vendorBills = pgTable("vendor_bills", {
 
 // Vendor bill items table
 export const vendorBillItems = pgTable("vendor_bill_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   billId: varchar("bill_id").references(() => vendorBills.id).notNull(),
   productId: varchar("product_id").references(() => products.id),
   quantity: integer("quantity").notNull(),
@@ -705,7 +705,7 @@ export const vendorBillItems = pgTable("vendor_bill_items", {
 
 // Foreign exchange rates table
 export const fxRates = pgTable("fx_rates", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   baseCurrency: varchar("base_currency", { length: 3 }).notNull(),
   quoteCurrency: varchar("quote_currency", { length: 3 }).notNull(),
   rate: decimal("rate", { precision: 12, scale: 6 }).notNull(),
@@ -719,7 +719,7 @@ export const fxRates = pgTable("fx_rates", {
 
 // Competitor prices table
 export const competitorPrices = pgTable("competitor_prices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   productId: varchar("product_id").references(() => products.id).notNull(),
   competitor: varchar("competitor").notNull(),
   price: decimal("price", { precision: 12, scale: 2 }).notNull(),
@@ -731,7 +731,7 @@ export const competitorPrices = pgTable("competitor_prices", {
 
 // Three-way matching results table
 export const matchResults = pgTable("match_results", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   poId: varchar("po_id").references(() => purchaseOrders.id).notNull(),
   grId: varchar("gr_id").references(() => goodsReceipts.id),
   billId: varchar("bill_id").references(() => vendorBills.id),
@@ -747,7 +747,7 @@ export const matchResults = pgTable("match_results", {
 
 // Invoices table
 export const invoices = pgTable("invoices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   invoiceNumber: varchar("invoice_number").notNull().unique(),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   salesOrderId: varchar("sales_order_id").references(() => salesOrders.id),
@@ -765,7 +765,7 @@ export const invoices = pgTable("invoices", {
 
 // Stock movements table for tracking inventory changes
 export const stockMovements = pgTable("stock_movements", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   productId: varchar("product_id").references(() => products.id).notNull(),
   warehouseId: varchar("warehouse_id").references(() => warehouses.id).notNull(),
   inventoryId: varchar("inventory_id").references(() => inventory.id),
@@ -781,7 +781,7 @@ export const stockMovements = pgTable("stock_movements", {
 
 // Quotations table
 export const quotations = pgTable("quotations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   quotationNumber: varchar("quotation_number").notNull().unique(),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   salesRepId: varchar("sales_rep_id").references(() => users.id),
@@ -803,7 +803,7 @@ export const quotations = pgTable("quotations", {
 
 // Quotation items table
 export const quotationItems = pgTable("quotation_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   quotationId: varchar("quotation_id").references(() => quotations.id).notNull(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   quantity: integer("quantity").notNull(),
@@ -816,7 +816,7 @@ export const quotationItems = pgTable("quotation_items", {
 
 // Receipts table for payment tracking
 export const receipts = pgTable("receipts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   receiptNumber: varchar("receipt_number").notNull().unique(),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   invoiceId: varchar("invoice_id").references(() => invoices.id),
@@ -834,7 +834,7 @@ export const receipts = pgTable("receipts", {
 
 // Commission entries table
 export const commissionEntries = pgTable("commission_entries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
   salesRepId: varchar("sales_rep_id").references(() => users.id).notNull(),
   basisAmount: decimal("basis_amount", { precision: 12, scale: 2 }).notNull(),
@@ -851,7 +851,7 @@ export const commissionEntries = pgTable("commission_entries", {
 
 // Credit overrides table for credit limit exceptions
 export const creditOverrides = pgTable("credit_overrides", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   invoiceId: varchar("invoice_id").references(() => invoices.id),
   requestedBy: varchar("requested_by").references(() => users.id).notNull(),
@@ -871,7 +871,7 @@ export const creditOverrides = pgTable("credit_overrides", {
 
 // Employees table
 export const employees = pgTable("employees", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
   employeeNumber: varchar("employee_number").notNull().unique(),
   department: varchar("department").notNull(),
@@ -894,7 +894,7 @@ export const employees = pgTable("employees", {
 
 // Time entries table
 export const timeEntries = pgTable("time_entries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   employeeId: varchar("employee_id").references(() => employees.id).notNull(),
   date: date("date").notNull(),
   clockIn: timestamp("clock_in"),
@@ -910,7 +910,7 @@ export const timeEntries = pgTable("time_entries", {
 
 // Payroll runs table
 export const payrollRuns = pgTable("payroll_runs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   payrollPeriod: varchar("payroll_period").notNull(), // e.g., "2024-01"
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
@@ -926,7 +926,7 @@ export const payrollRuns = pgTable("payroll_runs", {
 
 // Payroll items table
 export const payrollItems = pgTable("payroll_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   payrollRunId: varchar("payroll_run_id").references(() => payrollRuns.id).notNull(),
   employeeId: varchar("employee_id").references(() => employees.id).notNull(),
   basePay: decimal("base_pay", { precision: 12, scale: 2 }).default('0'),
@@ -946,7 +946,7 @@ export const payrollItems = pgTable("payroll_items", {
 
 // Performance reviews table
 export const performanceReviews = pgTable("performance_reviews", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   employeeId: varchar("employee_id").references(() => employees.id).notNull(),
   reviewerId: varchar("reviewer_id").references(() => users.id).notNull(),
   reviewPeriod: varchar("review_period").notNull(), // e.g., "2024-Q1", "2024-Annual"
@@ -968,7 +968,7 @@ export const performanceReviews = pgTable("performance_reviews", {
 
 // POS terminals table
 export const posTerminals = pgTable("pos_terminals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   terminalNumber: varchar("terminal_number").notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   location: varchar("location").notNull(),
@@ -985,7 +985,7 @@ export const posTerminals = pgTable("pos_terminals", {
 
 // POS sessions table
 export const posSessions = pgTable("pos_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   terminalId: varchar("terminal_id").references(() => posTerminals.id).notNull(),
   cashierId: varchar("cashier_id").references(() => users.id).notNull(),
   sessionNumber: varchar("session_number").notNull(),
@@ -1005,7 +1005,7 @@ export const posSessions = pgTable("pos_sessions", {
 
 // POS receipts table
 export const posReceipts = pgTable("pos_receipts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   receiptNumber: varchar("receipt_number").notNull().unique(),
   sessionId: varchar("session_id").references(() => posSessions.id).notNull(),
   salesOrderId: varchar("sales_order_id").references(() => salesOrders.id),
@@ -1025,7 +1025,7 @@ export const posReceipts = pgTable("pos_receipts", {
 
 // POS payments table
 export const posPayments = pgTable("pos_payments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   receiptId: varchar("receipt_id").references(() => posReceipts.id).notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
@@ -1045,7 +1045,7 @@ export const posPayments = pgTable("pos_payments", {
 
 // Cash movements table
 export const cashMovements = pgTable("cash_movements", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   sessionId: varchar("session_id").references(() => posSessions.id).notNull(),
   movementType: varchar("movement_type").notNull(), // sale, refund, payout, cash_drop, starting_cash
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
@@ -1060,7 +1060,7 @@ export const cashMovements = pgTable("cash_movements", {
 
 // Campaigns table
 export const campaigns = pgTable("campaigns", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   type: campaignTypeEnum("campaign_type").notNull(),
@@ -1086,7 +1086,7 @@ export const campaigns = pgTable("campaigns", {
 
 // Campaign members table
 export const campaignMembers = pgTable("campaign_members", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   campaignId: varchar("campaign_id").references(() => campaigns.id).notNull(),
   customerId: varchar("customer_id").references(() => customers.id),
   leadId: varchar("lead_id").references(() => leads.id),
@@ -1100,7 +1100,7 @@ export const campaignMembers = pgTable("campaign_members", {
 
 // Leads table - Enhanced with pipeline and scoring features
 export const leads = pgTable("leads", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   email: varchar("email"),
@@ -1172,7 +1172,7 @@ export const leads = pgTable("leads", {
 
 // Communications table
 export const communications = pgTable("communications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   customerId: varchar("customer_id").references(() => customers.id),
   leadId: varchar("lead_id").references(() => leads.id),
   campaignId: varchar("campaign_id").references(() => campaigns.id),
@@ -1192,7 +1192,7 @@ export const communications = pgTable("communications", {
 
 // Sentiment Analysis table
 export const sentimentAnalyses = pgTable("sentiment_analyses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   communicationId: varchar("communication_id").references(() => communications.id).notNull(),
   customerId: varchar("customer_id").references(() => customers.id).notNull(),
   score: decimal("score", { precision: 3, scale: 2 }).notNull(), // -1.00 to 1.00
@@ -1209,7 +1209,7 @@ export const sentimentAnalyses = pgTable("sentiment_analyses", {
 
 // Lead Activity Tracking table
 export const leadActivities = pgTable("lead_activities", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   leadId: varchar("lead_id").references(() => leads.id).notNull(),
   activityType: leadActivityTypeEnum("activity_type").notNull(),
   activityData: jsonb("activity_data"), // Activity-specific data (email subject, page visited, etc.)
@@ -1232,7 +1232,7 @@ export const leadActivities = pgTable("lead_activities", {
 
 // Lead Scoring History table
 export const leadScoringHistory = pgTable("lead_scoring_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   leadId: varchar("lead_id").references(() => leads.id).notNull(),
   previousScore: integer("previous_score").default(0),
   newScore: integer("new_score").notNull(),
@@ -1251,7 +1251,7 @@ export const leadScoringHistory = pgTable("lead_scoring_history", {
 
 // Lead Pipeline Stage History table
 export const leadStageHistory = pgTable("lead_stage_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   leadId: varchar("lead_id").references(() => leads.id).notNull(),
   fromStage: pipelineStageEnum("from_stage"),
   toStage: pipelineStageEnum("to_stage").notNull(),
@@ -1272,7 +1272,7 @@ export const leadStageHistory = pgTable("lead_stage_history", {
 
 // Lead Scoring Rules table for automated scoring configuration
 export const leadScoringRules = pgTable("lead_scoring_rules", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   criteria: leadScoringCriteriaEnum("criteria").notNull(),
@@ -1296,7 +1296,7 @@ export const leadScoringRules = pgTable("lead_scoring_rules", {
 
 // Pipeline Configuration table for customizable pipeline stages
 export const pipelineConfiguration = pgTable("pipeline_configuration", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   stage: pipelineStageEnum("stage").notNull(),
   displayName: varchar("display_name", { length: 255 }).notNull(),
@@ -1323,7 +1323,7 @@ export const pipelineConfiguration = pgTable("pipeline_configuration", {
 
 // Report definitions table
 export const reportDefinitions = pgTable("report_definitions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   category: varchar("category").notNull(), // sales, inventory, finance, hr, compliance
@@ -1341,7 +1341,7 @@ export const reportDefinitions = pgTable("report_definitions", {
 
 // Saved reports table
 export const savedReports = pgTable("saved_reports", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   reportDefinitionId: varchar("report_definition_id").references(() => reportDefinitions.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
@@ -1358,7 +1358,7 @@ export const savedReports = pgTable("saved_reports", {
 
 // Report exports table
 export const reportExports = pgTable("report_exports", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   reportDefinitionId: varchar("report_definition_id").references(() => reportDefinitions.id),
   savedReportId: varchar("saved_report_id").references(() => savedReports.id),
   fileName: varchar("file_name").notNull(),
@@ -1380,7 +1380,7 @@ export const reportExports = pgTable("report_exports", {
 
 // Licenses table
 export const licenses = pgTable("licenses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   licenseNumber: varchar("license_number").notNull().unique(),
   licenseType: varchar("license_type").notNull(), // pharmacy_license, import_permit, wholesale_license, etc.
   licenseName: varchar("license_name", { length: 255 }).notNull(),
@@ -1405,7 +1405,7 @@ export const licenses = pgTable("licenses", {
 
 // Regulatory reports table
 export const regulatoryReports = pgTable("regulatory_reports", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   reportType: varchar("report_type").notNull(), // monthly_sales, inventory_summary, adverse_events, etc.
   reportPeriod: varchar("report_period").notNull(), // 2024-01, 2024-Q1, 2024-Annual
   submittedTo: varchar("submitted_to").notNull(), // regulatory authority name
@@ -1428,7 +1428,7 @@ export const regulatoryReports = pgTable("regulatory_reports", {
 
 // Audit logs table
 export const auditLogs = pgTable("audit_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   tableName: varchar("table_name").notNull(), // affected table
   recordId: varchar("record_id").notNull(), // affected record ID
   action: auditActionEnum("action").notNull(),
@@ -1446,7 +1446,7 @@ export const auditLogs = pgTable("audit_logs", {
 
 // Recall notices table
 export const recallNotices = pgTable("recall_notices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   recallNumber: varchar("recall_number").notNull().unique(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   batchNumbers: text("batch_numbers").array(), // array of affected batch numbers
@@ -1481,7 +1481,7 @@ export const recallNotices = pgTable("recall_notices", {
 
 // AI chat sessions table
 export const aiChatSessions = pgTable("ai_chat_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   sessionTitle: varchar("session_title").notNull(),
   status: aiChatSessionStatusEnum("status").default('active'),
@@ -1491,7 +1491,7 @@ export const aiChatSessions = pgTable("ai_chat_sessions", {
 
 // AI chat messages table
 export const aiChatMessages = pgTable("ai_chat_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   sessionId: varchar("session_id").references(() => aiChatSessions.id).notNull(),
   content: text("content").notNull(),
   role: varchar("role").notNull(), // 'user' | 'assistant'
@@ -1501,7 +1501,7 @@ export const aiChatMessages = pgTable("ai_chat_messages", {
 
 // AI insights table for storing generated recommendations
 export const aiInsights = pgTable("ai_insights", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   type: aiInsightTypeEnum("type").notNull(),
   title: varchar("title").notNull(),
   description: text("description"),
@@ -1522,7 +1522,7 @@ export const aiInsights = pgTable("ai_insights", {
 
 // AI model performance tracking
 export const aiModelMetrics = pgTable("ai_model_metrics", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   modelName: varchar("model_name").notNull(),
   modelVersion: varchar("model_version").notNull(),
   requestType: varchar("request_type").notNull(), // 'chat', 'insight_generation', etc.
