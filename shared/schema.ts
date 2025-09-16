@@ -714,7 +714,7 @@ export const fxRates = pgTable("fx_rates", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   // Unique constraint to prevent duplicate rates for the same currency pair on the same date
-  { fxRateUnique: unique().on(table.baseCurrency, table.quoteCurrency, table.asOfDate) }
+  unique().on(table.baseCurrency, table.quoteCurrency, table.asOfDate)
 ]);
 
 // Competitor prices table
