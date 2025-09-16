@@ -680,8 +680,9 @@ export class AIService {
     summary: string;
     recommendations: string[];
   }>> {
-    // Return empty array if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning empty customer sentiment analysis');
       return [];
     }
@@ -759,8 +760,9 @@ export class AIService {
     confidence?: number;
     error?: string;
   }> {
-    // Return error if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, OCR processing unavailable');
       return {
         success: false,
@@ -878,8 +880,9 @@ export class AIService {
       competitiveAdvantage: string;
     };
   }>> {
-    // Return empty array if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning empty competitor price analysis');
       return [];
     }
@@ -954,8 +957,9 @@ export class AIService {
       averageProcessingTime: number;
     }
   ): Promise<AIInsight[]> {
-    // Return empty array if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning empty purchase insights');
       return [];
     }
@@ -1028,8 +1032,9 @@ export class AIService {
     recommendedActions: string[];
     priorityScore: number;
   }>> {
-    // Return empty array if OpenAI is not configured
-    if (!isOpenAIConfigured() || !openai) {
+    // Get OpenAI client
+    const openaiClient = getOpenAIClient();
+    if (!openaiClient) {
       console.log('OpenAI not configured, returning empty purchase risk analysis');
       return [];
     }
