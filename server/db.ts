@@ -2,6 +2,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
+import { getDatabaseUrlAsync, debugSecretSources } from "./secretLoader";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -11,67 +12,6 @@ let db: ReturnType<typeof drizzle> | null = null;
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 
-// Async retry-based secret loading for Replit environment
-async function getReplitSecretAsync(
-  key: string, 
-  maxRetries = 5, 
-  delayMs = 1000
-): Promise<string | undefined> {
-  console.log(`🔍 [DB] Attempting to load secret: ${key}`);
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const value = process.env[key];
-    
-    if (value && value.trim().length > 0) {
-      console.log(`✅ [DB] Found ${key} on attempt ${attempt} (${value.length} chars)`);
-      return value.trim();
-    }
-    
-    console.log(`⏳ [DB] Attempt ${attempt}/${maxRetries}: ${key} empty or missing, waiting ${delayMs}ms...`);
-    
-    if (attempt < maxRetries) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      // Exponential backoff
-      delayMs = Math.min(delayMs * 1.5, 5000);
-    }
-  }
-  
-  console.log(`❌ [DB] Failed to load secret ${key} after ${maxRetries} attempts`);
-  return undefined;
-}
-
-// Enhanced DATABASE_URL construction with retry logic
-async function getDatabaseUrlAsync(): Promise<string | undefined> {
-  console.log('🔍 [DB] Attempting to get DATABASE_URL...');
-  
-  // First try direct access with retries
-  let databaseUrl = await getReplitSecretAsync('DATABASE_URL');
-  
-  if (databaseUrl) {
-    return databaseUrl;
-  }
-  
-  // Fallback: try to construct from PG components
-  console.log('🔧 [DB] Trying to construct DATABASE_URL from PG components...');
-  
-  const [pgHost, pgPort, pgDatabase, pgUser, pgPassword] = await Promise.all([
-    getReplitSecretAsync('PGHOST'),
-    getReplitSecretAsync('PGPORT'),
-    getReplitSecretAsync('PGDATABASE'),
-    getReplitSecretAsync('PGUSER'),
-    getReplitSecretAsync('PGPASSWORD'),
-  ]);
-  
-  if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
-    databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-    console.log(`✅ [DB] Constructed DATABASE_URL from components`);
-    return databaseUrl;
-  }
-  
-  console.log('❌ [DB] Unable to get DATABASE_URL via any method');
-  return undefined;
-}
-
 async function initializeDatabase(): Promise<void> {
   if (initializationPromise) {
     return initializationPromise;
@@ -79,13 +19,16 @@ async function initializeDatabase(): Promise<void> {
 
   initializationPromise = (async () => {
     try {
-      console.log('🚀 [DB] Starting database initialization...');
+      console.log('🚀 [DB] Starting enhanced database initialization...');
       
-      // Get DATABASE_URL using async retry logic
+      // Debug secret sources for troubleshooting
+      debugSecretSources();
+      
+      // Get DATABASE_URL using robust secret loading
       const databaseUrl = await getDatabaseUrlAsync();
       
       if (!databaseUrl) {
-        throw new Error('DATABASE_URL could not be obtained after retries');
+        throw new Error('DATABASE_URL could not be obtained after trying all methods');
       }
       
       console.log('🚀 [DB] Creating database connection...');

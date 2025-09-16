@@ -7244,76 +7244,19 @@ export class DatabaseStorage implements IStorage {
 }
 
 import { MemStorage } from "./memStorage";
+import { getDatabaseUrlAsync, debugSecretSources } from "./secretLoader";
 
 // Import fs properly for ES modules
 import * as fs from 'fs';
 
-// Async retry-based secret loading for Replit environment (same as db.ts)
-async function getReplitSecretAsync(
-  key: string, 
-  maxRetries = 5, 
-  delayMs = 1000
-): Promise<string | undefined> {
-  console.log(`🔍 [STORAGE] Attempting to load secret: ${key}`);
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const value = process.env[key];
-    
-    if (value && value.trim().length > 0) {
-      console.log(`✅ [STORAGE] Found ${key} on attempt ${attempt} (${value.length} chars)`);
-      return value.trim();
-    }
-    
-    console.log(`⏳ [STORAGE] Attempt ${attempt}/${maxRetries}: ${key} empty or missing, waiting ${delayMs}ms...`);
-    
-    if (attempt < maxRetries) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      // Exponential backoff
-      delayMs = Math.min(delayMs * 1.5, 5000);
-    }
-  }
-  
-  console.log(`❌ [STORAGE] Failed to load secret ${key} after ${maxRetries} attempts`);
-  return undefined;
-}
-
-// Enhanced DATABASE_URL construction with retry logic (more aggressive for database secrets)
-async function getDatabaseUrlAsync(): Promise<string | undefined> {
-  console.log('🔍 [STORAGE] Attempting to get DATABASE_URL...');
-  
-  // First try direct access with retries (more attempts for database secrets)
-  let databaseUrl = await getReplitSecretAsync('DATABASE_URL', 10, 2000);
-  
-  if (databaseUrl) {
-    return databaseUrl;
-  }
-  
-  // Fallback: try to construct from PG components (more aggressive retries)
-  console.log('🔧 [STORAGE] Trying to construct DATABASE_URL from PG components...');
-  
-  const [pgHost, pgPort, pgDatabase, pgUser, pgPassword] = await Promise.all([
-    getReplitSecretAsync('PGHOST', 10, 2000),
-    getReplitSecretAsync('PGPORT', 10, 2000),
-    getReplitSecretAsync('PGDATABASE', 10, 2000),
-    getReplitSecretAsync('PGUSER', 10, 2000),
-    getReplitSecretAsync('PGPASSWORD', 10, 2000),
-  ]);
-  
-  if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
-    databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-    console.log(`✅ [STORAGE] Constructed DATABASE_URL from components`);
-    return databaseUrl;
-  }
-  
-  console.log('❌ [STORAGE] Unable to get DATABASE_URL via any method');
-  return undefined;
-}
-
 // Async storage initialization
 async function initializeStorage(): Promise<IStorage> {
   try {
-    console.log('Storage initialization:');
+    console.log('🚀 [STORAGE] Enhanced storage initialization with robust secret loading...');
     console.log('NODE_ENV:', process.env.NODE_ENV || 'undefined');
+    
+    // Debug secret sources for troubleshooting
+    debugSecretSources();
     
     // Check if database should be used (enabled by default if DATABASE_URL is available)
     const explicitDbFlag = process.env.USE_DB_STORAGE?.toLowerCase();
