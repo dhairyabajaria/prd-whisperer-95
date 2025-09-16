@@ -899,9 +899,11 @@ export const timeEntries = pgTable("time_entries", {
   date: date("date").notNull(),
   clockIn: timestamp("clock_in"),
   clockOut: timestamp("clock_out"),
-  totalHours: decimal("total_hours", { precision: 4, scale: 2 }),
+  totalHours: decimal("total_hours", { precision: 4, scale: 2 }).notNull(),
   overtimeHours: decimal("overtime_hours", { precision: 4, scale: 2 }).default('0'),
   entryType: timeEntryTypeEnum("entry_type").default('regular'),
+  projectName: varchar("project_name"), // Optional project/task tracking
+  taskDescription: text("task_description"), // Optional task details
   notes: text("notes"),
   approvedBy: varchar("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
@@ -912,8 +914,8 @@ export const timeEntries = pgTable("time_entries", {
 export const payrollRuns = pgTable("payroll_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   payrollPeriod: varchar("payroll_period").notNull(), // e.g., "2024-01"
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
+  startDate: date("start_date").notNull(), // Keeping original field name
+  endDate: date("end_date").notNull(), // Keeping original field name
   status: payrollStatusEnum("status").default('draft'),
   totalGrossPay: decimal("total_gross_pay", { precision: 15, scale: 2 }).default('0'),
   totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default('0'),
@@ -929,6 +931,8 @@ export const payrollItems = pgTable("payroll_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   payrollRunId: varchar("payroll_run_id").references(() => payrollRuns.id).notNull(),
   employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }).default('0'), // Default hourly rate
+  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default('0'), // Default overtime rate
   basePay: decimal("base_pay", { precision: 12, scale: 2 }).default('0'),
   overtimePay: decimal("overtime_pay", { precision: 12, scale: 2 }).default('0'),
   bonuses: decimal("bonuses", { precision: 12, scale: 2 }).default('0'),
@@ -989,11 +993,11 @@ export const posSessions = pgTable("pos_sessions", {
   terminalId: varchar("terminal_id").references(() => posTerminals.id).notNull(),
   cashierId: varchar("cashier_id").references(() => users.id).notNull(),
   sessionNumber: varchar("session_number").notNull(),
-  startTime: timestamp("start_time").notNull(),
+  startTime: timestamp("start_time").defaultNow(),
   endTime: timestamp("end_time"),
-  startingCash: decimal("starting_cash", { precision: 12, scale: 2 }).default('0'),
+  startingCash: decimal("starting_cash", { precision: 12, scale: 2 }).default('0').notNull(),
   expectedCash: decimal("expected_cash", { precision: 12, scale: 2 }).default('0'),
-  actualCash: decimal("actual_cash", { precision: 12, scale: 2 }).default('0'),
+  actualCash: decimal("actual_cash", { precision: 12, scale: 2 }),
   cashVariance: decimal("cash_variance", { precision: 12, scale: 2 }).default('0'),
   totalSales: decimal("total_sales", { precision: 12, scale: 2 }).default('0'),
   totalTransactions: integer("total_transactions").default(0),
@@ -1006,14 +1010,14 @@ export const posSessions = pgTable("pos_sessions", {
 // POS receipts table
 export const posReceipts = pgTable("pos_receipts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
-  receiptNumber: varchar("receipt_number").notNull().unique(),
+  receiptNumber: varchar("receipt_number").unique(), // Generated in storage layer
   sessionId: varchar("session_id").references(() => posSessions.id).notNull(),
   salesOrderId: varchar("sales_order_id").references(() => salesOrders.id),
-  customerId: varchar("customer_id").references(() => customers.id),
-  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0'),
-  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0'),
-  discountAmount: decimal("discount_amount", { precision: 12, scale: 2 }).default('0'),
-  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
+  customerId: varchar("customer_id").references(() => customers.id), // Nullable for walk-in customers
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default('0').notNull(),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0').notNull(),
+  discountAmount: decimal("discount_amount", { precision: 12, scale: 2 }).default('0').notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0').notNull(),
   currency: varchar("currency", { length: 3 }).default('AOA'),
   receiptData: jsonb("receipt_data"), // full receipt JSON for reprints
   status: posReceiptStatusEnum("status").default('completed'),
@@ -1063,9 +1067,8 @@ export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
-  type: campaignTypeEnum("campaign_type").notNull(),
   campaignType: campaignTypeEnum("campaign_type").notNull(),
-  startDate: date("start_date").notNull(),
+  startDate: date("start_date").defaultNow(),
   endDate: date("end_date"),
   budget: decimal("budget", { precision: 12, scale: 2 }).default('0'),
   actualSpend: decimal("actual_spend", { precision: 12, scale: 2 }).default('0'),
@@ -1073,7 +1076,6 @@ export const campaigns = pgTable("campaigns", {
   targetAudience: text("target_audience"),
   objectives: text("objectives"),
   status: campaignStatusEnum("status").default('draft'),
-  managedBy: varchar("manager_id").references(() => users.id).notNull(),
   managerId: varchar("manager_id").references(() => users.id).notNull(),
   totalMembers: integer("total_members").default(0),
   launchedAt: timestamp("launched_at"),

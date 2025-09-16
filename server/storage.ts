@@ -6192,8 +6192,8 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
     
     if (status) conditions.push(eq(campaigns.status, status as any));
-    if (type) conditions.push(eq(campaigns.type, type as any));
-    if (managerId) conditions.push(eq(campaigns.managedBy, managerId));
+    if (type) conditions.push(eq(campaigns.campaignType, type as any));
+    if (managerId) conditions.push(eq(campaigns.managerId, managerId));
     
     const campaignData = await db
       .select({
@@ -6201,7 +6201,7 @@ export class DatabaseStorage implements IStorage {
         manager: users,
       })
       .from(campaigns)
-      .innerJoin(users, eq(campaigns.managedBy, users.id))
+      .innerJoin(users, eq(campaigns.managerId, users.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .limit(limit)
       .orderBy(desc(campaigns.createdAt));
@@ -6232,7 +6232,7 @@ export class DatabaseStorage implements IStorage {
         manager: users,
       })
       .from(campaigns)
-      .innerJoin(users, eq(campaigns.managedBy, users.id))
+      .innerJoin(users, eq(campaigns.managerId, users.id))
       .where(eq(campaigns.id, id));
     
     if (!campaignData) return undefined;
@@ -7175,15 +7175,17 @@ export class DatabaseStorage implements IStorage {
 
   async getUserNotifications(userId: string, limit: number = 50, unreadOnly: boolean = false): Promise<Notification[]> {
     const db = await getDb();
-    let query = db.select()
+    
+    const whereConditions = [eq(notifications.userId, userId)];
+    if (unreadOnly) {
+      whereConditions.push(eq(notifications.isRead, false));
+    }
+    
+    const query = db.select()
       .from(notifications)
-      .where(eq(notifications.userId, userId))
+      .where(and(...whereConditions))
       .orderBy(desc(notifications.createdAt))
       .limit(limit);
-    
-    if (unreadOnly) {
-      query = query.where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
-    }
     
     return await query;
   }
