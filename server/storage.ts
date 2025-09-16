@@ -7227,29 +7227,64 @@ import { MemStorage } from "./memStorage";
 // Import fs properly for ES modules
 import * as fs from 'fs';
 
-// Enhanced secret access with debugging for Replit environment
-function getReplitSecret(key: string): string | undefined {
-  console.log(`🔍 [STORAGE] Debugging secret access for: ${key}`);
+// Async retry-based secret loading for Replit environment (same as db.ts)
+async function getReplitSecretAsync(
+  key: string, 
+  maxRetries = 5, 
+  delayMs = 1000
+): Promise<string | undefined> {
+  console.log(`🔍 [STORAGE] Attempting to load secret: ${key}`);
   
-  // Check if the key exists in process.env
-  const hasKey = key in process.env;
-  const value = process.env[key];
-  const valueType = typeof value;
-  const valueLength = value ? value.length : 0;
-  const trimmedValue = value ? value.trim() : '';
-  
-  console.log(`   - Key exists in process.env: ${hasKey}`);
-  console.log(`   - Value type: ${valueType}`);
-  console.log(`   - Value length: ${valueLength}`);
-  console.log(`   - Value after trim: ${trimmedValue.length} chars`);
-  console.log(`   - Value is truthy: ${!!value}`);
-  
-  if (trimmedValue && trimmedValue.length > 0) {
-    console.log(`✅ Found ${key} in environment (${trimmedValue.length} chars)`);
-    return trimmedValue;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const value = process.env[key];
+    
+    if (value && value.trim().length > 0) {
+      console.log(`✅ [STORAGE] Found ${key} on attempt ${attempt} (${value.length} chars)`);
+      return value.trim();
+    }
+    
+    console.log(`⏳ [STORAGE] Attempt ${attempt}/${maxRetries}: ${key} empty or missing, waiting ${delayMs}ms...`);
+    
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      // Exponential backoff
+      delayMs = Math.min(delayMs * 1.5, 5000);
+    }
   }
   
-  console.log(`❌ Secret ${key} not accessible - value: "${value}"`);
+  console.log(`❌ [STORAGE] Failed to load secret ${key} after ${maxRetries} attempts`);
+  return undefined;
+}
+
+// Enhanced DATABASE_URL construction with retry logic (more aggressive for database secrets)
+async function getDatabaseUrlAsync(): Promise<string | undefined> {
+  console.log('🔍 [STORAGE] Attempting to get DATABASE_URL...');
+  
+  // First try direct access with retries (more attempts for database secrets)
+  let databaseUrl = await getReplitSecretAsync('DATABASE_URL', 10, 2000);
+  
+  if (databaseUrl) {
+    return databaseUrl;
+  }
+  
+  // Fallback: try to construct from PG components (more aggressive retries)
+  console.log('🔧 [STORAGE] Trying to construct DATABASE_URL from PG components...');
+  
+  const [pgHost, pgPort, pgDatabase, pgUser, pgPassword] = await Promise.all([
+    getReplitSecretAsync('PGHOST', 10, 2000),
+    getReplitSecretAsync('PGPORT', 10, 2000),
+    getReplitSecretAsync('PGDATABASE', 10, 2000),
+    getReplitSecretAsync('PGUSER', 10, 2000),
+    getReplitSecretAsync('PGPASSWORD', 10, 2000),
+  ]);
+  
+  if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
+    databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
+    console.log(`✅ [STORAGE] Constructed DATABASE_URL from components`);
+    return databaseUrl;
+  }
+  
+  console.log('❌ [STORAGE] Unable to get DATABASE_URL via any method');
   return undefined;
 }
 
@@ -7278,38 +7313,9 @@ async function initializeStorage(): Promise<IStorage> {
       return memStorage;
     }
     
-    // First try direct environment access (same as drizzle config)
-    let databaseUrl = process.env.DATABASE_URL;
-    console.log('DATABASE_URL available (direct):', !!databaseUrl);
-    
-    // Fallback to getReplitSecret for other environments
-    if (!databaseUrl) {
-      console.log('DATABASE_URL not found via process.env, trying getReplitSecret...');
-      databaseUrl = getReplitSecret('DATABASE_URL');
-    }
-    
-    // If still not found, try constructing from PG components
-    if (!databaseUrl) {
-      console.log('DATABASE_URL not found, trying PG components...');
-      const pgHost = process.env.PGHOST || getReplitSecret('PGHOST');
-      const pgPort = process.env.PGPORT || getReplitSecret('PGPORT');
-      const pgDatabase = process.env.PGDATABASE || getReplitSecret('PGDATABASE');
-      const pgUser = process.env.PGUSER || getReplitSecret('PGUSER');
-      const pgPassword = process.env.PGPASSWORD || getReplitSecret('PGPASSWORD');
-      
-      console.log('PG components availability:', {
-        PGHOST: !!pgHost,
-        PGPORT: !!pgPort,
-        PGDATABASE: !!pgDatabase,
-        PGUSER: !!pgUser,
-        PGPASSWORD: !!pgPassword
-      });
-      
-      if (pgHost && pgPort && pgDatabase && pgUser && pgPassword) {
-        databaseUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=require`;
-        console.log('✅ Constructed DATABASE_URL from PG components');
-      }
-    }
+    // Use async retry-based secret loading
+    console.log('🚀 [STORAGE] Starting database URL retrieval with retries...');
+    const databaseUrl = await getDatabaseUrlAsync();
 
     console.log('DATABASE_URL exists:', !!databaseUrl);
     console.log('Environment:', process.env.NODE_ENV);
