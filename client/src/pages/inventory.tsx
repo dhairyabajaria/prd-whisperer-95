@@ -273,7 +273,13 @@ export default function InventoryPage() {
                           <FormItem>
                             <FormLabel>Quantity *</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="0" {...field} data-testid="input-quantity" />
+                              <Input 
+                                type="number" 
+                                placeholder="0" 
+                                value={field.value?.toString() || ''} 
+                                onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                                data-testid="input-quantity" 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
