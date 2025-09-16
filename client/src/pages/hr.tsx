@@ -427,7 +427,7 @@ export default function HRPage() {
                       <SelectValue placeholder="All Departments" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Departments</SelectItem>
+                      <SelectItem value="all-departments">All Departments</SelectItem>
                       {departments.filter(dept => dept && dept.trim()).map((dept) => (
                         <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                       ))}
@@ -752,7 +752,7 @@ export default function HRPage() {
                       <SelectValue placeholder="All Employees" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Employees</SelectItem>
+                      <SelectItem value="all-employees">All Employees</SelectItem>
                       {employees?.map((employee) => (
                         <SelectItem key={employee.id} value={employee.id}>
                           {employee.employeeNumber} - {employee.position}

@@ -586,7 +586,7 @@ export default function MarketingPage() {
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Status</SelectItem>
+                      <SelectItem value="all-status">All Status</SelectItem>
                       <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="paused">Paused</SelectItem>
@@ -600,7 +600,7 @@ export default function MarketingPage() {
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="all-types">All Types</SelectItem>
                       <SelectItem value="email">Email</SelectItem>
                       <SelectItem value="sms">SMS</SelectItem>
                       <SelectItem value="promotional">Promotional</SelectItem>
@@ -1003,7 +1003,7 @@ export default function MarketingPage() {
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Status</SelectItem>
+                      <SelectItem value="all-status">All Status</SelectItem>
                       <SelectItem value="new">New</SelectItem>
                       <SelectItem value="contacted">Contacted</SelectItem>
                       <SelectItem value="qualified">Qualified</SelectItem>
@@ -1018,7 +1018,7 @@ export default function MarketingPage() {
                       <SelectValue placeholder="All Sources" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Sources</SelectItem>
+                      <SelectItem value="all-sources">All Sources</SelectItem>
                       <SelectItem value="website">Website</SelectItem>
                       <SelectItem value="referral">Referral</SelectItem>
                       <SelectItem value="campaign">Campaign</SelectItem>
@@ -1224,7 +1224,7 @@ export default function MarketingPage() {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    <SelectItem value="">Unassigned</SelectItem>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
                                     {users?.filter(u => u.role === 'sales' || u.role === 'admin').map((user) => (
                                       <SelectItem key={user.id} value={user.id}>
                                         {user.firstName} {user.lastName}
@@ -1515,7 +1515,7 @@ export default function MarketingPage() {
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="all-types">All Types</SelectItem>
                       <SelectItem value="email">Email</SelectItem>
                       <SelectItem value="phone">Phone</SelectItem>
                       <SelectItem value="sms">SMS</SelectItem>
