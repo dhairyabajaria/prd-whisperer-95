@@ -31,7 +31,14 @@ function loadReplitSecret(key: string): SecretLoadResult {
       isUndefined: envValue === undefined,
       isNull: envValue === null,
       isEmpty: envValue === '',
-      hasValue: !!(envValue && envValue.trim().length > 0)
+      length: envValue ? envValue.length : 0,
+      trimLength: envValue ? envValue.trim().length : 0,
+      hasValue: !!(envValue && envValue.trim().length > 0),
+      startsWithCorrectFormat: envValue && (
+        (key === 'OPENAI_API_KEY' && envValue.startsWith('sk-')) ||
+        (key === 'DATABASE_URL' && envValue.startsWith('postgresql://')) ||
+        key.startsWith('PG')
+      )
     });
     
     // CRITICAL FIX: Treat empty strings as "missing" since Replit integrations 
