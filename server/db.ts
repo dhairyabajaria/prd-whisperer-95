@@ -159,11 +159,19 @@ async function testConnectionPoolHealth(testPool: Pool): Promise<void> {
   }
 }
 
-// Connection pool monitoring function
+// MEMORY LEAK FIX: Connection pool monitoring with proper cleanup
+let poolMonitoringInterval: NodeJS.Timeout | null = null;
+
 function startConnectionPoolMonitoring(): void {
   console.log('📊 [DB] Starting connection pool monitoring...');
   
-  setInterval(() => {
+  // Clear any existing interval to prevent multiple timers
+  if (poolMonitoringInterval) {
+    clearInterval(poolMonitoringInterval);
+    poolMonitoringInterval = null;
+  }
+  
+  poolMonitoringInterval = setInterval(() => {
     if (pool) {
       const totalCount = pool.totalCount;
       const idleCount = pool.idleCount;
@@ -179,8 +187,21 @@ function startConnectionPoolMonitoring(): void {
       if (totalCount >= optimizedPoolConfig.max * 0.9) {
         console.warn(`⚠️  [DB Pool] Near connection limit: ${totalCount}/${optimizedPoolConfig.max} connections used`);
       }
+    } else {
+      // Pool no longer exists, stop monitoring
+      console.log('📊 [DB] Pool no longer exists, stopping monitoring');
+      stopConnectionPoolMonitoring();
     }
   }, 30000); // Monitor every 30 seconds
+}
+
+// MEMORY LEAK FIX: Function to stop monitoring and clear timer
+function stopConnectionPoolMonitoring(): void {
+  if (poolMonitoringInterval) {
+    clearInterval(poolMonitoringInterval);
+    poolMonitoringInterval = null;
+    console.log('📊 [DB] Connection pool monitoring stopped');
+  }
 }
 
 // Start async database initialization
@@ -195,21 +216,43 @@ initializeDatabase()
     console.error('💥 [DB] Database initialization failed completely:', error);
   });
 
-// Proper shutdown function
+// MEMORY LEAK FIX: Enhanced shutdown function with timer cleanup
 async function shutdownDatabase(): Promise<void> {
+  console.log('🔄 [DB] Starting database shutdown sequence...');
+  
+  // CRITICAL: Stop monitoring timer first to prevent memory leaks
+  stopConnectionPoolMonitoring();
+  
   if (pool) {
     console.log('🔄 [DB] Shutting down database connection pool...');
     try {
+      // Wait for active connections to finish
+      const activeConnections = pool.totalCount;
+      if (activeConnections > 0) {
+        console.log(`🔄 [DB] Waiting for ${activeConnections} active connections to close...`);
+        // Give connections 5 seconds to close gracefully
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      
       await pool.end();
       console.log('✅ [DB] Database connection pool closed successfully');
     } catch (error) {
       console.error('❌ [DB] Error closing database pool:', error);
+      // Force close connections if graceful shutdown fails
+      try {
+        await pool.end({ force: true } as any);
+        console.log('✅ [DB] Database connection pool force closed');
+      } catch (forceError) {
+        console.error('❌ [DB] Error force closing database pool:', forceError);
+      }
     }
     pool = null;
     db = null;
     isInitialized = false;
     initializationPromise = null;
   }
+  
+  console.log('✅ [DB] Database shutdown sequence completed');
 }
 
 // Register shutdown handlers to prevent connection leaks

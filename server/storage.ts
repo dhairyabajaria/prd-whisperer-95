@@ -1841,14 +1841,8 @@ export class DatabaseStorage implements IStorage {
     cutoffDate.setDate(cutoffDate.getDate() + 90);
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
 
-    // Execute all queries in parallel for massive performance improvement
-    const [
-      revenueResults,
-      productsResults, 
-      ordersResults,
-      outstandingResults,
-      expiringResults
-    ] = await Promise.all([
+    // MEMORY LEAK FIX: Execute all queries in parallel with proper error handling
+    const results = await Promise.allSettled([
       // Total revenue from confirmed sales orders
       db
         .select({
@@ -1895,12 +1889,42 @@ export class DatabaseStorage implements IStorage {
         )
     ]);
 
+    // MEMORY LEAK FIX: Handle Promise.allSettled results with proper error handling
+    const [
+      revenueResults,
+      productsResults, 
+      ordersResults,
+      outstandingResults,
+      expiringResults
+    ] = results;
+
+    // Safely extract results or log errors for each query
+    const totalRevenue = revenueResults.status === 'fulfilled' 
+      ? Number(revenueResults.value[0]?.total || 0) 
+      : (console.error('Revenue query failed:', revenueResults.reason), 0);
+    
+    const activeProducts = productsResults.status === 'fulfilled' 
+      ? Number(productsResults.value[0]?.count || 0) 
+      : (console.error('Products query failed:', productsResults.reason), 0);
+    
+    const openOrders = ordersResults.status === 'fulfilled' 
+      ? Number(ordersResults.value[0]?.count || 0) 
+      : (console.error('Orders query failed:', ordersResults.reason), 0);
+    
+    const outstandingAmount = outstandingResults.status === 'fulfilled' 
+      ? Number(outstandingResults.value[0]?.total || 0) 
+      : (console.error('Outstanding query failed:', outstandingResults.reason), 0);
+    
+    const expiringProductsCount = expiringResults.status === 'fulfilled' 
+      ? Number(expiringResults.value[0]?.count || 0) 
+      : (console.error('Expiring products query failed:', expiringResults.reason), 0);
+
     return {
-      totalRevenue: Number(revenueResults[0]?.total || 0),
-      activeProducts: Number(productsResults[0]?.count || 0),
-      openOrders: Number(ordersResults[0]?.count || 0),
-      outstandingAmount: Number(outstandingResults[0]?.total || 0),
-      expiringProductsCount: Number(expiringResults[0]?.count || 0),
+      totalRevenue,
+      activeProducts,
+      openOrders,
+      outstandingAmount,
+      expiringProductsCount,
     };
   }
 

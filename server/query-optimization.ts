@@ -475,11 +475,35 @@ class QueryOptimizationEngine {
     this.queryStats.set(queryHash, stats);
   }
 
+  // MEMORY LEAK FIX: Track timer for proper cleanup
+  private performanceTrackingTimer: NodeJS.Timeout | null = null;
+
   private startPerformanceTracking(): void {
+    // Clear any existing timer to prevent duplicates
+    if (this.performanceTrackingTimer) {
+      clearInterval(this.performanceTrackingTimer);
+    }
+    
     // Log query performance summary every 5 minutes
-    setInterval(() => {
+    this.performanceTrackingTimer = setInterval(() => {
       this.logPerformanceSummary();
     }, 300000);
+  }
+
+  // MEMORY LEAK FIX: Add cleanup method for query optimization
+  public cleanup(): void {
+    console.log('🔄 [Query Optimizer] Shutting down...');
+    
+    if (this.performanceTrackingTimer) {
+      clearInterval(this.performanceTrackingTimer);
+      this.performanceTrackingTimer = null;
+    }
+    
+    // Clear caches and stats to free memory
+    this.cachedResults.clear();
+    this.queryStats.clear();
+    
+    console.log('✅ [Query Optimizer] Cleanup complete');
   }
 
   private logPerformanceSummary(): void {
@@ -696,6 +720,20 @@ class IndexManager {
 
 export const queryOptimizer = new QueryOptimizationEngine();
 export const indexManager = new IndexManager();
+
+// MEMORY LEAK FIX: Register shutdown handler to prevent timer leaks
+import('./shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+  registerShutdownHandler({
+    name: 'query-optimizer',
+    priority: 20, // Query optimizer should shut down early
+    shutdown: async () => {
+      console.log('🔄 [Shutdown] Stopping query optimizer...');
+      queryOptimizer.cleanup();
+    }
+  });
+}).catch(error => {
+  console.error('❌ [Query Optimizer] Failed to register shutdown handler:', error);
+});
 
 // Convenience functions
 export async function optimizedQuery<T = any>(

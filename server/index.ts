@@ -3,6 +3,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { fxRateScheduler } from "./scheduler";
+// MEMORY LEAK FIX: Import memory leak monitor for active production monitoring
+import { memoryLeakMonitor } from "./memory-leak-monitor";
 
 const app = express();
 app.use(express.json());

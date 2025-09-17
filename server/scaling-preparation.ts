@@ -290,17 +290,43 @@ class HorizontalScalingManager extends EventEmitter {
   // HEALTH MONITORING
   // ===============================
 
+  // MEMORY LEAK FIX: Enhanced health monitoring with proper cleanup
   private startHealthMonitoring(): void {
+    // Clear any existing timer to prevent duplicates
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+    }
+    
     this.healthCheckTimer = setInterval(async () => {
-      await this.performHealthChecks();
+      try {
+        await this.performHealthChecks();
+      } catch (error) {
+        console.error('❌ [Health Check] Failed to perform health checks:', error);
+      }
     }, this.loadBalancerConfig.healthCheckInterval);
 
-    // Cleanup on exit
-    process.on('exit', () => {
-      if (this.healthCheckTimer) {
-        clearInterval(this.healthCheckTimer);
-      }
-    });
+    console.log(`📊 [Health Monitor] Started with ${this.loadBalancerConfig.healthCheckInterval}ms interval`);
+  }
+
+  // MEMORY LEAK FIX: Enhanced cleanup method
+  public cleanup(): void {
+    console.log('🔄 [Scaling Manager] Shutting down...');
+    
+    // Stop health monitoring
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+    }
+    
+    // Clear node tracking data
+    this.nodes.clear();
+    this.requestHistory = [];
+    
+    // Remove all event listeners to prevent memory leaks
+    this.removeAllListeners();
+    
+    console.log('✅ [Scaling Manager] Cleanup complete');
   }
 
   private async performHealthChecks(): Promise<void> {
@@ -707,6 +733,20 @@ export function createLoadBalancerMiddleware(scalingManager: HorizontalScalingMa
 // ===============================
 
 export const scalingManager = new HorizontalScalingManager();
+
+// MEMORY LEAK FIX: Register shutdown handler to prevent timer leaks
+import('./shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+  registerShutdownHandler({
+    name: 'scaling-manager',
+    priority: 15, // Scaling manager should shut down early
+    shutdown: async () => {
+      console.log('🔄 [Shutdown] Stopping scaling manager...');
+      scalingManager.cleanup();
+    }
+  });
+}).catch(error => {
+  console.error('❌ [Scaling Manager] Failed to register shutdown handler:', error);
+});
 
 // Event handlers for scaling events
 scalingManager.on('scaleUpRecommended', (evaluation) => {
