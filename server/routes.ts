@@ -77,6 +77,7 @@ import {
   cacheMiddleware,
   cache 
 } from "./cache";
+import { memoryOptimizedMiddleware } from "../critical-cache-implementation";
 import { createPhase3Middleware, addPhase3Routes, enhancedDatabaseQuery, orchestrator } from "./phase3-integration";
 
 // Performance optimization: User authentication cache - Target: 608ms → <200ms
@@ -236,6 +237,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Phase 3: Apply advanced performance middleware
   const phase3Middleware = createPhase3Middleware();
   app.use(...phase3Middleware);
+
+  // MEMORY LEAK FIX: Apply memory optimized middleware for concurrent request handling
+  app.use(memoryOptimizedMiddleware());
+  console.log('✅ Memory optimized middleware applied - Active memory leak prevention');
 
   // Performance optimization: Enable gzip compression for API responses
   app.use(compression({
