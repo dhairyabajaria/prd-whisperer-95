@@ -1,0 +1,43 @@
+
+🧠 MEMORY & RESOURCE MONITORING REPORT
+=====================================
+Monitoring Date: 2025-09-17T06:41:20.637Z
+Process Info: Node.js v20.19.3 on linux
+
+📊 MEMORY USAGE SUMMARY
+----------------------
+Initial Memory: 48 MB
+Final Memory: 68.08 MB
+Peak Memory: 70.98 MB
+Memory Change: 20.08 MB
+Avg Heap Utilization: 76.1%
+
+🧪 LOAD TEST MEMORY ANALYSIS
+=============================
+
+Idle Memory Baseline:
+  Duration: 5002ms
+  Memory Change: 128 KB
+  Peak Memory: 48.25 MB
+
+API Load Memory Test:
+  Duration: 9144ms
+  Memory Change: 19.83 MB
+  Peak Memory: 70.98 MB
+  ⚠️  Memory Leak: medium severity
+
+🖥️  SYSTEM METRICS
+================
+Load Average: 5.52 (1min)
+
+💡 OPTIMIZATION RECOMMENDATIONS
+================================
+
+1. [MEDIUM] High heap utilization: 83.6%
+   Solution: Consider increasing heap size or optimizing memory usage
+
+2. [HIGH] Potential memory leaks detected in 1 tests
+   Solution: Investigate and fix memory leaks to prevent production issues
+
+3. [MEDIUM] High system load: 5.52
+   Solution: Monitor system performance and consider resource scaling

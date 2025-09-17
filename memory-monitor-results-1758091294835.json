@@ -1,0 +1,406 @@
+{
+  "timestamp": "2025-09-17T06:41:20.637Z",
+  "memorySnapshots": [
+    {
+      "timestamp": "2025-09-17T06:41:20.684Z",
+      "rss": 50331648,
+      "heapTotal": 6004736,
+      "heapUsed": 4258512,
+      "external": 1883684,
+      "arrayBuffers": 76899,
+      "heapUtilization": 70.91922109481582,
+      "rssHuman": "48 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.06 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:20.685Z",
+      "rss": 50462720,
+      "heapTotal": 6004736,
+      "heapUsed": 4272952,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 71.15969794508868,
+      "rssHuman": "48.13 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.08 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:21.687Z",
+      "rss": 50593792,
+      "heapTotal": 6004736,
+      "heapUsed": 4283176,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 71.32996354877217,
+      "rssHuman": "48.25 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.08 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:22.688Z",
+      "rss": 50593792,
+      "heapTotal": 6004736,
+      "heapUsed": 4285888,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 71.37512789904503,
+      "rssHuman": "48.25 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.09 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:23.689Z",
+      "rss": 50593792,
+      "heapTotal": 6004736,
+      "heapUsed": 4288448,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 71.41776091405184,
+      "rssHuman": "48.25 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.09 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:24.690Z",
+      "rss": 50593792,
+      "heapTotal": 6004736,
+      "heapUsed": 4291008,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 71.46039392905867,
+      "rssHuman": "48.25 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.09 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:25.687Z",
+      "rss": 50593792,
+      "heapTotal": 6004736,
+      "heapUsed": 4294016,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 71.51048772169167,
+      "rssHuman": "48.25 MB",
+      "heapTotalHuman": "5.73 MB",
+      "heapUsedHuman": "4.1 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:25.688Z",
+      "rss": 50593792,
+      "heapTotal": 6266880,
+      "heapUsed": 4567400,
+      "external": 1883724,
+      "arrayBuffers": 76899,
+      "heapUtilization": 72.88156147875817,
+      "rssHuman": "48.25 MB",
+      "heapTotalHuman": "5.98 MB",
+      "heapUsedHuman": "4.36 MB",
+      "externalHuman": "1.8 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:26.688Z",
+      "rss": 62402560,
+      "heapTotal": 12451840,
+      "heapUsed": 8972816,
+      "external": 3453314,
+      "arrayBuffers": 65724,
+      "heapUtilization": 72.06016138980263,
+      "rssHuman": "59.51 MB",
+      "heapTotalHuman": "11.88 MB",
+      "heapUsedHuman": "8.56 MB",
+      "externalHuman": "3.29 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:27.688Z",
+      "rss": 62402560,
+      "heapTotal": 12451840,
+      "heapUsed": 8976408,
+      "external": 3453314,
+      "arrayBuffers": 65724,
+      "heapUtilization": 72.08900853207237,
+      "rssHuman": "59.51 MB",
+      "heapTotalHuman": "11.88 MB",
+      "heapUsedHuman": "8.56 MB",
+      "externalHuman": "3.29 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:28.689Z",
+      "rss": 62402560,
+      "heapTotal": 12451840,
+      "heapUsed": 8979696,
+      "external": 3453314,
+      "arrayBuffers": 65724,
+      "heapUtilization": 72.11541426809211,
+      "rssHuman": "59.51 MB",
+      "heapTotalHuman": "11.88 MB",
+      "heapUsedHuman": "8.56 MB",
+      "externalHuman": "3.29 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:29.690Z",
+      "rss": 72503296,
+      "heapTotal": 12451840,
+      "heapUsed": 9258520,
+      "external": 3455978,
+      "arrayBuffers": 68388,
+      "heapUtilization": 74.35463353207237,
+      "rssHuman": "69.14 MB",
+      "heapTotalHuman": "11.88 MB",
+      "heapUsedHuman": "8.83 MB",
+      "externalHuman": "3.3 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:30.690Z",
+      "rss": 71544832,
+      "heapTotal": 9830400,
+      "heapUsed": 9033776,
+      "external": 3455978,
+      "arrayBuffers": 68388,
+      "heapUtilization": 91.89632161458333,
+      "rssHuman": "68.23 MB",
+      "heapTotalHuman": "9.38 MB",
+      "heapUsedHuman": "8.62 MB",
+      "externalHuman": "3.3 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:31.689Z",
+      "rss": 73510912,
+      "heapTotal": 11403264,
+      "heapUsed": 8886824,
+      "external": 3453758,
+      "arrayBuffers": 66168,
+      "heapUtilization": 77.93228324802442,
+      "rssHuman": "70.11 MB",
+      "heapTotalHuman": "10.88 MB",
+      "heapUsedHuman": "8.48 MB",
+      "externalHuman": "3.29 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:32.689Z",
+      "rss": 74428416,
+      "heapTotal": 11403264,
+      "heapUsed": 9407152,
+      "external": 3457310,
+      "arrayBuffers": 69720,
+      "heapUtilization": 82.49525749820403,
+      "rssHuman": "70.98 MB",
+      "heapTotalHuman": "10.88 MB",
+      "heapUsedHuman": "8.97 MB",
+      "externalHuman": "3.3 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:33.689Z",
+      "rss": 73908224,
+      "heapTotal": 10354688,
+      "heapUsed": 9203288,
+      "external": 3461306,
+      "arrayBuffers": 71504,
+      "heapUtilization": 88.88039890723893,
+      "rssHuman": "70.48 MB",
+      "heapTotalHuman": "9.88 MB",
+      "heapUsedHuman": "8.78 MB",
+      "externalHuman": "3.3 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:34.691Z",
+      "rss": 71389184,
+      "heapTotal": 8781824,
+      "heapUsed": 7256808,
+      "external": 3450533,
+      "arrayBuffers": 66558,
+      "heapUtilization": 82.63440487989739,
+      "rssHuman": "68.08 MB",
+      "heapTotalHuman": "8.38 MB",
+      "heapUsedHuman": "6.92 MB",
+      "externalHuman": "3.29 MB"
+    },
+    {
+      "timestamp": "2025-09-17T06:41:34.832Z",
+      "rss": 71389184,
+      "heapTotal": 8781824,
+      "heapUsed": 7337384,
+      "external": 3451421,
+      "arrayBuffers": 67446,
+      "heapUtilization": 83.55193636310634,
+      "rssHuman": "68.08 MB",
+      "heapTotalHuman": "8.38 MB",
+      "heapUsedHuman": "7 MB",
+      "externalHuman": "3.29 MB"
+    }
+  ],
+  "processInfo": {
+    "nodeVersion": "v20.19.3",
+    "platform": "linux",
+    "arch": "x64",
+    "pid": 5316,
+    "uptime": 0.072360352,
+    "cwd": "/home/runner/workspace"
+  },
+  "systemMetrics": {
+    "memory": {
+      "MemTotal": "65856200 kB",
+      "MemFree": "10430500 kB",
+      "MemAvailable": "51566276 kB",
+      "Buffers": "766628 kB",
+      "Cached": "39640444 kB",
+      "SwapCached": "0 kB",
+      "Active": "14293272 kB",
+      "Inactive": "38640688 kB",
+      "Active(anon)": "12491108 kB",
+      "Inactive(anon)": "28412 kB"
+    },
+    "cpu": "model name\t: AMD EPYC 7B13",
+    "loadAverage": {
+      "1min": 5.52,
+      "5min": 5.47,
+      "15min": 4.2
+    }
+  },
+  "loadTests": [
+    {
+      "testName": "Idle Memory Baseline",
+      "duration": 5002,
+      "startMemory": {
+        "timestamp": "2025-09-17T06:41:20.685Z",
+        "rss": 50462720,
+        "heapTotal": 6004736,
+        "heapUsed": 4272952,
+        "external": 1883724,
+        "arrayBuffers": 76899,
+        "heapUtilization": 71.15969794508868,
+        "rssHuman": "48.13 MB",
+        "heapTotalHuman": "5.73 MB",
+        "heapUsedHuman": "4.08 MB",
+        "externalHuman": "1.8 MB"
+      },
+      "endMemory": {
+        "timestamp": "2025-09-17T06:41:25.687Z",
+        "rss": 50593792,
+        "heapTotal": 6004736,
+        "heapUsed": 4294016,
+        "external": 1883724,
+        "arrayBuffers": 76899,
+        "heapUtilization": 71.51048772169167,
+        "rssHuman": "48.25 MB",
+        "heapTotalHuman": "5.73 MB",
+        "heapUsedHuman": "4.1 MB",
+        "externalHuman": "1.8 MB"
+      },
+      "peakMemory": {
+        "timestamp": "2025-09-17T06:41:21.687Z",
+        "rss": 50593792,
+        "heapTotal": 6004736,
+        "heapUsed": 4283176,
+        "external": 1883724,
+        "arrayBuffers": 76899,
+        "heapUtilization": 71.32996354877217,
+        "rssHuman": "48.25 MB",
+        "heapTotalHuman": "5.73 MB",
+        "heapUsedHuman": "4.08 MB",
+        "externalHuman": "1.8 MB"
+      },
+      "memoryLeak": {
+        "detected": false,
+        "reason": "Insufficient data points"
+      },
+      "analysis": {
+        "rssTrend": "increasing",
+        "heapTrend": "increasing",
+        "avgHeapUtilization": 71.37557199295135,
+        "memoryVolatility": 48847.65032447541
+      }
+    },
+    {
+      "testName": "API Load Memory Test",
+      "duration": 9144,
+      "startMemory": {
+        "timestamp": "2025-09-17T06:41:25.688Z",
+        "rss": 50593792,
+        "heapTotal": 6266880,
+        "heapUsed": 4567400,
+        "external": 1883724,
+        "arrayBuffers": 76899,
+        "heapUtilization": 72.88156147875817,
+        "rssHuman": "48.25 MB",
+        "heapTotalHuman": "5.98 MB",
+        "heapUsedHuman": "4.36 MB",
+        "externalHuman": "1.8 MB"
+      },
+      "endMemory": {
+        "timestamp": "2025-09-17T06:41:34.832Z",
+        "rss": 71389184,
+        "heapTotal": 8781824,
+        "heapUsed": 7337384,
+        "external": 3451421,
+        "arrayBuffers": 67446,
+        "heapUtilization": 83.55193636310634,
+        "rssHuman": "68.08 MB",
+        "heapTotalHuman": "8.38 MB",
+        "heapUsedHuman": "7 MB",
+        "externalHuman": "3.29 MB"
+      },
+      "peakMemory": {
+        "timestamp": "2025-09-17T06:41:32.689Z",
+        "rss": 74428416,
+        "heapTotal": 11403264,
+        "heapUsed": 9407152,
+        "external": 3457310,
+        "arrayBuffers": 69720,
+        "heapUtilization": 82.49525749820403,
+        "rssHuman": "70.98 MB",
+        "heapTotalHuman": "10.88 MB",
+        "heapUsedHuman": "8.97 MB",
+        "externalHuman": "3.3 MB"
+      },
+      "memoryLeak": {
+        "detected": true,
+        "severity": "medium",
+        "rssTrend": "1.73 MB",
+        "heapTrend": "72.35 KB"
+      },
+      "analysis": {
+        "rssTrend": "increasing",
+        "heapTrend": "increasing",
+        "avgHeapUtilization": 79.17194379198655,
+        "memoryVolatility": 7129830.060586571
+      },
+      "loadResults": {
+        "totalRequests": 50,
+        "successful": 50,
+        "failed": 0,
+        "successRate": 100
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "heap_pressure",
+      "priority": "medium",
+      "issue": "High heap utilization: 83.6%",
+      "recommendation": "Consider increasing heap size or optimizing memory usage"
+    },
+    {
+      "type": "memory_leak",
+      "priority": "high",
+      "issue": "Potential memory leaks detected in 1 tests",
+      "recommendation": "Investigate and fix memory leaks to prevent production issues",
+      "affectedTests": [
+        "API Load Memory Test"
+      ]
+    },
+    {
+      "type": "high_system_load",
+      "priority": "medium",
+      "issue": "High system load: 5.52",
+      "recommendation": "Monitor system performance and consider resource scaling"
+    }
+  ]
+}

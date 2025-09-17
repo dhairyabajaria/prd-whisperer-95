@@ -1,0 +1,433 @@
+{
+  "timestamp": "2025-09-17T06:34:04.186Z",
+  "summary": {
+    "totalEndpoints": 15,
+    "totalRequests": 150,
+    "totalErrors": 0,
+    "overallSuccessRate": "100.00",
+    "avgResponseTime": "579.18",
+    "fastestEndpoint": {
+      "endpoint": "/api/health",
+      "name": "Health Check",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 1.215433,
+        "max": 24.737461,
+        "avg": 5.250609300000001,
+        "median": 2.7224684999999997,
+        "p95": 24.737461,
+        "p99": 24.737461
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 155
+    },
+    "slowestEndpoint": {
+      "endpoint": "/api/quotations",
+      "name": "Quotations",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 988.193701,
+        "max": 1742.724794,
+        "avg": 1065.5138113,
+        "median": 990.071336,
+        "p95": 1742.724794,
+        "p99": 1742.724794
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 3969
+    },
+    "highLatencyEndpoints": [
+      {
+        "endpoint": "/api/quotations",
+        "name": "Quotations",
+        "iterations": 10,
+        "successCount": 10,
+        "errorCount": 0,
+        "successRate": 100,
+        "responseTime": {
+          "min": 988.193701,
+          "max": 1742.724794,
+          "avg": 1065.5138113,
+          "median": 990.071336,
+          "p95": 1742.724794,
+          "p99": 1742.724794
+        },
+        "statusCodes": {
+          "200": 10
+        },
+        "avgContentLength": 3969
+      }
+    ],
+    "errorProneEndpoints": []
+  },
+  "endpoints": {
+    "Health Check": {
+      "endpoint": "/api/health",
+      "name": "Health Check",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 1.215433,
+        "max": 24.737461,
+        "avg": 5.250609300000001,
+        "median": 2.7224684999999997,
+        "p95": 24.737461,
+        "p99": 24.737461
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 155
+    },
+    "User Authentication": {
+      "endpoint": "/api/auth/user",
+      "name": "User Authentication",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 491.312424,
+        "max": 1626.970322,
+        "avg": 608.1863218000001,
+        "median": 492.82084699999996,
+        "p95": 1626.970322,
+        "p99": 1626.970322
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 212
+    },
+    "Dashboard Metrics": {
+      "endpoint": "/api/dashboard/metrics",
+      "name": "Dashboard Metrics",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 483.067732,
+        "max": 1435.977408,
+        "avg": 586.8235448,
+        "median": 492.902442,
+        "p95": 1435.977408,
+        "p99": 1435.977408
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 104
+    },
+    "Dashboard Transactions": {
+      "endpoint": "/api/dashboard/transactions",
+      "name": "Dashboard Transactions",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 736.573935,
+        "max": 768.355888,
+        "avg": 741.3317802999999,
+        "median": 738.431462,
+        "p95": 768.355888,
+        "p99": 768.355888
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 668
+    },
+    "Expiring Products": {
+      "endpoint": "/api/dashboard/expiring-products",
+      "name": "Expiring Products",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 492.180022,
+        "max": 500.951712,
+        "avg": 494.9108179000001,
+        "median": 494.6973405,
+        "p95": 500.951712,
+        "p99": 500.951712
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 1686
+    },
+    "Customer List": {
+      "endpoint": "/api/customers",
+      "name": "Customer List",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 490.891974,
+        "max": 493.61325,
+        "avg": 492.4796131,
+        "median": 492.62320650000004,
+        "p95": 493.61325,
+        "p99": 493.61325
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 1084
+    },
+    "Product List": {
+      "endpoint": "/api/products",
+      "name": "Product List",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 491.332557,
+        "max": 496.159663,
+        "avg": 492.7520221000001,
+        "median": 492.5651515,
+        "p95": 496.159663,
+        "p99": 496.159663
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 1414
+    },
+    "Inventory Data": {
+      "endpoint": "/api/inventory",
+      "name": "Inventory Data",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 491.369473,
+        "max": 501.039352,
+        "avg": 494.291014,
+        "median": 493.90696049999997,
+        "p95": 501.039352,
+        "p99": 501.039352
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 2594
+    },
+    "Supplier List": {
+      "endpoint": "/api/suppliers",
+      "name": "Supplier List",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 491.625004,
+        "max": 493.834599,
+        "avg": 492.21382459999995,
+        "median": 491.937415,
+        "p95": 493.834599,
+        "p99": 493.834599
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 909
+    },
+    "Warehouse List": {
+      "endpoint": "/api/warehouses",
+      "name": "Warehouse List",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 491.308087,
+        "max": 496.326004,
+        "avg": 493.6687844,
+        "median": 493.496302,
+        "p95": 496.326004,
+        "p99": 496.326004
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 533
+    },
+    "Sales Orders": {
+      "endpoint": "/api/sales-orders",
+      "name": "Sales Orders",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 491.75615,
+        "max": 495.061487,
+        "avg": 493.2706201,
+        "median": 493.094851,
+        "p95": 495.061487,
+        "p99": 495.061487
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 1992
+    },
+    "Purchase Orders": {
+      "endpoint": "/api/purchase-orders",
+      "name": "Purchase Orders",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 736.095057,
+        "max": 756.123159,
+        "avg": 740.7238047999999,
+        "median": 738.8689415,
+        "p95": 756.123159,
+        "p99": 756.123159
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 1617
+    },
+    "Quotations": {
+      "endpoint": "/api/quotations",
+      "name": "Quotations",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 988.193701,
+        "max": 1742.724794,
+        "avg": 1065.5138113,
+        "median": 990.071336,
+        "p95": 1742.724794,
+        "p99": 1742.724794
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 3969
+    },
+    "Employee List": {
+      "endpoint": "/api/employees",
+      "name": "Employee List",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 740.022627,
+        "max": 752.318954,
+        "avg": 743.8137738,
+        "median": 743.132096,
+        "p95": 752.318954,
+        "p99": 752.318954
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 2190
+    },
+    "POS Terminals": {
+      "endpoint": "/api/pos-terminals",
+      "name": "POS Terminals",
+      "iterations": 10,
+      "successCount": 10,
+      "errorCount": 0,
+      "successRate": 100,
+      "responseTime": {
+        "min": 740.353528,
+        "max": 745.372796,
+        "avg": 742.4468281,
+        "median": 742.1977945000001,
+        "p95": 745.372796,
+        "p99": 745.372796
+      },
+      "statusCodes": {
+        "200": 10
+      },
+      "avgContentLength": 723
+    }
+  },
+  "concurrency": {
+    "/api/health": {
+      "endpoint": "/api/health",
+      "concurrentUsers": 20,
+      "requestsPerUser": 5,
+      "totalRequests": 100,
+      "successfulRequests": 100,
+      "failedRequests": 0,
+      "totalTime": 131,
+      "throughput": 763.3587786259543,
+      "avgResponseTime": 78.32478959999997
+    },
+    "/api/dashboard/metrics": {
+      "endpoint": "/api/dashboard/metrics",
+      "concurrentUsers": 10,
+      "requestsPerUser": 3,
+      "totalRequests": 30,
+      "successfulRequests": 30,
+      "failedRequests": 0,
+      "totalTime": 4448,
+      "throughput": 6.744604316546762,
+      "avgResponseTime": 2656.8548881666666
+    },
+    "/api/customers": {
+      "endpoint": "/api/customers",
+      "concurrentUsers": 5,
+      "requestsPerUser": 2,
+      "totalRequests": 10,
+      "successfulRequests": 10,
+      "failedRequests": 0,
+      "totalTime": 522,
+      "throughput": 19.157088122605362,
+      "avgResponseTime": 506.22788790000004
+    },
+    "/api/products": {
+      "endpoint": "/api/products",
+      "concurrentUsers": 5,
+      "requestsPerUser": 2,
+      "totalRequests": 10,
+      "successfulRequests": 10,
+      "failedRequests": 0,
+      "totalTime": 511,
+      "throughput": 19.569471624266143,
+      "avgResponseTime": 496.2324458
+    },
+    "/api/inventory": {
+      "endpoint": "/api/inventory",
+      "concurrentUsers": 5,
+      "requestsPerUser": 2,
+      "totalRequests": 10,
+      "successfulRequests": 10,
+      "failedRequests": 0,
+      "totalTime": 497,
+      "throughput": 20.120724346076457,
+      "avgResponseTime": 485.46750969999994
+    }
+  },
+  "errors": []
+}

@@ -1,0 +1,164 @@
+
+🎯 PHARMACEUTICAL ERP/CRM PERFORMANCE TEST REPORT
+==================================================
+Test Date: 2025-09-17T06:34:04.186Z
+Test Duration: Comprehensive API Performance Analysis
+
+📊 SUMMARY STATISTICS
+---------------------
+Total Endpoints Tested: 15
+Total Requests: 150
+Total Errors: 0
+Overall Success Rate: 100.00%
+Average Response Time: 579.18ms
+
+🏆 PERFORMANCE LEADERS
+----------------------
+Fastest Endpoint: Health Check (5.25ms)
+Slowest Endpoint: Quotations (1065.51ms)
+
+⚠️  PERFORMANCE CONCERNS
+-----------------------
+High Latency Endpoints (>1000ms):
+  • Quotations: 1065.51ms
+
+📈 DETAILED ENDPOINT ANALYSIS
+-----------------------------
+
+Health Check:
+  • Avg Response: 5.25ms
+  • Min/Max: 1.22ms / 24.74ms
+  • P95/P99: 24.74ms / 24.74ms
+  • Success Rate: 100.0%
+  • Avg Content: 155 bytes
+
+User Authentication:
+  • Avg Response: 608.19ms
+  • Min/Max: 491.31ms / 1626.97ms
+  • P95/P99: 1626.97ms / 1626.97ms
+  • Success Rate: 100.0%
+  • Avg Content: 212 bytes
+
+Dashboard Metrics:
+  • Avg Response: 586.82ms
+  • Min/Max: 483.07ms / 1435.98ms
+  • P95/P99: 1435.98ms / 1435.98ms
+  • Success Rate: 100.0%
+  • Avg Content: 104 bytes
+
+Dashboard Transactions:
+  • Avg Response: 741.33ms
+  • Min/Max: 736.57ms / 768.36ms
+  • P95/P99: 768.36ms / 768.36ms
+  • Success Rate: 100.0%
+  • Avg Content: 668 bytes
+
+Expiring Products:
+  • Avg Response: 494.91ms
+  • Min/Max: 492.18ms / 500.95ms
+  • P95/P99: 500.95ms / 500.95ms
+  • Success Rate: 100.0%
+  • Avg Content: 1686 bytes
+
+Customer List:
+  • Avg Response: 492.48ms
+  • Min/Max: 490.89ms / 493.61ms
+  • P95/P99: 493.61ms / 493.61ms
+  • Success Rate: 100.0%
+  • Avg Content: 1084 bytes
+
+Product List:
+  • Avg Response: 492.75ms
+  • Min/Max: 491.33ms / 496.16ms
+  • P95/P99: 496.16ms / 496.16ms
+  • Success Rate: 100.0%
+  • Avg Content: 1414 bytes
+
+Inventory Data:
+  • Avg Response: 494.29ms
+  • Min/Max: 491.37ms / 501.04ms
+  • P95/P99: 501.04ms / 501.04ms
+  • Success Rate: 100.0%
+  • Avg Content: 2594 bytes
+
+Supplier List:
+  • Avg Response: 492.21ms
+  • Min/Max: 491.63ms / 493.83ms
+  • P95/P99: 493.83ms / 493.83ms
+  • Success Rate: 100.0%
+  • Avg Content: 909 bytes
+
+Warehouse List:
+  • Avg Response: 493.67ms
+  • Min/Max: 491.31ms / 496.33ms
+  • P95/P99: 496.33ms / 496.33ms
+  • Success Rate: 100.0%
+  • Avg Content: 533 bytes
+
+Sales Orders:
+  • Avg Response: 493.27ms
+  • Min/Max: 491.76ms / 495.06ms
+  • P95/P99: 495.06ms / 495.06ms
+  • Success Rate: 100.0%
+  • Avg Content: 1992 bytes
+
+Purchase Orders:
+  • Avg Response: 740.72ms
+  • Min/Max: 736.10ms / 756.12ms
+  • P95/P99: 756.12ms / 756.12ms
+  • Success Rate: 100.0%
+  • Avg Content: 1617 bytes
+
+Quotations:
+  • Avg Response: 1065.51ms
+  • Min/Max: 988.19ms / 1742.72ms
+  • P95/P99: 1742.72ms / 1742.72ms
+  • Success Rate: 100.0%
+  • Avg Content: 3969 bytes
+
+Employee List:
+  • Avg Response: 743.81ms
+  • Min/Max: 740.02ms / 752.32ms
+  • P95/P99: 752.32ms / 752.32ms
+  • Success Rate: 100.0%
+  • Avg Content: 2190 bytes
+
+POS Terminals:
+  • Avg Response: 742.45ms
+  • Min/Max: 740.35ms / 745.37ms
+  • P95/P99: 745.37ms / 745.37ms
+  • Success Rate: 100.0%
+  • Avg Content: 723 bytes
+
+🚀 CONCURRENCY TEST RESULTS
+---------------------------
+
+/api/health:
+  • Throughput: 763.36 requests/second
+  • Success Rate: 100.0%
+  • Avg Response: 78.32ms
+  • Total Time: 131ms
+
+/api/dashboard/metrics:
+  • Throughput: 6.74 requests/second
+  • Success Rate: 100.0%
+  • Avg Response: 2656.85ms
+  • Total Time: 4448ms
+
+/api/customers:
+  • Throughput: 19.16 requests/second
+  • Success Rate: 100.0%
+  • Avg Response: 506.23ms
+  • Total Time: 522ms
+
+/api/products:
+  • Throughput: 19.57 requests/second
+  • Success Rate: 100.0%
+  • Avg Response: 496.23ms
+  • Total Time: 511ms
+
+/api/inventory:
+  • Throughput: 20.12 requests/second
+  • Success Rate: 100.0%
+  • Avg Response: 485.47ms
+  • Total Time: 497ms
