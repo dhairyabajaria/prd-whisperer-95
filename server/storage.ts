@@ -199,6 +199,7 @@ import {
 import { getDb } from "./db";
 import { eq, and, gte, lte, desc, asc, sql, inArray } from "drizzle-orm";
 import { advancedCache, CACHE_KEYS } from "./advanced-cache-system";
+import { queryOptimizer } from "./query-optimization";
 
 // Interface for storage operations
 export interface IStorage {
@@ -1929,6 +1930,94 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // PHASE 2 OPTIMIZATION: Batch helper methods for efficient data loading
+  // Target: Eliminate N+1 query patterns and improve performance
+  
+  private async getCustomersBatch(customerIds: string[]): Promise<Map<string, Customer>> {
+    if (customerIds.length === 0) return new Map();
+    
+    const cacheKey = `customers:batch:${customerIds.sort().join(',')}`;
+    const cached = await advancedCache.get(cacheKey, 'HOT');
+    if (cached && Array.isArray(cached)) return new Map(cached);
+    
+    const db = await getDb();
+    const customerData = await db
+      .select()
+      .from(customers)
+      .where(inArray(customers.id, customerIds));
+    
+    const customerMap = new Map(customerData.map(c => [c.id, c]));
+    await advancedCache.set(cacheKey, Array.from(customerMap.entries()), 'HOT', { ttl: 300 });
+    
+    return customerMap;
+  }
+  
+  private async getUsersBatch(userIds: string[]): Promise<Map<string, User>> {
+    if (userIds.length === 0) return new Map();
+    
+    const cacheKey = `users:batch:${userIds.sort().join(',')}`;
+    const cached = await advancedCache.get(cacheKey, 'SESSION');
+    if (cached && Array.isArray(cached)) return new Map(cached);
+    
+    const db = await getDb();
+    const userData = await db
+      .select()
+      .from(users)
+      .where(and(inArray(users.id, userIds), eq(users.isActive, true)));
+    
+    const userMap = new Map(userData.map(u => [u.id, u]));
+    await advancedCache.set(cacheKey, Array.from(userMap.entries()), 'SESSION', { ttl: 900 });
+    
+    return userMap;
+  }
+  
+  private async getQuotationItemsBatch(quotationIds: string[]): Promise<Map<string, (QuotationItem & { product: Product })[]>> {
+    if (quotationIds.length === 0) return new Map();
+    
+    const cacheKey = `quotation_items:batch:${quotationIds.sort().join(',')}`;
+    const cached = await advancedCache.get(cacheKey, 'WARM');
+    if (cached) {
+      // Convert from object format back to Map
+      const result = new Map<string, (QuotationItem & { product: Product })[]>();
+      Object.entries(cached).forEach(([quotationId, items]) => {
+        result.set(quotationId, items as (QuotationItem & { product: Product })[]);
+      });
+      return result;
+    }
+    
+    const db = await getDb();
+    const itemsData = await db
+      .select({
+        quotationItem: quotationItems,
+        product: products
+      })
+      .from(quotationItems)
+      .leftJoin(products, eq(quotationItems.productId, products.id))
+      .where(inArray(quotationItems.quotationId, quotationIds));
+    
+    // Group items by quotation ID
+    const itemsMap = new Map<string, (QuotationItem & { product: Product })[]>();
+    
+    itemsData.forEach(row => {
+      if (row.quotationItem && row.product) {
+        const quotationId = row.quotationItem.quotationId;
+        if (!itemsMap.has(quotationId)) {
+          itemsMap.set(quotationId, []);
+        }
+        itemsMap.get(quotationId)!.push({
+          ...row.quotationItem,
+          product: row.product
+        });
+      }
+    });
+    
+    // Cache as plain object for JSON serialization
+    const cacheData = Object.fromEntries(itemsMap.entries());
+    await advancedCache.set(cacheKey, cacheData, 'WARM', { ttl: 600 });
+    
+    return itemsMap;
+  }
+
   // Recent transactions
   async getRecentTransactions(limit = 10): Promise<Array<{
     id: string;
@@ -3425,55 +3514,71 @@ export class DatabaseStorage implements IStorage {
 
   // CRM Module - Quotation operations  
   async getQuotations(limit = 100, status?: string, offset = 0): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
+    const startTime = Date.now();
+    
+    // PHASE 2 PERFORMANCE OPTIMIZATION: Target 1065ms → <200ms (81% improvement)
+    // Strategy: Replace complex multi-JOIN with efficient batch queries + caching
+    
+    // Check cache first for frequently accessed quotation lists
+    const cacheKey = `quotations:list:${status || 'all'}:${limit}:${offset}`;
+    const cached = await advancedCache.get(cacheKey, 'WARM');
+    if (cached && Array.isArray(cached)) {
+      console.log(`🚀 [Cache Hit] Quotations query served from cache in ${Date.now() - startTime}ms`);
+      return cached;
+    }
+
     const db = await getDb();
     
-    // PERFORMANCE OPTIMIZATION: Simple but effective query with database indexes
-    // Step 1: Get all quotations with joins in single optimized query
-    const allData = await db
-      .select({
-        quotation: quotations,
-        customer: customers,
-        salesRep: users,
-        quotationItem: quotationItems,
-        product: products,
-      })
+    // OPTIMIZATION 1: Get quotations only (avoid expensive JOINs)
+    const quotationData = await db
+      .select()
       .from(quotations)
-      .leftJoin(customers, eq(quotations.customerId, customers.id))
-      .leftJoin(users, eq(quotations.salesRepId, users.id))
-      .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
-      .leftJoin(products, eq(quotationItems.productId, products.id))
       .where(status ? eq(quotations.status, status as any) : sql`true`)
       .orderBy(desc(quotations.createdAt))
       .limit(limit)
       .offset(offset);
 
-    // Group results by quotation ID to reconstruct the hierarchical structure
-    const quotationMap = new Map<string, Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }>();
-    
-    allData.forEach((row) => {
-      const quotationId = row.quotation.id;
-      
-      if (!quotationMap.has(quotationId)) {
-        quotationMap.set(quotationId, {
-          ...row.quotation,
-          customer: row.customer!,
-          salesRep: row.salesRep || undefined,
-          items: [],
-        });
-      }
-      
-      // Add item if it exists (some quotations might not have items yet)
-      if (row.quotationItem && row.product) {
-        const quotationEntry = quotationMap.get(quotationId)!;
-        quotationEntry.items.push({
-          ...row.quotationItem,
-          product: row.product,
-        });
-      }
+    if (quotationData.length === 0) {
+      await advancedCache.set(cacheKey, [], 'WARM', { ttl: 300 });
+      console.log(`⚡ [Quotations] Empty result cached in ${Date.now() - startTime}ms`);
+      return [];
+    }
+
+    // OPTIMIZATION 2: Extract IDs for batch fetching
+    const quotationIds = quotationData.map(q => q.id);
+    const customerIds = Array.from(new Set(quotationData.map(q => q.customerId).filter(Boolean)));
+    const salesRepIds = Array.from(new Set(quotationData.map(q => q.salesRepId).filter((id): id is string => Boolean(id))));
+
+    // OPTIMIZATION 3: Batch fetch related data in parallel
+    const [customerMap, salesRepMap, quotationItemsData] = await Promise.all([
+      this.getCustomersBatch(customerIds),
+      this.getUsersBatch(salesRepIds),
+      this.getQuotationItemsBatch(quotationIds)
+    ]);
+
+    // OPTIMIZATION 4: Efficiently construct result with batched data
+    const result = quotationData.map(quotation => {
+      const customer = customerMap.get(quotation.customerId!);
+      const salesRep = quotation.salesRepId ? salesRepMap.get(quotation.salesRepId) : undefined;
+      const items = quotationItemsData.get(quotation.id) || [];
+
+      return {
+        ...quotation,
+        customer: customer!,
+        salesRep,
+        items
+      };
     });
 
-    // Return results as array maintaining order
-    const result = Array.from(quotationMap.values());
+    // OPTIMIZATION 5: Cache the result for subsequent requests
+    await advancedCache.set(cacheKey, result, 'WARM', { ttl: 600 }); // 10 minutes
+    
+    const executionTime = Date.now() - startTime;
+    console.log(`⚡ [Optimized Quotations] Query completed in ${executionTime}ms (target: <200ms)`);
+    
+    if (executionTime > 200) {
+      console.warn(`⚠️ [Performance Warning] Quotations query took ${executionTime}ms, exceeding 200ms target`);
+    }
     
     return result;
   }

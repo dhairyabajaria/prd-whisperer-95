@@ -78,6 +78,7 @@ import {
   cache 
 } from "./cache";
 import { memoryOptimizedMiddleware } from "../critical-cache-implementation";
+import { indexManager, queryOptimizer } from "./query-optimization";
 // TEMPORARILY DISABLED: Phase 3 components causing startup failures - will re-enable after basic connectivity is fixed
 // import { createPhase3Middleware, addPhase3Routes, enhancedDatabaseQuery, orchestrator } from "./phase3-integration";
 
@@ -234,6 +235,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('Waiting for storage initialization...');
   const storage = await getStorage();
   console.log('✅ Storage ready for routes');
+  
+  // PERFORMANCE OPTIMIZATION: Install critical database indexes for Phase 2 (DEVELOPMENT ONLY)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🏗️  Installing critical database indexes for performance (DEV MODE)...');
+    try {
+      const indexResult = await indexManager.installPerformanceIndexes(['critical', 'high']);
+      console.log(`✅ Installed ${indexResult.installed} indexes, skipped ${indexResult.skipped}, errors: ${indexResult.errors.length}`);
+      if (indexResult.errors.length > 0) {
+        console.warn('⚠️  Index installation errors:', indexResult.errors);
+      }
+    } catch (error) {
+      console.error('❌ Failed to install performance indexes:', error);
+    }
+  } else {
+    console.log('🏭 Production mode: Skipping automatic index installation (use migrations instead)');
+  }
 
   // Phase 3: Apply advanced performance middleware
   // TEMPORARILY DISABLED: Phase 3 middleware causing startup failures

@@ -453,7 +453,7 @@ class AdvancedCacheManager {
       }
 
       // Invalidate in-memory entries
-      for (const key of this.inMemoryCache.keys()) {
+      for (const key of Array.from(this.inMemoryCache.keys())) {
         if (this.matchesPattern(key, pattern)) {
           this.inMemoryCache.delete(key);
           deletedCount++;
@@ -519,8 +519,8 @@ class AdvancedCacheManager {
       // Remove oldest entries that are past their SWR window
       const entriesToDelete: string[] = [];
       
-      for (const [key, entry] of this.inMemoryCache.entries()) {
-        const config = CACHE_STRATEGIES[entry.strategy];
+      for (const [key, entry] of Array.from(this.inMemoryCache.entries())) {
+        const config = CACHE_STRATEGIES[entry.strategy as keyof typeof CACHE_STRATEGIES];
         const maxAge = (config.ttl + config.staleWhileRevalidate) * 1000;
         
         if (now - entry.timestamp > maxAge) {
@@ -567,7 +567,7 @@ class AdvancedCacheManager {
     let totalSize = 0;
     
     let count = 0;
-    for (const [key, entry] of this.inMemoryCache.entries()) {
+    for (const [key, entry] of Array.from(this.inMemoryCache.entries())) {
       if (count >= sampleSize) break;
       totalSize += JSON.stringify({ key, entry }).length;
       count++;

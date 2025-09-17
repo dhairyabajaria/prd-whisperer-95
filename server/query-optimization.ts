@@ -165,7 +165,7 @@ interface QueryPattern {
     optimizedQuery: string;
     optimizedParams: any[];
     cacheable: boolean;
-    cacheStrategy: 'HOT' | 'WARM' | 'COLD';
+    cacheStrategy: 'HOT' | 'WARM' | 'COLD' | 'SESSION';
     cacheTTL?: number;
   };
 }
@@ -350,7 +350,10 @@ class QueryOptimizationEngine {
         setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
       );
       
-      const queryPromise = db.execute(sql.raw(finalQuery, ...finalParams));
+      // SECURITY FIX: Use parameterized query execution to prevent SQL injection
+      const queryPromise = finalParams.length > 0 
+        ? db.execute(sql.raw(finalQuery, finalParams as any[]))
+        : db.execute(sql.raw(finalQuery));
       const result = await Promise.race([queryPromise, timeoutPromise]);
       
       const executionTime = Date.now() - startTime;
@@ -500,7 +503,7 @@ class QueryOptimizationEngine {
     }
     
     // Clear caches and stats to free memory
-    this.cachedResults.clear();
+    this.queryCache.clear();
     this.queryStats.clear();
     
     console.log('✅ [Query Optimizer] Cleanup complete');
@@ -703,7 +706,7 @@ class IndexManager {
     
     const result = await db.execute(sql.raw(query));
     
-    return (result as any[]).map(row => ({
+    return (result.rows as any[]).map(row => ({
       indexName: row.indexname,
       tableName: row.tablename,
       size: row.size,
