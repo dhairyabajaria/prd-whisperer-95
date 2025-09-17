@@ -203,17 +203,8 @@ function stopConnectionPoolMonitoring(): void {
   }
 }
 
-// Start async database initialization
-console.log('🔧 [DB] Starting enhanced database initialization...');
-
-// Start initialization immediately (async)
-initializeDatabase()
-  .then(() => {
-    console.log('🎊 [DB] Database initialization completed successfully!');
-  })
-  .catch((error) => {
-    console.error('💥 [DB] Database initialization failed completely:', error);
-  });
+// Database initialization is now lazy - no eager top-level initialization
+// This prevents race conditions with secret loading
 
 // MEMORY LEAK FIX: Enhanced shutdown function with timer cleanup
 async function shutdownDatabase(): Promise<void> {
@@ -272,6 +263,16 @@ function registerShutdownHandlers(): void {
 }
 
 export { pool, db, shutdownDatabase };
+
+/**
+ * Explicitly initialize database (for bootstrap sequence)
+ * This should be called after secrets are loaded
+ * @returns Promise<void>
+ */
+export async function initDb(): Promise<void> {
+  console.log('🔧 [DB] Explicit database initialization requested...');
+  return initializeDatabase();
+}
 
 // For backward compatibility with existing code
 export async function getDb() {

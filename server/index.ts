@@ -5,6 +5,9 @@ import { setupVite, serveStatic, log } from "./vite";
 import { fxRateScheduler } from "./scheduler";
 // MEMORY LEAK FIX: Import memory leak monitor for active production monitoring
 import { memoryLeakMonitor } from "./memory-leak-monitor";
+// BOOTSTRAP FIX: Import secret loading and database initialization
+import { getReplitSecretsAsync, debugSecretSources } from "./secretLoader";
+import { initDb } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -41,6 +44,56 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // CRITICAL: Bootstrap sequence - load secrets first, then initialize database
+  console.log('🚀 [BOOTSTRAP] Starting application bootstrap sequence...');
+  
+  try {
+    // Step 1: Debug current secret status
+    console.log('🔍 [BOOTSTRAP] Checking secret loading status...');
+    debugSecretSources();
+    
+    // Step 2: Load critical secrets for system operation
+    console.log('🔑 [BOOTSTRAP] Loading critical secrets...');
+    const secrets = await getReplitSecretsAsync(['DATABASE_URL', 'OPENAI_API_KEY']);
+    const { DATABASE_URL, OPENAI_API_KEY } = secrets;
+    
+    // Step 3: Validate critical secrets
+    if (!DATABASE_URL) {
+      console.error('❌ [BOOTSTRAP] CRITICAL: DATABASE_URL not found. Check javascript_database integration.');
+      console.error('❌ [BOOTSTRAP] System will continue but will use memory storage instead of PostgreSQL.');
+    } else {
+      console.log('✅ [BOOTSTRAP] DATABASE_URL loaded successfully');
+    }
+    
+    if (!OPENAI_API_KEY) {
+      console.error('❌ [BOOTSTRAP] WARNING: OPENAI_API_KEY not found. Check javascript_openai integration.');
+      console.error('❌ [BOOTSTRAP] AI features will be disabled.');
+    } else {
+      console.log('✅ [BOOTSTRAP] OPENAI_API_KEY loaded successfully');
+    }
+    
+    // Step 4: Initialize database if DATABASE_URL is available
+    if (DATABASE_URL) {
+      console.log('📦 [BOOTSTRAP] Initializing database connection...');
+      try {
+        await initDb();
+        console.log('✅ [BOOTSTRAP] Database initialized successfully');
+      } catch (dbError) {
+        console.error('❌ [BOOTSTRAP] Database initialization failed:', dbError);
+        console.error('❌ [BOOTSTRAP] System will continue with memory storage.');
+      }
+    } else {
+      console.log('⚠️ [BOOTSTRAP] Skipping database initialization - using memory storage');
+    }
+    
+    console.log('✅ [BOOTSTRAP] Bootstrap sequence completed successfully');
+    
+  } catch (error) {
+    console.error('❌ [BOOTSTRAP] Bootstrap sequence failed:', error);
+    console.error('❌ [BOOTSTRAP] System will continue with degraded functionality.');
+  }
+  
+  // Continue with normal server setup
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
