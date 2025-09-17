@@ -393,7 +393,12 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Performance indexes for authentication optimization - Target: 608ms → <200ms
+  index("users_email_active_idx").on(table.email, table.isActive),
+  index("users_role_active_idx").on(table.role, table.isActive),
+  index("users_id_active_idx").on(table.id, table.isActive),
+]);
 
 // System settings table for application configuration
 export const systemSettings = pgTable("system_settings", {
@@ -815,7 +820,13 @@ export const quotations = pgTable("quotations", {
   convertedAt: timestamp("converted_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Performance indexes for quotations query optimization - Target: 1065ms → <300ms
+  index("quotations_status_created_idx").on(table.status, table.createdAt),
+  index("quotations_customer_date_idx").on(table.customerId, table.quotationDate),
+  index("quotations_sales_rep_idx").on(table.salesRepId),
+  index("quotations_created_at_idx").on(table.createdAt),
+]);
 
 // Quotation items table
 export const quotationItems = pgTable("quotation_items", {
@@ -828,7 +839,12 @@ export const quotationItems = pgTable("quotation_items", {
   discount: decimal("discount", { precision: 5, scale: 2 }).default('0'),
   tax: decimal("tax", { precision: 5, scale: 2 }).default('0'),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Performance indexes for quotation items joins - Critical for optimized quotations query
+  index("quotation_items_quotation_idx").on(table.quotationId),
+  index("quotation_items_product_idx").on(table.productId),
+  index("quotation_items_compound_idx").on(table.quotationId, table.productId),
+]);
 
 // Receipts table for payment tracking
 export const receipts = pgTable("receipts", {

@@ -204,18 +204,18 @@ export interface IStorage {
   // User operations
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
-  getUsers(role?: string, limit?: number): Promise<User[]>;
+  getUsers(role?: string, limit?: number, offset?: number): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Customer operations
-  getCustomers(limit?: number): Promise<Customer[]>;
+  getCustomers(limit?: number, offset?: number): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer>;
   deleteCustomer(id: string): Promise<void>;
   
   // Supplier operations
-  getSuppliers(limit?: number): Promise<Supplier[]>;
+  getSuppliers(limit?: number, offset?: number): Promise<Supplier[]>;
   getSupplier(id: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier>;
@@ -229,7 +229,7 @@ export interface IStorage {
   deleteWarehouse(id: string): Promise<void>;
   
   // Product operations
-  getProducts(limit?: number): Promise<Product[]>;
+  getProducts(limit?: number, offset?: number): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
@@ -243,7 +243,7 @@ export interface IStorage {
   getExpiringProducts(daysAhead: number): Promise<(Inventory & { product: Product; warehouse: Warehouse })[]>;
   
   // Sales operations
-  getSalesOrders(limit?: number): Promise<(SalesOrder & { customer: Customer; salesRep?: User })[]>;
+  getSalesOrders(limit?: number, offset?: number): Promise<(SalesOrder & { customer: Customer; salesRep?: User })[]>;
   getSalesOrder(id: string): Promise<(SalesOrder & { customer: Customer; items: (SalesOrderItem & { product: Product })[] }) | undefined>;
   createSalesOrder(order: InsertSalesOrder): Promise<SalesOrder>;
   updateSalesOrder(id: string, order: Partial<InsertSalesOrder>): Promise<SalesOrder>;
@@ -257,7 +257,7 @@ export interface IStorage {
   cancelSalesOrder(orderId: string, cancelledBy: string): Promise<SalesOrder>;
   
   // Purchase operations
-  getPurchaseOrders(limit?: number): Promise<(PurchaseOrder & { supplier: Supplier })[]>;
+  getPurchaseOrders(limit?: number, offset?: number): Promise<(PurchaseOrder & { supplier: Supplier })[]>;
   getPurchaseOrder(id: string): Promise<(PurchaseOrder & { supplier: Supplier; items: (PurchaseOrderItem & { product: Product })[] }) | undefined>;
   createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;
   updatePurchaseOrder(id: string, order: Partial<InsertPurchaseOrder>): Promise<PurchaseOrder>;
@@ -423,7 +423,7 @@ export interface IStorage {
   }>>;
 
   // CRM Module - Quotation operations
-  getQuotations(limit?: number, status?: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]>;
+  getQuotations(limit?: number, status?: string, offset?: number): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]>;
   getQuotation(id: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }) | undefined>;
   createQuotation(quotation: InsertQuotation): Promise<Quotation>;
   updateQuotation(id: string, quotation: Partial<InsertQuotation>): Promise<Quotation>;
@@ -3399,42 +3399,73 @@ export class DatabaseStorage implements IStorage {
   }
 
   // CRM Module - Quotation operations
-  async getQuotations(limit = 100, status?: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
+  async getQuotations(limit = 100, status?: string, offset = 0): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
     const db = await getDb();
-    const quotationData = await db
+    
+    // CRITICAL FIX: Two-step query plan to avoid full dataset scan
+    // Step 1: Get quotation IDs with proper LIMIT/OFFSET for pagination
+    const quotationIds = await db
+      .select({ id: quotations.id })
+      .from(quotations)
+      .where(status ? sql`${quotations.status} = ${status}` : sql`true`)
+      .orderBy(desc(quotations.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // If no quotations found, return empty array
+    if (quotationIds.length === 0) {
+      return [];
+    }
+
+    // Step 2: Get full data only for the limited quotation IDs
+    const quotationIdList = quotationIds.map(q => q.id);
+    const allData = await db
       .select({
         quotation: quotations,
         customer: customers,
         salesRep: users,
+        quotationItem: quotationItems,
+        product: products,
       })
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
       .leftJoin(users, eq(quotations.salesRepId, users.id))
-      .where(status ? sql`${quotations.status} = ${status}` : sql`true`)
-      .limit(limit)
+      .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
+      .leftJoin(products, eq(quotationItems.productId, products.id))
+      .where(sql`${quotations.id} = ANY(${quotationIdList})`)
       .orderBy(desc(quotations.createdAt));
 
-    const quotationsWithItems = await Promise.all(
-      quotationData.map(async (row) => {
-        const items = await db
-          .select({
-            quotationItem: quotationItems,
-            product: products,
-          })
-          .from(quotationItems)
-          .leftJoin(products, eq(quotationItems.productId, products.id))
-          .where(eq(quotationItems.quotationId, row.quotation.id));
-
-        return {
+    // Group results by quotation ID to reconstruct the hierarchical structure
+    const quotationMap = new Map<string, Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }>();
+    
+    allData.forEach((row) => {
+      const quotationId = row.quotation.id;
+      
+      if (!quotationMap.has(quotationId)) {
+        quotationMap.set(quotationId, {
           ...row.quotation,
           customer: row.customer!,
           salesRep: row.salesRep || undefined,
-          items: items.map(item => ({ ...item.quotationItem, product: item.product! })),
-        };
-      })
-    );
+          items: [],
+        });
+      }
+      
+      // Add item if it exists (some quotations might not have items yet)
+      if (row.quotationItem && row.product) {
+        const quotationEntry = quotationMap.get(quotationId)!;
+        quotationEntry.items.push({
+          ...row.quotationItem,
+          product: row.product,
+        });
+      }
+    });
 
-    return quotationsWithItems;
+    // Maintain the order from Step 1 by preserving quotationIdList order
+    const result = quotationIdList
+      .map(id => quotationMap.get(id))
+      .filter(Boolean) as (Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[];
+    
+    return result;
   }
 
   async getQuotation(id: string): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }) | undefined> {
