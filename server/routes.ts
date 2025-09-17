@@ -69,7 +69,14 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import type { RequestHandler } from "express";
-import { getCachedDashboardMetrics, memoryOptimizedMiddleware, invalidateDashboardMetricsCache } from "../critical-cache-implementation";
+import { 
+  getCachedDashboardMetrics, 
+  invalidateDashboardMetricsCache, 
+  getCachedRecentTransactions,
+  getCachedExpiringProducts,
+  cacheMiddleware,
+  cache 
+} from "./cache";
 import { createPhase3Middleware, addPhase3Routes, enhancedDatabaseQuery, orchestrator } from "./phase3-integration";
 
 // Performance optimization: User authentication cache - Target: 608ms → <200ms
@@ -286,8 +293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Phase 3: Add system management routes
   addPhase3Routes(app);
 
-  // Dashboard routes - with Redis caching for performance
-  app.get("/api/dashboard/metrics", isAuthenticated, memoryOptimizedMiddleware(), async (req, res) => {
+  // Dashboard routes - with enhanced in-memory caching for performance
+  app.get("/api/dashboard/metrics", isAuthenticated, cacheMiddleware(), async (req, res) => {
     try {
       const startTime = Date.now();
       const metrics = await getCachedDashboardMetrics(storage);
@@ -295,7 +302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add performance headers for monitoring
       res.set('X-Response-Time', `${responseTime}ms`);
-      res.set('X-Cache-Strategy', 'redis-optimized');
+      res.set('X-Cache-Strategy', 'enhanced-memory');
+      res.set('X-Cache-Stats', JSON.stringify(cache.getStats()));
       
       res.json(metrics);
     } catch (error) {
@@ -304,10 +312,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/transactions", isAuthenticated, async (req, res) => {
+  app.get("/api/dashboard/transactions", isAuthenticated, cacheMiddleware(), async (req, res) => {
     try {
+      const startTime = Date.now();
       const limit = parseInt(req.query.limit as string) || 10;
-      const transactions = await storage.getRecentTransactions(limit);
+      const transactions = await getCachedRecentTransactions(storage, limit);
+      const responseTime = Date.now() - startTime;
+      
+      res.set('X-Response-Time', `${responseTime}ms`);
+      res.set('X-Cache-Strategy', 'enhanced-memory');
       res.json(transactions);
     } catch (error) {
       console.error("Error fetching recent transactions:", error);
@@ -315,10 +328,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/expiring-products", isAuthenticated, async (req, res) => {
+  app.get("/api/dashboard/expiring-products", isAuthenticated, cacheMiddleware(), async (req, res) => {
     try {
+      const startTime = Date.now();
       const daysAhead = parseInt(req.query.days as string) || 90;
-      const expiringProducts = await storage.getExpiringProducts(daysAhead);
+      const expiringProducts = await getCachedExpiringProducts(storage, daysAhead);
+      const responseTime = Date.now() - startTime;
+      
+      res.set('X-Response-Time', `${responseTime}ms`);
+      res.set('X-Cache-Strategy', 'enhanced-memory');
       res.json(expiringProducts);
     } catch (error) {
       console.error("Error fetching expiring products:", error);
