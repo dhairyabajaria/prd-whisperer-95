@@ -3517,7 +3517,7 @@ export class DatabaseStorage implements IStorage {
     const startTime = Date.now();
     
     // PHASE 2 PERFORMANCE OPTIMIZATION: Target 1065ms → <200ms (81% improvement)
-    // Strategy: Replace complex multi-JOIN with efficient batch queries + caching
+    // Strategy: Replace complex multi-JOIN with efficient batch queries + caching + optimized indexes
     
     // Check cache first for frequently accessed quotation lists
     const cacheKey = `quotations:list:${status || 'all'}:${limit}:${offset}`;

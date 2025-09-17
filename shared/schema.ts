@@ -821,11 +821,15 @@ export const quotations = pgTable("quotations", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  // Performance indexes for quotations query optimization - Target: 1065ms → <300ms
+  // Performance indexes for quotations query optimization - Target: 1065ms → <200ms
   index("quotations_status_created_idx").on(table.status, table.createdAt),
   index("quotations_customer_date_idx").on(table.customerId, table.quotationDate),
   index("quotations_sales_rep_idx").on(table.salesRepId),
   index("quotations_created_at_idx").on(table.createdAt),
+  // CRITICAL: Composite index for default query (no status filter, order by created_at DESC)
+  index("quotations_default_query_idx").on(table.createdAt, table.id, table.customerId, table.salesRepId),
+  // CRITICAL: Covering index for status-filtered queries to eliminate table lookups
+  index("quotations_status_covering_idx").on(table.status, table.createdAt, table.id, table.customerId),
 ]);
 
 // Quotation items table

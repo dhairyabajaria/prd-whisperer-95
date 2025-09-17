@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { fxRateScheduler } from "./scheduler";
+import { quotationsPrewarmer } from "./quotations-prewarmer";
 // MEMORY LEAK FIX: Import memory leak monitor for active production monitoring
 import { memoryLeakMonitor } from "./memory-leak-monitor";
 // BOOTSTRAP FIX: Import secret loading and database initialization
@@ -125,7 +126,7 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
-    // Start FX rate scheduler after server is ready
+    // Start background services after server is ready
     try {
       const schedulerStarted = fxRateScheduler.start();
       if (schedulerStarted) {
@@ -136,5 +137,14 @@ app.use((req, res, next) => {
     } catch (error) {
       log(`Warning: Failed to start FX Rate Scheduler: ${error}`);
     }
+
+    // PERFORMANCE OPTIMIZATION: Pre-warm quotations queries to eliminate cold start delays
+    quotationsPrewarmer.warmupQuotationsQueries()
+      .then(() => {
+        log('🔥 Quotations query prewarmer completed - cold start delays eliminated!');
+      })
+      .catch(error => {
+        log(`⚠️ Warning: Quotations prewarmer failed: ${error.message}`);
+      });
   });
 })();
