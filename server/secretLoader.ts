@@ -20,14 +20,8 @@ interface SecretLoadResult {
 function loadReplitSecret(key: string): SecretLoadResult {
   console.log(`🔍 [SECRET] Loading secret: ${key}`);
   
-  // CRITICAL FIX: Force dotenv to load again to ensure env vars are available
-  try {
-    // Use require for immediate synchronous loading
-    const dotenv = eval('require')('dotenv');
-    dotenv.config();
-  } catch (error) {
-    console.log(`⚠️ [SECRET] Failed to reload dotenv: ${error}`);
-  }
+  // FIXED: Removed broken dotenv reload that was failing in ES module context
+  // Replit environment variables are automatically loaded via process.env
   
   // First try direct process.env access
   try {
