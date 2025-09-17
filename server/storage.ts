@@ -7347,12 +7347,47 @@ async function initializeStorage(): Promise<IStorage> {
       return memStorage;
     }
     
-    // Use direct DATABASE_URL access per javascript_database integration  
-    console.log('🚀 [STORAGE] Starting database URL retrieval...');
-    const databaseUrl = process.env.DATABASE_URL;
-
-    console.log('DATABASE_URL exists:', !!databaseUrl);
-    console.log('Environment:', process.env.NODE_ENV);
+    // Enhanced database URL retrieval with fallback strategies
+    console.log('🚀 [STORAGE] Starting enhanced database URL retrieval...');
+    
+    // Try multiple sources for database URL in Replit environment
+    let databaseUrl = process.env.DATABASE_URL;
+    
+    console.log('🔍 [DB] Initial DATABASE_URL check:', {
+      exists: 'DATABASE_URL' in process.env,
+      hasValue: !!(databaseUrl && databaseUrl.trim().length > 0),
+      length: databaseUrl ? databaseUrl.length : 0,
+      isEmpty: databaseUrl === ''
+    });
+    
+    // If DATABASE_URL is empty, try to construct from PG components
+    if (!databaseUrl || databaseUrl.trim() === '') {
+      console.log('🔧 [DB] DATABASE_URL empty, trying PG component construction...');
+      const { PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD } = process.env;
+      
+      console.log('🔍 [DB] PG components check:', {
+        PGHOST: !!(PGHOST && PGHOST.trim()),
+        PGPORT: !!(PGPORT && PGPORT.trim()),
+        PGDATABASE: !!(PGDATABASE && PGDATABASE.trim()),
+        PGUSER: !!(PGUSER && PGUSER.trim()),
+        PGPASSWORD: !!(PGPASSWORD && PGPASSWORD.trim())
+      });
+      
+      if (PGHOST && PGPORT && PGDATABASE && PGUSER && PGPASSWORD &&
+          PGHOST.trim() && PGPORT.trim() && PGDATABASE.trim() && PGUSER.trim() && PGPASSWORD.trim()) {
+        databaseUrl = `postgresql://${PGUSER.trim()}:${PGPASSWORD.trim()}@${PGHOST.trim()}:${PGPORT.trim()}/${PGDATABASE.trim()}?sslmode=require`;
+        console.log('✅ [DB] Successfully constructed DATABASE_URL from PG components');
+      } else {
+        console.log('❌ [DB] PG components are also empty/invalid');
+      }
+    }
+    
+    console.log('📊 [DB] Final database URL check:', {
+      exists: !!databaseUrl,
+      hasValue: !!(databaseUrl && databaseUrl.trim().length > 0),
+      length: databaseUrl ? databaseUrl.length : 0,
+      startsWithPostgresql: databaseUrl ? databaseUrl.startsWith('postgresql://') : false
+    });
 
     if (databaseUrl && databaseUrl.trim() !== '') {
       try {

@@ -3,23 +3,37 @@ import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
-// Helper function to check if OpenAI is properly configured
+// Helper function to check if OpenAI is properly configured with enhanced validation
 export async function isOpenAIConfigured(): Promise<boolean> {
   // Use direct OPENAI_API_KEY access per javascript_openai integration
   const apiKey = process.env.OPENAI_API_KEY;
   
+  // Enhanced validation and debug logging
+  const keyExists = 'OPENAI_API_KEY' in process.env;
+  const keyHasValue = !!(apiKey && apiKey.trim().length > 0);
+  const keyNotDefault = apiKey !== "default_key";
+  const keyValidFormat = apiKey ? apiKey.startsWith('sk-') : false;
+  const isConfigured = keyExists && keyHasValue && keyNotDefault && keyValidFormat;
+  
   // Enhanced debug logging in development (sensitive data removed for security)
   if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 OpenAI Configuration Debug (DEV ONLY):', {
-      hasOPENAI_API_KEY: !!(process.env.OPENAI_API_KEY),
-      isConfigured: !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0),
+    console.log('🔍 [AI] Enhanced OpenAI Configuration Debug:', {
+      keyExists,
+      keyHasValue,
+      keyNotDefault,
+      keyValidFormat,
+      keyLength: apiKey ? apiKey.length : 0,
+      isConfigured,
       openaiEnvVarsCount: Object.keys(process.env).filter(key => key.includes('OPENAI')).length,
       totalEnvVarsCount: Object.keys(process.env).length
     });
   }
   
-  const isConfigured = !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0);
   console.log(`🤖 [AI] OpenAI configured: ${isConfigured}`);
+  
+  if (!isConfigured && apiKey) {
+    console.log(`⚠️ [AI] OpenAI key validation failed - Length: ${apiKey.length}, Format: ${keyValidFormat}`);
+  }
   
   return isConfigured;
 }

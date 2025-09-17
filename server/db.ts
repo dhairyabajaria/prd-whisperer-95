@@ -27,11 +27,30 @@ async function initializeDatabase(): Promise<void> {
       try {
         console.log(`🚀 [DB] Starting enhanced database initialization (attempt ${attempt}/${maxRetries})...`);
         
-        // Use direct DATABASE_URL access per javascript_database integration
-        const databaseUrl = process.env.DATABASE_URL;
+        // Enhanced DATABASE_URL access with fallback strategies for Replit
+        let databaseUrl = process.env.DATABASE_URL;
         
-        if (!databaseUrl) {
-          throw new Error('DATABASE_URL must be set. Did you forget to provision a database?');
+        console.log('🔍 [DB] Initial DATABASE_URL analysis:', {
+          exists: 'DATABASE_URL' in process.env,
+          hasValue: !!(databaseUrl && databaseUrl.trim().length > 0),
+          length: databaseUrl ? databaseUrl.length : 0,
+          isEmpty: databaseUrl === ''
+        });
+        
+        // If DATABASE_URL is empty, try to construct from PG components
+        if (!databaseUrl || databaseUrl.trim() === '') {
+          console.log('🔧 [DB] DATABASE_URL empty, constructing from PG components...');
+          const { PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD } = process.env;
+          
+          if (PGHOST && PGPORT && PGDATABASE && PGUSER && PGPASSWORD &&
+              PGHOST.trim() && PGPORT.trim() && PGDATABASE.trim() && PGUSER.trim() && PGPASSWORD.trim()) {
+            databaseUrl = `postgresql://${PGUSER.trim()}:${PGPASSWORD.trim()}@${PGHOST.trim()}:${PGPORT.trim()}/${PGDATABASE.trim()}?sslmode=require`;
+            console.log('✅ [DB] Successfully constructed DATABASE_URL from PG components');
+          }
+        }
+        
+        if (!databaseUrl || databaseUrl.trim() === '') {
+          throw new Error('DATABASE_URL must be set. Check Replit database provisioning and secrets configuration.');
         }
         
         console.log('🚀 [DB] Creating optimized database connection with enhanced pool config...');
