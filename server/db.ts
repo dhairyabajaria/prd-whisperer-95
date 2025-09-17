@@ -12,6 +12,7 @@ let pool: Pool | null = null;
 let db: ReturnType<typeof drizzle> | null = null;
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+let shutdownHandlersRegistered = false;
 
 async function initializeDatabase(): Promise<void> {
   if (initializationPromise) {
@@ -53,12 +54,18 @@ async function initializeDatabase(): Promise<void> {
       db = newDb;
       isInitialized = true;
       
+      // Register shutdown handlers only once
+      if (!shutdownHandlersRegistered) {
+        registerShutdownHandlers();
+        shutdownHandlersRegistered = true;
+      }
+      
       console.log('🎉 [DB] Database initialization completed successfully!');
       
     } catch (error) {
       console.error('❌ [DB] Database initialization failed:', error);
       
-      // Clean up on failure
+      // Clean up on failure and reset initialization promise
       if (pool) {
         try {
           await pool.end();
@@ -69,6 +76,9 @@ async function initializeDatabase(): Promise<void> {
         db = null;
         isInitialized = false;
       }
+      
+      // Reset initialization promise to allow retry
+      initializationPromise = null;
       
       throw error;
     }
@@ -89,7 +99,41 @@ initializeDatabase()
     console.error('💥 [DB] Database initialization failed completely:', error);
   });
 
-export { pool, db };
+// Proper shutdown function
+async function shutdownDatabase(): Promise<void> {
+  if (pool) {
+    console.log('🔄 [DB] Shutting down database connection pool...');
+    try {
+      await pool.end();
+      console.log('✅ [DB] Database connection pool closed successfully');
+    } catch (error) {
+      console.error('❌ [DB] Error closing database pool:', error);
+    }
+    pool = null;
+    db = null;
+    isInitialized = false;
+    initializationPromise = null;
+  }
+}
+
+// Register shutdown handlers to prevent connection leaks
+function registerShutdownHandlers(): void {
+  // Import the safe shutdown orchestrator
+  import('./shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+    registerShutdownHandler({
+      name: 'database',
+      priority: 50, // Database should shut down last to ensure data integrity
+      shutdown: async () => {
+        console.log('🔄 [DB] Shutting down database from orchestrator...');
+        await shutdownDatabase();
+      }
+    });
+  }).catch(error => {
+    console.error('❌ [DB] Failed to register shutdown handler:', error);
+  });
+}
+
+export { pool, db, shutdownDatabase };
 
 // For backward compatibility with existing code
 export async function getDb() {
@@ -107,6 +151,8 @@ export async function getDb() {
       }
     } catch (error) {
       console.error('Database initialization failed during getDb():', error);
+      // Reset promise to allow retry after failure
+      initializationPromise = null;
     }
   }
   

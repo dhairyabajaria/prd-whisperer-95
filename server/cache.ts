@@ -49,13 +49,16 @@ class HighPerformanceCache {
   private cleanupTimer: NodeJS.Timeout | null = null;
   private maxSize: number = 10000; // Maximum cache entries
   private cleanupInterval: number = 60000; // 1 minute cleanup
+  private shutdownHandlersRegistered = false;
   
   constructor() {
     this.startCleanupTimer();
     
-    // Graceful shutdown cleanup
-    process.on('SIGTERM', () => this.shutdown());
-    process.on('SIGINT', () => this.shutdown());
+    // Register shutdown handlers only once
+    if (!this.shutdownHandlersRegistered) {
+      this.registerShutdownHandlers();
+      this.shutdownHandlersRegistered = true;
+    }
   }
   
   /**
@@ -304,11 +307,31 @@ class HighPerformanceCache {
     }
   }
   
+  private registerShutdownHandlers(): void {
+    // Import the safe shutdown orchestrator
+    import('./shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+      registerShutdownHandler({
+        name: 'high-performance-cache',
+        priority: 20, // Cache can be shut down relatively early
+        shutdown: async () => {
+          await this.shutdown();
+        }
+      });
+    }).catch(error => {
+      console.error('❌ [Cache] Failed to register shutdown handler:', error);
+    });
+  }
+
   private shutdown(): void {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
+    
+    // Clear the cache to free memory
+    this.cache.clear();
+    this.resetStats();
+    
     console.log('🏁 Cache system shutdown complete');
   }
 }
@@ -413,7 +436,7 @@ export async function getCachedExpiringProducts(storage: any, daysAhead: number 
 }
 
 /**
- * Memory-optimized middleware for request lifecycle
+ * Memory-optimized middleware for request lifecycle with proper cleanup
  */
 export function cacheMiddleware() {
   return (req: any, res: any, next: any) => {
@@ -422,12 +445,31 @@ export function cacheMiddleware() {
     // Add cache utilities to request
     req.cache = cache;
     
-    // Add response time header
-    res.on('finish', () => {
-      const duration = Date.now() - startTime;
-      res.set('X-Response-Time', `${duration}ms`);
-      res.set('X-Cache-Status', 'enhanced-memory');
-    });
+    // Track if cleanup has already occurred
+    let cleanupDone = false;
+    
+    const cleanup = () => {
+      if (!cleanupDone) {
+        cleanupDone = true;
+        const duration = Date.now() - startTime;
+        
+        // Only set headers if response hasn't been sent
+        if (!res.headersSent) {
+          res.set('X-Response-Time', `${duration}ms`);
+          res.set('X-Cache-Status', 'enhanced-memory');
+        }
+        
+        // Remove listeners to prevent memory leaks
+        res.removeListener('finish', cleanup);
+        res.removeListener('close', cleanup);
+        res.removeListener('error', cleanup);
+      }
+    };
+    
+    // Add cleanup listeners for all response end scenarios
+    res.on('finish', cleanup);
+    res.on('close', cleanup);
+    res.on('error', cleanup);
     
     next();
   };

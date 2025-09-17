@@ -16,8 +16,9 @@ const CACHE_CONFIG = {
   STALE_WHILE_REVALIDATE: 60, // Serve stale data for 1 minute while refreshing
 };
 
-// Redis client singleton
+// Redis client singleton with proper cleanup
 let redisClient: Redis | null = null;
+let shutdownHandlersRegistered = false;
 
 export function getRedisClient(): Redis {
   if (!redisClient) {
@@ -41,8 +42,46 @@ export function getRedisClient(): Redis {
     // Log connection status
     redisClient.on('connect', () => console.log('🚀 Redis connected successfully!'));
     redisClient.on('error', (err) => console.warn('⚠️  Redis connection error:', err.message));
+    
+    // Register cleanup handlers once
+    if (!shutdownHandlersRegistered) {
+      registerRedisShutdownHandlers();
+      shutdownHandlersRegistered = true;
+    }
   }
   return redisClient;
+}
+
+// Proper Redis shutdown function
+async function shutdownRedis(): Promise<void> {
+  if (redisClient) {
+    console.log('🔄 [Redis] Shutting down connection...');
+    try {
+      await redisClient.quit();
+      console.log('✅ [Redis] Connection closed successfully');
+    } catch (error) {
+      console.error('❌ [Redis] Error closing connection:', error);
+      // Force disconnect if quit fails
+      redisClient.disconnect();
+    }
+    redisClient = null;
+  }
+}
+
+// Register shutdown handlers for Redis
+function registerRedisShutdownHandlers(): void {
+  // Import the safe shutdown orchestrator
+  import('./server/shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+    registerShutdownHandler({
+      name: 'redis-client',
+      priority: 30, // Redis should shut down after most other services
+      shutdown: async () => {
+        await shutdownRedis();
+      }
+    });
+  }).catch(error => {
+    console.error('❌ [Redis] Failed to register shutdown handler:', error);
+  });
 }
 
 // Cached dashboard metrics interface
@@ -265,20 +304,32 @@ export function memoryOptimizedMiddleware() {
     const startTime = Date.now();
     const initialMemory = process.memoryUsage();
     
-    // Cleanup function
+    // Track cleanup to prevent multiple executions
+    let cleanupDone = false;
+    
+    // Cleanup function with proper listener removal
     const cleanup = () => {
-      // Force garbage collection if available (development only)
-      if (process.env.NODE_ENV === 'development' && global.gc) {
-        global.gc();
-      }
-      
-      // Log memory usage for monitoring
-      const endTime = Date.now();
-      const finalMemory = process.memoryUsage();
-      const memoryDelta = finalMemory.heapUsed - initialMemory.heapUsed;
-      
-      if (memoryDelta > 10 * 1024 * 1024) { // > 10MB increase
-        console.warn(`⚠️  High memory usage in request: ${memoryDelta} bytes in ${endTime - startTime}ms`);
+      if (!cleanupDone) {
+        cleanupDone = true;
+        
+        // Force garbage collection if available (development only)
+        if (process.env.NODE_ENV === 'development' && global.gc) {
+          global.gc();
+        }
+        
+        // Log memory usage for monitoring
+        const endTime = Date.now();
+        const finalMemory = process.memoryUsage();
+        const memoryDelta = finalMemory.heapUsed - initialMemory.heapUsed;
+        
+        if (memoryDelta > 10 * 1024 * 1024) { // > 10MB increase
+          console.warn(`⚠️  High memory usage in request: ${memoryDelta} bytes in ${endTime - startTime}ms`);
+        }
+        
+        // Remove listeners to prevent memory leaks
+        res.removeListener('finish', cleanup);
+        res.removeListener('close', cleanup);
+        res.removeListener('error', cleanup);
       }
     };
     

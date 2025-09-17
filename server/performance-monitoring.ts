@@ -99,12 +99,22 @@ class PerformanceMonitor extends EventEmitter {
   private readonly METRICS_COLLECTION_INTERVAL = 5000; // 5 seconds
   private readonly API_METRICS_RETENTION_HOURS = 24;
   private readonly DB_METRICS_RETENTION_HOURS = 12;
+  
+  // Cleanup tracking
+  private cleanupTimers: Set<NodeJS.Timeout> = new Set();
+  private shutdownHandlersRegistered = false;
 
   constructor() {
     super();
     this.setupDefaultAlerts();
     this.startSystemMetricsCollection();
     this.setupCleanupTasks();
+    
+    // Register shutdown handlers
+    if (!this.shutdownHandlersRegistered) {
+      this.registerShutdownHandlers();
+      this.shutdownHandlersRegistered = true;
+    }
   }
 
   // ===============================
@@ -247,13 +257,11 @@ class PerformanceMonitor extends EventEmitter {
         console.error('❌ [Performance Monitor] System metrics collection failed:', error);
       }
     }, this.METRICS_COLLECTION_INTERVAL);
-
-    // Cleanup on exit
-    process.on('exit', () => {
-      if (this.systemMetricsTimer) {
-        clearInterval(this.systemMetricsTimer);
-      }
-    });
+    
+    // Track the timer for cleanup
+    if (this.systemMetricsTimer) {
+      this.cleanupTimers.add(this.systemMetricsTimer);
+    }
   }
 
   // ===============================
@@ -660,16 +668,60 @@ class PerformanceMonitor extends EventEmitter {
 
   private setupCleanupTasks(): void {
     // Clean up old API metrics every hour
-    setInterval(() => {
+    const apiCleanupTimer = setInterval(() => {
       const cutoff = Date.now() - (this.API_METRICS_RETENTION_HOURS * 3600000);
       this.apiMetrics = this.apiMetrics.filter(metric => metric.timestamp >= cutoff);
     }, 3600000);
+    this.cleanupTimers.add(apiCleanupTimer);
 
     // Clean up old database metrics every hour
-    setInterval(() => {
+    const dbCleanupTimer = setInterval(() => {
       const cutoff = Date.now() - (this.DB_METRICS_RETENTION_HOURS * 3600000);
       this.databaseMetrics = this.databaseMetrics.filter(metric => metric.timestamp >= cutoff);
     }, 3600000);
+    this.cleanupTimers.add(dbCleanupTimer);
+  }
+
+  private registerShutdownHandlers(): void {
+    // Import the safe shutdown orchestrator
+    import('./shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+      registerShutdownHandler({
+        name: 'performance-monitor',
+        priority: 10, // Performance monitor should shut down early to record final metrics
+        shutdown: async () => {
+          this.shutdown();
+        }
+      });
+    }).catch(error => {
+      console.error('❌ [Performance Monitor] Failed to register shutdown handler:', error);
+    });
+  }
+
+  private shutdown(): void {
+    console.log('🔄 [Performance Monitor] Shutting down...');
+    
+    // Clear system metrics timer
+    if (this.systemMetricsTimer) {
+      clearInterval(this.systemMetricsTimer);
+      this.systemMetricsTimer = null;
+    }
+    
+    // Clear all cleanup timers
+    for (const timer of this.cleanupTimers) {
+      clearInterval(timer);
+    }
+    this.cleanupTimers.clear();
+    
+    // Clear data arrays to free memory
+    this.metrics = [];
+    this.apiMetrics = [];
+    this.databaseMetrics = [];
+    this.alertConditions.clear();
+    
+    // Remove all event listeners
+    this.removeAllListeners();
+    
+    console.log('✅ [Performance Monitor] Shutdown complete');
   }
 
   // ===============================

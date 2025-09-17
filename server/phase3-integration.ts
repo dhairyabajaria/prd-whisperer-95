@@ -23,6 +23,7 @@ class Phase3SystemOrchestrator {
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private healthCheckTimer: NodeJS.Timeout | null = null;
+  private shutdownHandlersRegistered = false;
 
   /**
    * Initialize all Phase 3 optimization systems
@@ -193,19 +194,48 @@ class Phase3SystemOrchestrator {
   }
 
   /**
-   * Start comprehensive health monitoring
+   * Start comprehensive health monitoring with proper cleanup
    */
   private startHealthMonitoring(): void {
     this.healthCheckTimer = setInterval(async () => {
       await this.performSystemHealthCheck();
     }, 60000); // Every minute
 
-    // Cleanup on exit
-    process.on('exit', () => {
-      if (this.healthCheckTimer) {
-        clearInterval(this.healthCheckTimer);
-      }
+    // Register shutdown handlers once
+    if (!this.shutdownHandlersRegistered) {
+      this.registerShutdownHandlers();
+      this.shutdownHandlersRegistered = true;
+    }
+  }
+
+  private registerShutdownHandlers(): void {
+    // Import the safe shutdown orchestrator
+    import('./shutdown-orchestrator').then(({ registerShutdownHandler }) => {
+      registerShutdownHandler({
+        name: 'phase3-orchestrator',
+        priority: 5, // Phase3 orchestrator should shut down very early to coordinate other shutdowns
+        shutdown: async () => {
+          this.shutdownOrchestrator();
+        }
+      });
+    }).catch(error => {
+      console.error('❌ [Phase3 Orchestrator] Failed to register shutdown handler:', error);
     });
+  }
+
+  private shutdownOrchestrator(): void {
+    console.log('🔄 [Phase3 Orchestrator] Shutting down...');
+    
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+    }
+    
+    // Reset state
+    this.isInitialized = false;
+    this.initializationPromise = null;
+    
+    console.log('✅ [Phase3 Orchestrator] Shutdown complete');
   }
 
   /**

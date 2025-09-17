@@ -24,6 +24,7 @@ class FxRateScheduler {
   private isRunning = false;
   private config: SchedulerConfig;
   private status: SchedulerStatus;
+  private shutdownHandlersRegistered = false;
 
   constructor() {
     // Load configuration from environment variables
@@ -53,6 +54,12 @@ class FxRateScheduler {
     }
 
     log(`FX Rate Scheduler initialized - Refresh interval: ${this.config.refreshIntervalHours}h, Retry attempts: ${this.config.retryAttempts}, Enabled: ${this.config.enabled}`);
+    
+    // Register shutdown handlers once
+    if (!this.shutdownHandlersRegistered) {
+      this.registerShutdownHandlers();
+      this.shutdownHandlersRegistered = true;
+    }
   }
 
   /**
@@ -224,6 +231,37 @@ class FxRateScheduler {
   /**
    * Get scheduler statistics for monitoring
    */
+  private registerShutdownHandlers(): void {
+    const cleanup = () => {
+      this.shutdownScheduler();
+    };
+
+    // Remove existing handlers to prevent accumulation
+    process.removeAllListeners('SIGTERM');
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('beforeExit');
+
+    // Register new handlers
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
+    process.on('beforeExit', cleanup);
+  }
+
+  private shutdownScheduler(): void {
+    log('🔄 [FX Scheduler] Shutting down...');
+    
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    
+    this.isRunning = false;
+    this.status.isRunning = false;
+    this.status.nextRefreshAt = undefined;
+    
+    log('✅ [FX Scheduler] Shutdown complete');
+  }
+
   getStatistics(): {
     uptime: string;
     successRate: string;
