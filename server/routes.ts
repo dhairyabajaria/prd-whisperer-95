@@ -68,6 +68,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import type { RequestHandler } from "express";
+import { getCachedDashboardMetrics, memoryOptimizedMiddleware, invalidateDashboardMetricsCache } from "../critical-cache-implementation";
 
 // RBAC middleware to check user roles
 const requireRole = (allowedRoles: string[]): RequestHandler => {
@@ -214,10 +215,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard routes
-  app.get("/api/dashboard/metrics", isAuthenticated, async (req, res) => {
+  // Dashboard routes - with Redis caching for performance
+  app.get("/api/dashboard/metrics", isAuthenticated, memoryOptimizedMiddleware(), async (req, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      const startTime = Date.now();
+      const metrics = await getCachedDashboardMetrics(storage);
+      const responseTime = Date.now() - startTime;
+      
+      // Add performance headers for monitoring
+      res.set('X-Response-Time', `${responseTime}ms`);
+      res.set('X-Cache-Strategy', 'redis-optimized');
+      
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
@@ -542,6 +550,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const productData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(productData);
+      
+      // Invalidate dashboard metrics cache (affects activeProducts count)
+      await invalidateDashboardMetricsCache();
+      
       res.status(201).json(product);
     } catch (error: any) {
       console.error("Error creating product:", error);
@@ -553,6 +565,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const productData = insertProductSchema.partial().parse(req.body);
       const product = await storage.updateProduct(req.params.id, productData);
+      
+      // Invalidate dashboard metrics cache (affects activeProducts count)
+      await invalidateDashboardMetricsCache();
+      
       res.json(product);
     } catch (error: any) {
       console.error("Error updating product:", error);
@@ -586,6 +602,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const inventoryData = insertInventorySchema.parse(req.body);
       const inventory = await storage.createInventory(inventoryData);
+      
+      // Invalidate dashboard metrics cache (affects expiringProductsCount)
+      await invalidateDashboardMetricsCache();
+      
       res.status(201).json(inventory);
     } catch (error: any) {
       console.error("Error creating inventory:", error);
@@ -622,6 +642,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orderData = insertSalesOrderSchema.parse(req.body);
       const order = await storage.createSalesOrder(orderData);
+      
+      // Invalidate dashboard metrics cache (affects totalRevenue, openOrders)
+      await invalidateDashboardMetricsCache();
+      
       res.status(201).json(order);
     } catch (error: any) {
       console.error("Error creating sales order:", error);
@@ -1399,6 +1423,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const invoiceData = insertInvoiceSchema.parse(req.body);
       const invoice = await storage.createInvoice(invoiceData);
+      
+      // Invalidate dashboard metrics cache (affects outstandingAmount)
+      await invalidateDashboardMetricsCache();
+      
       res.status(201).json(invoice);
     } catch (error: any) {
       console.error("Error creating invoice:", error);
@@ -2907,6 +2935,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invoice = await storage.updateInvoice(req.params.id, { 
         status: 'sent'
       });
+      
+      // Invalidate dashboard metrics cache (affects outstandingAmount)
+      await invalidateDashboardMetricsCache();
       
       // In a real implementation, this would trigger email/notification service
       res.json({ 

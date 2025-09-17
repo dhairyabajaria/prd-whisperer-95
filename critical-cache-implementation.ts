@@ -24,10 +24,23 @@ export function getRedisClient(): Redis {
     redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
-      retryDelayOnFailover: 100,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: 1,
       lazyConnect: true,
+      // Add connection timeout and error handling
+      connectTimeout: 5000,
+      commandTimeout: 5000,
+      retryStrategy: (times) => {
+        if (times > 1) {
+          console.warn('⚠️  Redis unavailable - using direct database queries only');
+          return null; // Stop retrying
+        }
+        return Math.min(times * 50, 2000);
+      }
     });
+    
+    // Log connection status
+    redisClient.on('connect', () => console.log('🚀 Redis connected successfully!'));
+    redisClient.on('error', (err) => console.warn('⚠️  Redis connection error:', err.message));
   }
   return redisClient;
 }
@@ -45,51 +58,138 @@ interface CachedDashboardMetrics {
   version: string;
 }
 
+// In-memory cache fallback when Redis is not available
+let inMemoryCache: CachedDashboardMetrics | null = null;
+let isRedisAvailable: boolean | null = null;
+
+// Check if Redis is available
+async function checkRedisAvailability(): Promise<boolean> {
+  if (isRedisAvailable !== null) return isRedisAvailable;
+  
+  try {
+    const redis = getRedisClient();
+    await redis.ping();
+    isRedisAvailable = true;
+    console.log('✅ Redis available - using Redis cache');
+    return true;
+  } catch (error) {
+    isRedisAvailable = false;
+    console.log('⚠️  Redis unavailable - using in-memory cache fallback');
+    return false;
+  }
+}
+
 /**
  * Enhanced dashboard metrics with intelligent caching
  * 
  * Strategy:
- * 1. Try cache first (fast path)
+ * 1. Try Redis cache first, fallback to in-memory cache
  * 2. If cache miss or stale, refresh asynchronously
  * 3. Return cached data immediately if available
  * 4. Use stale-while-revalidate pattern for best UX
  */
 export async function getCachedDashboardMetrics(storage: any): Promise<CachedDashboardMetrics['data']> {
+  const startTime = Date.now();
+  
+  try {
+    const redisAvailable = await checkRedisAvailability();
+    
+    if (redisAvailable) {
+      // Use Redis cache
+      return await getRedisCachedMetrics(storage);
+    } else {
+      // Use in-memory cache fallback
+      return await getInMemoryCachedMetrics(storage);
+    }
+  } catch (error) {
+    console.error('Cache error, falling back to direct query:', error);
+    const metrics = await storage.getDashboardMetrics();
+    const queryTime = Date.now() - startTime;
+    console.log(`🔍 Direct query fallback completed in ${queryTime}ms`);
+    return metrics;
+  }
+}
+
+// Redis cache implementation
+async function getRedisCachedMetrics(storage: any): Promise<CachedDashboardMetrics['data']> {
   const redis = getRedisClient();
   const cacheKey = CACHE_CONFIG.DASHBOARD_METRICS_KEY;
   
-  try {
-    // Try to get from cache first
-    const cachedData = await redis.get(cacheKey);
+  // Try to get from Redis cache first
+  const cachedData = await redis.get(cacheKey);
+  
+  if (cachedData) {
+    const parsed: CachedDashboardMetrics = JSON.parse(cachedData);
+    const age = Date.now() - parsed.timestamp;
+    const isStale = age > (CACHE_CONFIG.DASHBOARD_METRICS_TTL * 1000);
+    const isVeryStale = age > ((CACHE_CONFIG.DASHBOARD_METRICS_TTL + CACHE_CONFIG.STALE_WHILE_REVALIDATE) * 1000);
     
-    if (cachedData) {
-      const parsed: CachedDashboardMetrics = JSON.parse(cachedData);
-      const age = Date.now() - parsed.timestamp;
-      const isStale = age > (CACHE_CONFIG.DASHBOARD_METRICS_TTL * 1000);
-      const isVeryStale = age > ((CACHE_CONFIG.DASHBOARD_METRICS_TTL + CACHE_CONFIG.STALE_WHILE_REVALIDATE) * 1000);
-      
-      // If not very stale, return cached data
-      if (!isVeryStale) {
-        // If stale but not very stale, refresh asynchronously
-        if (isStale) {
-          // Fire and forget refresh
-          refreshDashboardMetricsCache(storage).catch(err => 
-            console.error('Async cache refresh failed:', err)
-          );
-        }
-        
-        console.log(`🚀 Dashboard metrics served from cache (age: ${Math.round(age/1000)}s)`);
-        return parsed.data;
+    // If not very stale, return cached data
+    if (!isVeryStale) {
+      // If stale but not very stale, refresh asynchronously
+      if (isStale) {
+        refreshDashboardMetricsCache(storage).catch(err => 
+          console.error('Async cache refresh failed:', err)
+        );
       }
+      
+      console.log(`🚀 Dashboard metrics served from Redis cache (age: ${Math.round(age/1000)}s)`);
+      return parsed.data;
     }
+  }
+  
+  // Cache miss or very stale - fetch fresh data
+  console.log('💾 Redis cache miss - fetching fresh data');
+  return await refreshDashboardMetricsCache(storage);
+}
+
+// In-memory cache implementation  
+async function getInMemoryCachedMetrics(storage: any): Promise<CachedDashboardMetrics['data']> {
+  const now = Date.now();
+  
+  if (inMemoryCache) {
+    const age = now - inMemoryCache.timestamp;
+    const isStale = age > (CACHE_CONFIG.DASHBOARD_METRICS_TTL * 1000);
+    const isVeryStale = age > ((CACHE_CONFIG.DASHBOARD_METRICS_TTL + CACHE_CONFIG.STALE_WHILE_REVALIDATE) * 1000);
     
-    // Cache miss or very stale - fetch fresh data
-    console.log('💾 Dashboard metrics cache miss - fetching fresh data');
-    return await refreshDashboardMetricsCache(storage);
+    // If not very stale, return cached data
+    if (!isVeryStale) {
+      // If stale but not very stale, refresh asynchronously
+      if (isStale) {
+        refreshInMemoryCache(storage).catch(err => 
+          console.error('Async in-memory cache refresh failed:', err)
+        );
+      }
+      
+      console.log(`🚀 Dashboard metrics served from in-memory cache (age: ${Math.round(age/1000)}s)`);
+      return inMemoryCache.data;
+    }
+  }
+  
+  // Cache miss or very stale - fetch fresh data
+  console.log('💾 In-memory cache miss - fetching fresh data');
+  return await refreshInMemoryCache(storage);
+}
+
+// Refresh in-memory cache
+async function refreshInMemoryCache(storage: any): Promise<CachedDashboardMetrics['data']> {
+  try {
+    const startTime = Date.now();
+    const freshData = await storage.getDashboardMetrics();
+    const queryTime = Date.now() - startTime;
     
+    // Update in-memory cache
+    inMemoryCache = {
+      data: freshData,
+      timestamp: Date.now(),
+      version: '1.0'
+    };
+    
+    console.log(`✅ Dashboard metrics cached in-memory (query: ${queryTime}ms)`);
+    return freshData;
   } catch (error) {
-    console.error('Cache error, falling back to direct query:', error);
-    return await storage.getDashboardMetrics();
+    console.error('Failed to refresh in-memory cache:', error);
+    throw error;
   }
 }
 
@@ -133,14 +233,25 @@ async function refreshDashboardMetricsCache(storage: any): Promise<CachedDashboa
  * Call this when data changes that affect dashboard metrics
  */
 export async function invalidateDashboardMetricsCache(): Promise<void> {
-  const redis = getRedisClient();
-  const cacheKey = CACHE_CONFIG.DASHBOARD_METRICS_KEY;
-  
   try {
-    await redis.del(cacheKey);
-    console.log('♻️  Dashboard metrics cache invalidated');
+    const redisAvailable = await checkRedisAvailability();
+    
+    if (redisAvailable) {
+      // Invalidate Redis cache
+      const redis = getRedisClient();
+      const cacheKey = CACHE_CONFIG.DASHBOARD_METRICS_KEY;
+      await redis.del(cacheKey);
+      console.log('♻️  Dashboard metrics Redis cache invalidated');
+    }
+    
+    // Always invalidate in-memory cache
+    inMemoryCache = null;
+    console.log('♻️  Dashboard metrics in-memory cache invalidated');
+    
   } catch (error) {
     console.error('Failed to invalidate dashboard metrics cache:', error);
+    // Still clear in-memory cache even if Redis fails
+    inMemoryCache = null;
   }
 }
 

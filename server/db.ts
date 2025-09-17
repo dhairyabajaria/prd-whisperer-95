@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 import { getDatabaseUrlAsync } from "./secretLoader";
+import { optimizedPoolConfig } from "../critical-cache-implementation";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -28,8 +29,17 @@ async function initializeDatabase(): Promise<void> {
         throw new Error('DATABASE_URL could not be obtained from any source. Please check your database configuration.');
       }
       
-      console.log('🚀 [DB] Creating database connection...');
-      const newPool = new Pool({ connectionString: databaseUrl });
+      console.log('🚀 [DB] Creating optimized database connection with enhanced pool config...');
+      const poolConfig = {
+        connectionString: databaseUrl,
+        ...optimizedPoolConfig,
+        // Neon-specific optimizations
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000
+      };
+      
+      console.log(`[DB Pool] Configured with max=${optimizedPoolConfig.max}, min=${optimizedPoolConfig.min} connections`);
+      const newPool = new Pool(poolConfig);
       const newDb = drizzle({ client: newPool, schema });
       
       // Test the connection
