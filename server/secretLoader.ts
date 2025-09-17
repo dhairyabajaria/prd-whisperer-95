@@ -20,11 +20,10 @@ interface SecretLoadResult {
 function loadReplitSecret(key: string): SecretLoadResult {
   console.log(`🔍 [SECRET] Loading secret: ${key}`);
   
-  // FIXED: Removed broken dotenv reload that was failing in ES module context
-  // Replit environment variables are automatically loaded via process.env
-  
-  // First try direct process.env access
+  // Try to access secrets through Replit's runtime environment
+  // In Replit, secrets are available through process.env but may need refresh
   try {
+    // Direct process.env access - Replit automatically loads secrets here
     const envValue = process.env[key];
     console.log(`🔧 [SECRET] DEBUG ${key}:`, {
       exists: key in process.env,
@@ -38,6 +37,11 @@ function loadReplitSecret(key: string): SecretLoadResult {
     if (envValue && envValue.trim().length > 0) {
       console.log(`✅ [SECRET] Found ${key} in process.env`);
       return { value: envValue.trim(), source: 'env' };
+    }
+    
+    // If process.env shows empty but secret exists, try refreshing
+    if (envValue === '' && key in process.env) {
+      console.log(`⚠️ [SECRET] ${key} exists but is empty - checking alternative sources`);
     }
   } catch (error) {
     console.log(`⚠️ [SECRET] Failed to read ${key} from process.env:`, error);

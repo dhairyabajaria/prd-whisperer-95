@@ -7314,7 +7314,7 @@ export class DatabaseStorage implements IStorage {
 }
 
 import { MemStorage } from "./memStorage";
-import { getDatabaseUrlAsync, debugSecretSources } from "./secretLoader";
+import { debugSecretSources } from "./secretLoader";
 
 // Import fs properly for ES modules
 import * as fs from 'fs';
@@ -7347,9 +7347,9 @@ async function initializeStorage(): Promise<IStorage> {
       return memStorage;
     }
     
-    // Use async retry-based secret loading
-    console.log('🚀 [STORAGE] Starting database URL retrieval with retries...');
-    const databaseUrl = await getDatabaseUrlAsync();
+    // Use direct DATABASE_URL access per javascript_database integration  
+    console.log('🚀 [STORAGE] Starting database URL retrieval...');
+    const databaseUrl = process.env.DATABASE_URL;
 
     console.log('DATABASE_URL exists:', !!databaseUrl);
     console.log('Environment:', process.env.NODE_ENV);

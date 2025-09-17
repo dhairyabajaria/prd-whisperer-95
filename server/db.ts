@@ -2,7 +2,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
-import { getDatabaseUrlAsync } from "./secretLoader";
+// getDatabaseUrlAsync removed - now using direct process.env.DATABASE_URL per integration
 import { optimizedPoolConfig } from "../critical-cache-implementation";
 
 neonConfig.webSocketConstructor = ws;
@@ -27,11 +27,11 @@ async function initializeDatabase(): Promise<void> {
       try {
         console.log(`🚀 [DB] Starting enhanced database initialization (attempt ${attempt}/${maxRetries})...`);
         
-        // Use the working getDatabaseUrlAsync from secretLoader.ts
-        const databaseUrl = await getDatabaseUrlAsync();
+        // Use direct DATABASE_URL access per javascript_database integration
+        const databaseUrl = process.env.DATABASE_URL;
         
         if (!databaseUrl) {
-          throw new Error('DATABASE_URL could not be obtained from any source. Please check your database configuration.');
+          throw new Error('DATABASE_URL must be set. Did you forget to provision a database?');
         }
         
         console.log('🚀 [DB] Creating optimized database connection with enhanced pool config...');
@@ -65,9 +65,7 @@ async function initializeDatabase(): Promise<void> {
           console.log('🎯 [DB Pool] Client acquired from pool');
         });
         
-        newPool.on('release', () => {
-          console.log('🔄 [DB Pool] Client released back to pool');
-        });
+        // Note: 'release' event not supported by neon pool, removing to fix LSP error
         
         // Create the drizzle instance
         const newDb = drizzle({ client: newPool, schema });

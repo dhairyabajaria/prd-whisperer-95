@@ -1,19 +1,17 @@
 import OpenAI from "openai";
-import { getReplitSecretAsync } from "./secretLoader";
+// getReplitSecretAsync removed - now using direct process.env.OPENAI_API_KEY per integration
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
 // Helper function to check if OpenAI is properly configured
 export async function isOpenAIConfigured(): Promise<boolean> {
-  // Get the API key using robust secret loading
-  const apiKey = await getReplitSecretAsync('OPENAI_API_KEY') || await getReplitSecretAsync('OPENAI_API_KEY_ENV_VAR');
+  // Use direct OPENAI_API_KEY access per javascript_openai integration
+  const apiKey = process.env.OPENAI_API_KEY;
   
   // Enhanced debug logging in development (sensitive data removed for security)
   if (process.env.NODE_ENV === 'development') {
     console.log('🔍 OpenAI Configuration Debug (DEV ONLY):', {
       hasOPENAI_API_KEY: !!(process.env.OPENAI_API_KEY),
-      hasOPENAI_API_KEY_ENV_VAR: !!(process.env.OPENAI_API_KEY_ENV_VAR),
-      apiKeyFromRobustLoader: !!(apiKey),
       isConfigured: !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0),
       openaiEnvVarsCount: Object.keys(process.env).filter(key => key.includes('OPENAI')).length,
       totalEnvVarsCount: Object.keys(process.env).length
@@ -32,7 +30,7 @@ let openai: OpenAI | null = null;
 // Function to get or initialize OpenAI client
 export async function getOpenAIClient(): Promise<OpenAI | null> {
   if (!openai && await isOpenAIConfigured()) {
-    const apiKey = await getReplitSecretAsync('OPENAI_API_KEY') || await getReplitSecretAsync('OPENAI_API_KEY_ENV_VAR');
+    const apiKey = process.env.OPENAI_API_KEY;
     if (apiKey) {
       openai = new OpenAI({ apiKey });
       console.log('🚀 [AI] OpenAI client initialized successfully');
