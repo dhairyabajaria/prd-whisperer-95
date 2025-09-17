@@ -2,7 +2,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
-// getDatabaseUrlAsync removed - now using direct process.env.DATABASE_URL per integration
+import { getDatabaseUrlAsync } from "./secretLoader";
 import { optimizedPoolConfig } from "../critical-cache-implementation";
 
 neonConfig.webSocketConstructor = ws;
@@ -27,27 +27,9 @@ async function initializeDatabase(): Promise<void> {
       try {
         console.log(`🚀 [DB] Starting enhanced database initialization (attempt ${attempt}/${maxRetries})...`);
         
-        // Enhanced DATABASE_URL access with fallback strategies for Replit
-        let databaseUrl = process.env.DATABASE_URL;
-        
-        console.log('🔍 [DB] Initial DATABASE_URL analysis:', {
-          exists: 'DATABASE_URL' in process.env,
-          hasValue: !!(databaseUrl && databaseUrl.trim().length > 0),
-          length: databaseUrl ? databaseUrl.length : 0,
-          isEmpty: databaseUrl === ''
-        });
-        
-        // If DATABASE_URL is empty, try to construct from PG components
-        if (!databaseUrl || databaseUrl.trim() === '') {
-          console.log('🔧 [DB] DATABASE_URL empty, constructing from PG components...');
-          const { PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD } = process.env;
-          
-          if (PGHOST && PGPORT && PGDATABASE && PGUSER && PGPASSWORD &&
-              PGHOST.trim() && PGPORT.trim() && PGDATABASE.trim() && PGUSER.trim() && PGPASSWORD.trim()) {
-            databaseUrl = `postgresql://${PGUSER.trim()}:${PGPASSWORD.trim()}@${PGHOST.trim()}:${PGPORT.trim()}/${PGDATABASE.trim()}?sslmode=require`;
-            console.log('✅ [DB] Successfully constructed DATABASE_URL from PG components');
-          }
-        }
+        // Use Replit secret loading mechanism instead of direct process.env access
+        console.log('🔍 [DB] Loading DATABASE_URL via Replit secret loader...');
+        let databaseUrl = await getDatabaseUrlAsync();
         
         if (!databaseUrl || databaseUrl.trim() === '') {
           throw new Error('DATABASE_URL must be set. Check Replit database provisioning and secrets configuration.');
