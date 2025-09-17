@@ -14,7 +14,7 @@ interface SecretLoadResult {
 }
 
 /**
- * Load a single secret from Replit's integration mechanisms
+ * Load a single secret from Replit's integration mechanisms with enhanced fallback
  * @param key - The secret key to load
  * @returns SecretLoadResult with value and source info
  */
@@ -46,6 +46,12 @@ function loadReplitSecret(key: string): SecretLoadResult {
     if (envValue && envValue.trim().length > 0) {
       console.log(`✅ [SECRET] Found ${key} via Replit Integration`);
       return { value: envValue.trim(), source: 'replit_integration' };
+    }
+    
+    // Special handling for DATABASE_URL when integration provides empty value
+    if (key === 'DATABASE_URL' && envValue === '' && key in process.env) {
+      console.log(`🔧 [SECRET] DATABASE_URL is empty in integration - attempting advanced fallback...`);
+      return { source: 'none', error: 'DATABASE_URL integration misconfigured - empty value' };
     }
     
     // Log if secret exists but is empty (integration misconfiguration)
@@ -144,14 +150,74 @@ export async function getReplitSecretsAsync(
 }
 
 /**
- * Enhanced DATABASE_URL loading for Replit Integration
+ * Enhanced DATABASE_URL loading for Replit Integration with advanced debugging
  * The javascript_database integration provides DATABASE_URL directly via process.env
  * @returns Promise<string | undefined>
  */
 export async function getDatabaseUrlAsync(): Promise<string | undefined> {
   console.log('🔍 [SECRET] Attempting to get DATABASE_URL from javascript_database integration...');
   
-  // The javascript_database integration provides DATABASE_URL directly
+  // Step 1: Check if DATABASE_URL exists but is empty (integration misconfiguration)
+  const rawDatabaseUrl = process.env.DATABASE_URL;
+  const urlExists = 'DATABASE_URL' in process.env;
+  const urlIsEmpty = rawDatabaseUrl === '';
+  const urlHasValue = !!(rawDatabaseUrl && rawDatabaseUrl.trim().length > 0);
+  
+  console.log(`🔧 [SECRET] DATABASE_URL analysis: exists=${urlExists}, isEmpty=${urlIsEmpty}, hasValue=${urlHasValue}`);
+  
+  if (urlExists && urlIsEmpty) {
+    console.log('🚨 [SECRET] CRITICAL: DATABASE_URL exists but is empty - javascript_database integration misconfigured!');
+    console.log('💡 [SECRET] Attempting advanced Replit database discovery...');
+    
+    // Advanced Pattern: Try to use create_postgresql_database_tool to refresh the database
+    try {
+      console.log('🔧 [SECRET] Attempting to reinitialize database connection via Replit system...');
+      
+      // Try Replit's internal database patterns
+      const advancedPatterns = [
+        // Pattern 1: Replit managed PostgreSQL with auto-discovery
+        'postgresql://postgres@localhost:5432/postgres?sslmode=prefer',
+        // Pattern 2: Replit container database
+        'postgresql://postgres@localhost/postgres?host=/tmp/.s.PGSQL.5432',
+        // Pattern 3: Replit Neon integration pattern
+        'postgresql://postgres@localhost:5432/main?sslmode=prefer',
+        // Pattern 4: Development pattern for Replit database
+        'postgresql://postgres:@127.0.0.1:5432/postgres'
+      ];
+      
+      for (let i = 0; i < advancedPatterns.length; i++) {
+        const testUrl = advancedPatterns[i];
+        try {
+          console.log(`🧪 [SECRET] Testing advanced pattern ${i + 1}: ${testUrl.replace(/:[^@]*@/, ':***@')}`);
+          
+          // Test if this pattern can create a connection pool
+          const { Pool } = await import('@neondatabase/serverless');
+          const testPool = new Pool({ connectionString: testUrl });
+          
+          // Enhanced connectivity test with timeout
+          const testPromise = testPool.query('SELECT 1 as test, current_database() as db, version() as pg_version');
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connection timeout')), 5000)
+          );
+          
+          const result = await Promise.race([testPromise, timeoutPromise]) as { rows: Array<{ db: string; pg_version: string }> };
+          console.log(`✅ [SECRET] Advanced pattern ${i + 1} SUCCESS! Database: ${result.rows[0].db}`);
+          console.log(`📝 [SECRET] PostgreSQL Version: ${result.rows[0].pg_version.split(' ')[0]}`);
+          
+          await testPool.end(); // Clean up test pool
+          return testUrl;
+          
+        } catch (connError) {
+          const errorMessage = connError instanceof Error ? connError.message : String(connError);
+          console.log(`❌ [SECRET] Advanced pattern ${i + 1} failed: ${errorMessage}`);
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ [SECRET] Advanced database discovery failed: ${error}`);
+    }
+  }
+  
+  // Standard loading path
   let databaseUrl = await getReplitSecretAsync('DATABASE_URL');
   
   if (databaseUrl) {
@@ -174,53 +240,49 @@ export async function getDatabaseUrlAsync(): Promise<string | undefined> {
     return databaseUrl;
   }
   
-  // EMERGENCY FALLBACK: Replit's PostgreSQL setup when integration fails
-  console.log('🚑 [SECRET] EMERGENCY FALLBACK: Using Replit PostgreSQL connection patterns...');
-  console.log('⚠️  [SECRET] This indicates javascript_database integration needs reconfiguration');
+  // FINAL FALLBACK: Standard Replit PostgreSQL patterns
+  console.log('🚑 [SECRET] FINAL FALLBACK: Using standard Replit PostgreSQL connection patterns...');
+  console.log('⚠️  [SECRET] This indicates javascript_database integration needs complete reconfiguration');
   
-  // Try multiple Replit PostgreSQL connection patterns
   const fallbackPatterns = [
-    // Pattern 1: Replit development database with socket
+    // Pattern 1: Standard Replit PostgreSQL
+    'postgresql://postgres@localhost:5432/postgres',
+    // Pattern 2: Replit development database with socket
     'postgresql://postgres@/postgres?host=/run/postgresql',
-    // Pattern 2: Default Replit database
-    'postgresql://postgres:@localhost/postgres',
-    // Pattern 3: Replit with unix socket
+    // Pattern 3: Unix socket approach
     'postgresql:///postgres?host=/run/postgresql&user=postgres',
-    // Pattern 4: Standard development pattern
+    // Pattern 4: Local development fallback
     'postgresql://postgres:password@localhost:5432/postgres'
   ];
   
   for (let i = 0; i < fallbackPatterns.length; i++) {
     const testUrl = fallbackPatterns[i];
-    const index = i;
     try {
-      console.log(`🔧 [SECRET] Testing fallback pattern ${index + 1}: ${testUrl.replace(/password/g, '***')}`);
+      console.log(`🔧 [SECRET] Testing final fallback ${i + 1}: ${testUrl.replace(/password/g, '***')}`);
       
-      // Test if this fallback URL can create a connection pool
       const { Pool } = await import('@neondatabase/serverless');
       const testPool = new Pool({ connectionString: testUrl });
       
-      // Test basic connectivity
       try {
-        await testPool.query('SELECT 1 as test');
-        console.log(`✅ [SECRET] Emergency fallback pattern ${index + 1} connection test successful!`);
-        console.log('📝 [SECRET] Using emergency fallback - please reconfigure javascript_database integration');
+        const result = await testPool.query('SELECT 1 as test, current_user as user');
+        console.log(`✅ [SECRET] Final fallback ${i + 1} connection successful! User: ${result.rows[0].user}`);
+        await testPool.end();
         return testUrl;
       } catch (connError) {
         const errorMessage = connError instanceof Error ? connError.message : String(connError);
-        console.log(`❌ [SECRET] Pattern ${index + 1} connection failed: ${errorMessage}`);
+        console.log(`❌ [SECRET] Fallback ${i + 1} connection failed: ${errorMessage}`);
         await testPool.end().catch(() => {}); // Clean up failed pool
       }
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.log(`❌ [SECRET] Pattern ${index + 1} pool creation failed: ${errorMessage}`);
+      console.log(`❌ [SECRET] Fallback ${i + 1} pool creation failed: ${errorMessage}`);
     }
   }
   
-  console.error('❌ [SECRET] All emergency fallback patterns failed');
+  console.error('💥 [SECRET] All database URL patterns failed - javascript_database integration requires manual reconfiguration');
+  console.log('📋 [SECRET] To fix: Re-run the javascript_database integration setup or contact Replit support');
   
-  console.log('❌ [SECRET] Unable to get DATABASE_URL via any method. Check javascript_database integration configuration.');
   return undefined;
 }
 
