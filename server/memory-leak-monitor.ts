@@ -232,6 +232,129 @@ class MemoryLeakMonitor {
     
     console.log('✅ [Memory Monitor] Shutdown complete');
   }
+
+  /**
+   * Memory profiling for high-usage operations
+   * Use this to wrap operations that might use significant memory
+   */
+  public async profileOperation<T>(
+    operationName: string,
+    operation: () => Promise<T>,
+    options: {
+      warnThresholdMB?: number;
+      criticalThresholdMB?: number;
+      enableGC?: boolean;
+    } = {}
+  ): Promise<T> {
+    const { 
+      warnThresholdMB = 10, 
+      criticalThresholdMB = 20, 
+      enableGC = false 
+    } = options;
+    
+    const startTime = Date.now();
+    const startMemory = process.memoryUsage();
+    
+    console.log(`🔍 [Memory Profile] Starting: ${operationName}`);
+    
+    try {
+      const result = await operation();
+      
+      // Force garbage collection if enabled (development)
+      if (enableGC && process.env.NODE_ENV === 'development' && global.gc) {
+        global.gc();
+      }
+      
+      const endTime = Date.now();
+      const endMemory = process.memoryUsage();
+      const memoryDelta = (endMemory.heapUsed - startMemory.heapUsed) / 1024 / 1024; // MB
+      const duration = endTime - startTime;
+      
+      const icon = memoryDelta > criticalThresholdMB ? '🚨' : 
+                   memoryDelta > warnThresholdMB ? '⚠️' : '✅';
+      
+      console.log(`${icon} [Memory Profile] ${operationName}: ${memoryDelta.toFixed(2)}MB in ${duration}ms`);
+      
+      if (memoryDelta > criticalThresholdMB) {
+        console.error(`🚨 CRITICAL MEMORY USAGE in ${operationName}: ${memoryDelta.toFixed(2)}MB`);
+        this.triggerAlert({
+          type: 'memory_spike',
+          severity: 'critical',
+          message: `Critical memory usage in ${operationName}: ${memoryDelta.toFixed(2)}MB`,
+          metrics: this.captureMemoryMetrics(),
+          timestamp: Date.now()
+        });
+      } else if (memoryDelta > warnThresholdMB) {
+        console.warn(`⚠️  HIGH MEMORY USAGE in ${operationName}: ${memoryDelta.toFixed(2)}MB`);
+      }
+      
+      return result;
+    } catch (error) {
+      const endTime = Date.now();
+      const endMemory = process.memoryUsage();
+      const memoryDelta = (endMemory.heapUsed - startMemory.heapUsed) / 1024 / 1024;
+      
+      console.error(`❌ [Memory Profile] ${operationName} FAILED: ${memoryDelta.toFixed(2)}MB in ${endTime - startTime}ms`);
+      throw error;
+    }
+  }
+
+  /**
+   * Enhanced middleware with memory profiling capabilities
+   */
+  public get middleware() {
+    return (req: any, res: any, next: any) => {
+      const startTime = Date.now();
+      const initialMemory = process.memoryUsage();
+      const operationName = `${req.method} ${req.path}`;
+      
+      let cleanupDone = false;
+      
+      const cleanup = () => {
+        if (!cleanupDone) {
+          cleanupDone = true;
+          
+          // Force garbage collection if available (development only)
+          if (process.env.NODE_ENV === 'development' && global.gc) {
+            global.gc();
+          }
+          
+          const endTime = Date.now();
+          const finalMemory = process.memoryUsage();
+          const memoryDelta = finalMemory.heapUsed - initialMemory.heapUsed;
+          const memoryDeltaMB = memoryDelta / 1024 / 1024;
+          
+          // Enhanced memory thresholds
+          if (memoryDelta > 20 * 1024 * 1024) { // > 20MB increase - CRITICAL
+            console.error(`🚨 CRITICAL memory usage in ${operationName}: ${memoryDeltaMB.toFixed(2)}MB in ${endTime - startTime}ms`);
+            this.triggerAlert({
+              type: 'memory_spike',
+              severity: 'critical',
+              message: `Critical memory usage in request ${operationName}: ${memoryDeltaMB.toFixed(2)}MB`,
+              metrics: this.captureMemoryMetrics(),
+              timestamp: Date.now()
+            });
+          } else if (memoryDelta > 10 * 1024 * 1024) { // > 10MB increase - WARNING
+            console.warn(`⚠️  High memory usage in ${operationName}: ${memoryDeltaMB.toFixed(2)}MB in ${endTime - startTime}ms`);
+          } else if (memoryDelta > 5 * 1024 * 1024) { // > 5MB increase - NOTICE
+            console.log(`📊 Memory notice for ${operationName}: ${memoryDeltaMB.toFixed(2)}MB in ${endTime - startTime}ms`);
+          }
+          
+          // Remove listeners to prevent memory leaks
+          res.removeListener('finish', cleanup);
+          res.removeListener('close', cleanup);
+          res.removeListener('error', cleanup);
+        }
+      };
+      
+      // Ensure cleanup happens regardless of how response ends
+      res.on('finish', cleanup);
+      res.on('close', cleanup);
+      res.on('error', cleanup);
+      
+      next();
+    };
+  }
 }
 
 // Export singleton instance

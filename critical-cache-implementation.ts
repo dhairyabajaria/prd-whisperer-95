@@ -322,8 +322,13 @@ export function memoryOptimizedMiddleware() {
         const finalMemory = process.memoryUsage();
         const memoryDelta = finalMemory.heapUsed - initialMemory.heapUsed;
         
-        if (memoryDelta > 10 * 1024 * 1024) { // > 10MB increase
-          console.warn(`⚠️  High memory usage in request: ${memoryDelta} bytes in ${endTime - startTime}ms`);
+        // More aggressive memory thresholds for better leak detection
+        if (memoryDelta > 20 * 1024 * 1024) { // > 20MB increase - CRITICAL
+          console.error(`🚨 CRITICAL memory usage in request: ${Math.round(memoryDelta / 1024 / 1024)}MB in ${endTime - startTime}ms`);
+        } else if (memoryDelta > 10 * 1024 * 1024) { // > 10MB increase - WARNING
+          console.warn(`⚠️  High memory usage in request: ${Math.round(memoryDelta / 1024 / 1024)}MB in ${endTime - startTime}ms`);
+        } else if (memoryDelta > 5 * 1024 * 1024) { // > 5MB increase - NOTICE
+          console.log(`📊 Memory notice: ${Math.round(memoryDelta / 1024 / 1024)}MB in ${endTime - startTime}ms`);
         }
         
         // Remove listeners to prevent memory leaks

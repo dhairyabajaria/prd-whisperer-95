@@ -5777,6 +5777,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async refreshFxRates(): Promise<FxRate[]> {
+    const startMemory = process.memoryUsage();
+    const startTime = Date.now();
+    
     try {
       const { externalIntegrationsService } = await import("./external-integrations");
       
@@ -5788,38 +5791,93 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
 
-      const db = await getDb();
-      const updatedRates: FxRate[] = [];
-      const currentDate = new Date().toISOString().split('T')[0];
+      console.log(`🔍 [FX Refresh] Processing ${Object.keys(fxData.rates).length} currency rates from ${fxData.source}`);
 
-      // Update rates in database
-      for (const [quoteCurrency, rate] of Object.entries(fxData.rates)) {
-        const [updatedRate] = await db
-          .insert(fxRates)
-          .values({
-            baseCurrency: 'USD',
-            quoteCurrency,
-            rate: rate.toString(),
-            asOfDate: currentDate,
-            source: fxData.source,
-          })
-          .onConflictDoUpdate({
-            target: [fxRates.baseCurrency, fxRates.quoteCurrency, fxRates.asOfDate],
-            set: {
-              rate: rate.toString(),
-              source: fxData.source,
-              createdAt: new Date(),
-            },
-          })
-          .returning();
+      const db = await getDb();
+      const currentDate = new Date().toISOString().split('T')[0];
+      const BATCH_SIZE = 25; // Process in smaller batches to control memory usage
+      const allUpdatedRates: FxRate[] = [];
+      
+      // Convert rates to array for batch processing
+      const rateEntries = Object.entries(fxData.rates);
+      
+      // Process in batches to control memory usage
+      for (let i = 0; i < rateEntries.length; i += BATCH_SIZE) {
+        const batchStartMemory = process.memoryUsage();
+        const batch = rateEntries.slice(i, i + BATCH_SIZE);
         
-        updatedRates.push(updatedRate);
+        // Prepare batch values
+        const batchValues = batch.map(([quoteCurrency, rate]) => ({
+          baseCurrency: 'USD',
+          quoteCurrency,
+          rate: rate.toString(),
+          asOfDate: currentDate,
+          source: fxData.source,
+          createdAt: new Date(),
+        }));
+
+        // Perform batch upsert using a transaction for better performance
+        const batchResults = await db.transaction(async (tx) => {
+          const results: FxRate[] = [];
+          
+          // Use batch insert with conflict resolution
+          for (const values of batchValues) {
+            const [result] = await tx
+              .insert(fxRates)
+              .values(values)
+              .onConflictDoUpdate({
+                target: [fxRates.baseCurrency, fxRates.quoteCurrency, fxRates.asOfDate],
+                set: {
+                  rate: values.rate,
+                  source: values.source,
+                  createdAt: values.createdAt,
+                },
+              })
+              .returning();
+            results.push(result);
+          }
+          
+          return results;
+        });
+
+        allUpdatedRates.push(...batchResults);
+        
+        // Memory monitoring for each batch
+        const batchEndMemory = process.memoryUsage();
+        const batchMemoryDelta = batchEndMemory.heapUsed - batchStartMemory.heapUsed;
+        
+        if (batchMemoryDelta > 5 * 1024 * 1024) { // > 5MB per batch
+          console.warn(`⚠️  [FX Refresh] High batch memory usage: ${Math.round(batchMemoryDelta / 1024 / 1024)}MB for batch ${Math.floor(i/BATCH_SIZE) + 1}`);
+        }
+        
+        // Force garbage collection between batches if available (development)
+        if (process.env.NODE_ENV === 'development' && global.gc) {
+          global.gc();
+        }
+        
+        // Clear batch variables to help garbage collection
+        batchValues.length = 0;
+        
+        // Progress logging
+        console.log(`📊 [FX Refresh] Processed batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(rateEntries.length/BATCH_SIZE)} (${batch.length} rates)`);
       }
 
-      console.log(`Updated ${updatedRates.length} FX rates from ${fxData.source}`);
-      return updatedRates;
+      // Final memory analysis
+      const endTime = Date.now();
+      const endMemory = process.memoryUsage();
+      const totalMemoryDelta = endMemory.heapUsed - startMemory.heapUsed;
+      const duration = endTime - startTime;
+      
+      console.log(`✅ [FX Refresh] Completed ${allUpdatedRates.length} rates from ${fxData.source} in ${duration}ms`);
+      console.log(`📊 [FX Refresh] Memory usage: ${Math.round(totalMemoryDelta / 1024 / 1024)}MB delta`);
+      
+      if (totalMemoryDelta > 10 * 1024 * 1024) { // > 10MB total
+        console.warn(`⚠️  [FX Refresh] WARNING: High total memory usage detected: ${Math.round(totalMemoryDelta / 1024 / 1024)}MB`);
+      }
+
+      return allUpdatedRates;
     } catch (error) {
-      console.error('Error refreshing FX rates:', error);
+      console.error('❌ [FX Refresh] Error refreshing FX rates:', error);
       return [];
     }
   }
