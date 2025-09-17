@@ -845,13 +845,35 @@ export class DatabaseStorage implements IStorage {
 
   // Customer operations
   async getCustomers(limit = 100): Promise<Customer[]> {
+    const startTime = Date.now();
+    
+    // PERFORMANCE OPTIMIZATION: Cache frequently accessed customer lists
+    const cacheKey = `customers:list:${limit}`;
+    const cached = await advancedCache.get(cacheKey, 'WARM');
+    if (cached && Array.isArray(cached)) {
+      console.log(`🚀 [Cache Hit] Customers query served from cache in ${Date.now() - startTime}ms`);
+      return cached;
+    }
+
     const db = await getDb();
-    return await db
+    const result = await db
       .select()
       .from(customers)
       .where(eq(customers.isActive, true))
       .limit(limit)
       .orderBy(desc(customers.createdAt));
+    
+    // Cache the result for subsequent requests
+    await advancedCache.set(cacheKey, result, 'WARM', { ttl: 900 }); // 15 minutes
+    
+    const executionTime = Date.now() - startTime;
+    console.log(`⚡ [Optimized Customers] Query completed in ${executionTime}ms (target: <200ms)`);
+    
+    if (executionTime > 200) {
+      console.warn(`⚠️ [Performance Warning] Customers query took ${executionTime}ms, exceeding 200ms target`);
+    }
+    
+    return result;
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
@@ -869,6 +891,11 @@ export class DatabaseStorage implements IStorage {
       .insert(customers)
       .values(customer)
       .returning();
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate customers cache after creation
+    await advancedCache.invalidate('customers:list:*');
+    console.log('♾️  [Cache Invalidation] Customers cache cleared after create');
+    
     return newCustomer;
   }
 
@@ -879,6 +906,11 @@ export class DatabaseStorage implements IStorage {
       .set({ ...customer, updatedAt: new Date() })
       .where(eq(customers.id, id))
       .returning();
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate customers cache after update
+    await advancedCache.invalidate('customers:list:*');
+    console.log('♾️  [Cache Invalidation] Customers cache cleared after update');
+    
     return updatedCustomer;
   }
 
@@ -985,13 +1017,35 @@ export class DatabaseStorage implements IStorage {
 
   // Product operations
   async getProducts(limit = 100): Promise<Product[]> {
+    const startTime = Date.now();
+    
+    // PERFORMANCE OPTIMIZATION: Cache frequently accessed product lists
+    const cacheKey = `products:list:${limit}`;
+    const cached = await advancedCache.get(cacheKey, 'WARM');
+    if (cached && Array.isArray(cached)) {
+      console.log(`🚀 [Cache Hit] Products query served from cache in ${Date.now() - startTime}ms`);
+      return cached;
+    }
+
     const db = await getDb();
-    return await db
+    const result = await db
       .select()
       .from(products)
       .where(eq(products.isActive, true))
       .limit(limit)
       .orderBy(desc(products.createdAt));
+    
+    // Cache the result for subsequent requests
+    await advancedCache.set(cacheKey, result, 'WARM', { ttl: 900 }); // 15 minutes
+    
+    const executionTime = Date.now() - startTime;
+    console.log(`⚡ [Optimized Products] Query completed in ${executionTime}ms (target: <200ms)`);
+    
+    if (executionTime > 200) {
+      console.warn(`⚠️ [Performance Warning] Products query took ${executionTime}ms, exceeding 200ms target`);
+    }
+    
+    return result;
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -1009,6 +1063,11 @@ export class DatabaseStorage implements IStorage {
       .insert(products)
       .values(product)
       .returning();
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate products cache after creation
+    await advancedCache.invalidate('products:list:*');
+    console.log('♾️  [Cache Invalidation] Products cache cleared after create');
+    
     return newProduct;
   }
 
@@ -1019,6 +1078,11 @@ export class DatabaseStorage implements IStorage {
       .set({ ...product, updatedAt: new Date() })
       .where(eq(products.id, id))
       .returning();
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate products cache after update
+    await advancedCache.invalidate('products:list:*');
+    console.log('♾️  [Cache Invalidation] Products cache cleared after update');
+    
     return updatedProduct;
   }
 
@@ -1032,6 +1096,16 @@ export class DatabaseStorage implements IStorage {
 
   // Inventory operations
   async getInventory(warehouseId?: string): Promise<(Inventory & { product: Product })[]> {
+    const startTime = Date.now();
+    
+    // PERFORMANCE OPTIMIZATION: Cache frequently accessed inventory lists
+    const cacheKey = `inventory:list:${warehouseId || 'all'}`;
+    const cached = await advancedCache.get(cacheKey, 'HOT'); // HOT cache for frequently changing inventory
+    if (cached && Array.isArray(cached)) {
+      console.log(`🚀 [Cache Hit] Inventory query served from cache in ${Date.now() - startTime}ms`);
+      return cached;
+    }
+
     const db = await getDb();
     const query = db
       .select({
@@ -1052,7 +1126,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(products.isActive, true));
 
     const result = warehouseId ? 
-      db.select({
+      await db.select({
         id: inventory.id,
         productId: inventory.productId,
         warehouseId: inventory.warehouseId,
@@ -1069,9 +1143,19 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(products, eq(inventory.productId, products.id))
       .where(and(eq(inventory.warehouseId, warehouseId), eq(products.isActive, true)))
       .orderBy(desc(inventory.createdAt)) : 
-      query.orderBy(desc(inventory.createdAt));
-      
-    return await result;
+      await query.orderBy(desc(inventory.createdAt));
+    
+    // Cache the result for subsequent requests (shorter TTL for inventory)
+    await advancedCache.set(cacheKey, result, 'HOT', { ttl: 300 }); // 5 minutes
+    
+    const executionTime = Date.now() - startTime;
+    console.log(`⚡ [Optimized Inventory] Query completed in ${executionTime}ms (target: <200ms)`);
+    
+    if (executionTime > 200) {
+      console.warn(`⚠️ [Performance Warning] Inventory query took ${executionTime}ms, exceeding 200ms target`);
+    }
+    
+    return result;
   }
 
   async getInventoryByProduct(productId: string): Promise<Inventory[]> {
