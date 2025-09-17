@@ -215,25 +215,111 @@ export class IndexManager {
     try {
       const db = await getDatabase();
       
-      let sql = `CREATE INDEX IF NOT EXISTS ${index.name} ON ${index.table}`;
+      let sqlQuery = `CREATE INDEX IF NOT EXISTS ${index.name} ON ${index.table}`;
       
       if (index.type === 'gin') {
-        sql += ` USING gin(to_tsvector('english', ${index.columns.join(' || \'  \' || ')}))`;
+        sqlQuery += ` USING gin(to_tsvector('english', ${index.columns.join(' || \'  \' || ')}))`;
       } else {
-        sql += ` (${index.columns.join(', ')})`;
+        sqlQuery += ` (${index.columns.join(', ')})`;
       }
       
       if (index.condition) {
-        sql += ` WHERE ${index.condition}`;
+        sqlQuery += ` WHERE ${index.condition}`;
       }
       
-      await db.execute(sql.raw(sql));
+      await db.execute(sql`${sqlQuery}`);
       this.installedIndexes.add(indexKey);
       
       console.log(`✅ [Index] Created ${index.name} on ${index.table}`);
     } catch (error) {
       console.warn(`⚠️ [Index] Failed to create ${index.name}:`, error);
     }
+  }
+
+  /**
+   * Install all performance indexes
+   */
+  async installPerformanceIndexes(priorities: Array<IndexDefinition['priority']> = ['critical', 'high']): Promise<{
+    installed: number;
+    skipped: number;
+    errors: Array<{ index: string; error: string }>;
+  }> {
+    console.log('🏗️  [Index Manager] Installing performance indexes...');
+    
+    const indexesToInstall = PERFORMANCE_INDEXES.filter(idx => 
+      priorities.includes(idx.priority)
+    );
+    
+    let installed = 0;
+    let skipped = 0;
+    const errors: Array<{ index: string; error: string }> = [];
+    
+    for (const indexDef of indexesToInstall) {
+      try {
+        const indexKey = `${indexDef.table}.${indexDef.name}`;
+        if (this.installedIndexes.has(indexKey)) {
+          skipped++;
+          continue;
+        }
+        
+        await this.installIndex(indexDef);
+        installed++;
+        
+        console.log(`✅ [Index Created] ${indexDef.name} on ${indexDef.table}`);
+        
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        errors.push({ index: indexDef.name, error: errorMsg });
+        console.error(`❌ [Index Error] ${indexDef.name}: ${errorMsg}`);
+      }
+    }
+    
+    const summary = { installed, skipped, errors };
+    console.log(`🎯 [Index Installation Complete] Installed: ${installed}, Skipped: ${skipped}, Errors: ${errors.length}`);
+    
+    return summary;
+  }
+
+  /**
+   * Get index usage statistics
+   */
+  async getIndexStats(): Promise<Array<{
+    indexName: string;
+    tableName: string;
+    size: string;
+    scans: number;
+    tuplesRead: number;
+    tuplesPerScan: number;
+  }>> {
+    const db = await getDatabase();
+    
+    const query = `
+      SELECT 
+        schemaname,
+        tablename,
+        indexname,
+        pg_size_pretty(pg_relation_size(indexname::regclass)) as size,
+        idx_scan as scans,
+        idx_tup_read as tuples_read,
+        CASE WHEN idx_scan > 0 
+          THEN round(idx_tup_read / idx_scan, 2) 
+          ELSE 0 
+        END as tuples_per_scan
+      FROM pg_stat_user_indexes
+      WHERE schemaname = 'public'
+      ORDER BY idx_scan DESC, idx_tup_read DESC;
+    `;
+    
+    const result = await db.execute(sql`${query}`);
+    
+    return (result.rows as any[]).map(row => ({
+      indexName: row.indexname,
+      tableName: row.tablename,
+      size: row.size,
+      scans: parseInt(row.scans) || 0,
+      tuplesRead: parseInt(row.tuples_read) || 0,
+      tuplesPerScan: parseFloat(row.tuples_per_scan) || 0
+    }));
   }
 }
 
@@ -434,9 +520,7 @@ class QueryOptimizationEngine {
       );
       
       // SECURITY FIX: Use parameterized query execution to prevent SQL injection
-      const queryPromise = finalParams.length > 0 
-        ? db.execute(sql.raw(finalQuery, finalParams as any[]))
-        : db.execute(sql.raw(finalQuery));
+      const queryPromise = db.execute(sql.raw(finalQuery));
       const result = await Promise.race([queryPromise, timeoutPromise]);
       
       const executionTime = Date.now() - startTime;
@@ -675,130 +759,6 @@ class QueryOptimizationEngine {
   }
 }
 
-// ===============================
-// INDEX MANAGEMENT
-// ===============================
-
-class IndexManager {
-  private installedIndexes = new Set<string>();
-
-  /**
-   * Install all performance indexes
-   */
-  async installPerformanceIndexes(priorities: Array<IndexDefinition['priority']> = ['critical', 'high']): Promise<{
-    installed: number;
-    skipped: number;
-    errors: Array<{ index: string; error: string }>;
-  }> {
-    console.log('🏗️  [Index Manager] Installing performance indexes...');
-    
-    const indexesToInstall = PERFORMANCE_INDEXES.filter(idx => 
-      priorities.includes(idx.priority)
-    );
-    
-    let installed = 0;
-    let skipped = 0;
-    const errors: Array<{ index: string; error: string }> = [];
-    
-    for (const indexDef of indexesToInstall) {
-      try {
-        if (this.installedIndexes.has(indexDef.name)) {
-          skipped++;
-          continue;
-        }
-        
-        await this.createIndex(indexDef);
-        this.installedIndexes.add(indexDef.name);
-        installed++;
-        
-        console.log(`✅ [Index Created] ${indexDef.name} on ${indexDef.table}`);
-        
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        errors.push({ index: indexDef.name, error: errorMsg });
-        console.error(`❌ [Index Error] ${indexDef.name}: ${errorMsg}`);
-      }
-    }
-    
-    const summary = { installed, skipped, errors };
-    console.log(`🎯 [Index Installation Complete] Installed: ${installed}, Skipped: ${skipped}, Errors: ${errors.length}`);
-    
-    return summary;
-  }
-
-  private async createIndex(indexDef: IndexDefinition): Promise<void> {
-    const db = await getDatabase('primary'); // Always use primary for DDL
-    
-    const columns = indexDef.columns.join(', ');
-    let createSQL = `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${indexDef.name} ON ${indexDef.table}`;
-    
-    // Add index type
-    if (indexDef.type === 'gin') {
-      createSQL += ` USING GIN`;
-    } else if (indexDef.type === 'gist') {
-      createSQL += ` USING GIST`;
-    } else if (indexDef.type === 'hash') {
-      createSQL += ` USING HASH`;
-    }
-    
-    // Add columns
-    if (indexDef.type === 'gin' && indexDef.table === 'products') {
-      // Special handling for full-text search indexes
-      createSQL += ` (to_tsvector('english', ${columns}))`;
-    } else {
-      createSQL += ` (${columns})`;
-    }
-    
-    // Add conditions for partial indexes
-    if (indexDef.condition) {
-      createSQL += ` WHERE ${indexDef.condition}`;
-    }
-    
-    await db.execute(sql.raw(createSQL));
-  }
-
-  /**
-   * Get index usage statistics
-   */
-  async getIndexStats(): Promise<Array<{
-    indexName: string;
-    tableName: string;
-    size: string;
-    scans: number;
-    tuplesRead: number;
-    tuplesPerScan: number;
-  }>> {
-    const db = await getDatabase('primary');
-    
-    const query = `
-      SELECT 
-        schemaname,
-        tablename,
-        indexname,
-        pg_size_pretty(pg_relation_size(indexname::regclass)) as size,
-        idx_scan as scans,
-        idx_tup_read as tuples_read,
-        CASE WHEN idx_scan > 0 
-          THEN round(idx_tup_read / idx_scan, 2) 
-          ELSE 0 
-        END as tuples_per_scan
-      FROM pg_stat_user_indexes
-      WHERE schemaname = 'public'
-      ORDER BY idx_scan DESC, idx_tup_read DESC;
-    `;
-    
-    const result = await db.execute(sql.raw(query));
-    
-    return (result.rows as any[]).map(row => ({
-      indexName: row.indexname,
-      tableName: row.tablename,
-      size: row.size,
-      scans: parseInt(row.scans) || 0,
-      tuplesRead: parseInt(row.tuples_read) || 0,
-      tuplesPerScan: parseFloat(row.tuples_per_scan) || 0
-    }));
-  }
-}
 
 // ===============================
 // EXPORTS

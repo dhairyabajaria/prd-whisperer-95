@@ -28,9 +28,12 @@ export default function Customers() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: customers, isLoading, error } = useQuery<Customer[]>({
+  const { data: customersData, isLoading, error } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
+
+  // Ensure customers is always an array
+  const customers = Array.isArray(customersData) ? customersData : [];
 
   const { data: users } = useQuery({
     queryKey: ["/api/auth/user"],
@@ -149,11 +152,11 @@ export default function Customers() {
     createCustomerMutation.mutate(cleanedData);
   };
 
-  const filteredCustomers = customers?.filter(customer =>
+  const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  );
 
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
