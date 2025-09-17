@@ -1826,7 +1826,7 @@ export class DatabaseStorage implements IStorage {
     return newMovement;
   }
 
-  // Dashboard analytics
+  // Dashboard analytics - OPTIMIZED for parallel execution
   async getDashboardMetrics(): Promise<{
     totalRevenue: number;
     activeProducts: number;
@@ -1835,59 +1835,72 @@ export class DatabaseStorage implements IStorage {
     expiringProductsCount: number;
   }> {
     const db = await getDb();
-    // Total revenue from confirmed sales orders (includes both invoiced and not-yet-invoiced revenue)
-    const [revenueResult] = await db
-      .select({
-        total: sql<number>`COALESCE(SUM(${salesOrders.totalAmount}), 0)`,
-      })
-      .from(salesOrders)
-      .where(eq(salesOrders.status, 'confirmed'));
-
-    // Active products count
-    const [productsResult] = await db
-      .select({
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(products)
-      .where(eq(products.isActive, true));
-
-    // Open orders count
-    const [ordersResult] = await db
-      .select({
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(salesOrders)
-      .where(sql`${salesOrders.status} IN ('draft', 'confirmed')`);
-
-    // Outstanding amount from unpaid invoices
-    const [outstandingResult] = await db
-      .select({
-        total: sql<number>`COALESCE(SUM(${invoices.totalAmount} - ${invoices.paidAmount}), 0)`,
-      })
-      .from(invoices)
-      .where(sql`${invoices.status} IN ('sent', 'overdue')`);
-
-    // Expiring products count (90 days)
+    
+    // Expiring products cutoff date calculation
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() + 90);
-    const [expiringResult] = await db
-      .select({
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(inventory)
-      .where(
-        and(
-          lte(inventory.expiryDate, cutoffDate.toISOString().split('T')[0]),
-          gte(inventory.quantity, 1)
+    const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+    // Execute all queries in parallel for massive performance improvement
+    const [
+      revenueResults,
+      productsResults, 
+      ordersResults,
+      outstandingResults,
+      expiringResults
+    ] = await Promise.all([
+      // Total revenue from confirmed sales orders
+      db
+        .select({
+          total: sql<number>`COALESCE(SUM(${salesOrders.totalAmount}), 0)`,
+        })
+        .from(salesOrders)
+        .where(eq(salesOrders.status, 'confirmed')),
+      
+      // Active products count
+      db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(products)
+        .where(eq(products.isActive, true)),
+      
+      // Open orders count
+      db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(salesOrders)
+        .where(sql`${salesOrders.status} IN ('draft', 'confirmed')`),
+      
+      // Outstanding amount from unpaid invoices
+      db
+        .select({
+          total: sql<number>`COALESCE(SUM(${invoices.totalAmount} - ${invoices.paidAmount}), 0)`,
+        })
+        .from(invoices)
+        .where(sql`${invoices.status} IN ('sent', 'overdue')`),
+      
+      // Expiring products count (90 days)
+      db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(inventory)
+        .where(
+          and(
+            lte(inventory.expiryDate, cutoffDateStr),
+            gte(inventory.quantity, 1)
+          )
         )
-      );
+    ]);
 
     return {
-      totalRevenue: Number(revenueResult?.total || 0),
-      activeProducts: Number(productsResult?.count || 0),
-      openOrders: Number(ordersResult?.count || 0),
-      outstandingAmount: Number(outstandingResult?.total || 0),
-      expiringProductsCount: Number(expiringResult?.count || 0),
+      totalRevenue: Number(revenueResults[0]?.total || 0),
+      activeProducts: Number(productsResults[0]?.count || 0),
+      openOrders: Number(ordersResults[0]?.count || 0),
+      outstandingAmount: Number(outstandingResults[0]?.total || 0),
+      expiringProductsCount: Number(expiringResults[0]?.count || 0),
     };
   }
 

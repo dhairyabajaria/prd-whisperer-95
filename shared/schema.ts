@@ -466,7 +466,11 @@ export const products = pgTable("products", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_products_is_active").on(table.isActive),
+  index("idx_products_category").on(table.category),
+  index("idx_products_manufacturer").on(table.manufacturer),
+]);
 
 // Inventory table with batch tracking
 export const inventory = pgTable("inventory", {
@@ -499,7 +503,11 @@ export const salesOrders = pgTable("sales_orders", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_sales_orders_status").on(table.status),
+  index("idx_sales_orders_customer").on(table.customerId),
+  index("idx_sales_orders_date").on(table.orderDate),
+]);
 
 // Sales order items table
 export const salesOrderItems = pgTable("sales_order_items", {
@@ -536,7 +544,11 @@ export const purchaseOrders = pgTable("purchase_orders", {
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_purchase_orders_status").on(table.status),
+  index("idx_purchase_orders_supplier").on(table.supplierId),
+  index("idx_purchase_orders_date").on(table.orderDate),
+]);
 
 // Purchase order items table
 export const purchaseOrderItems = pgTable("purchase_order_items", {
@@ -761,7 +773,11 @@ export const invoices = pgTable("invoices", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_invoices_status").on(table.status),
+  index("idx_invoices_customer").on(table.customerId),
+  index("idx_invoices_due_date").on(table.dueDate),
+]);
 
 // Stock movements table for tracking inventory changes
 export const stockMovements = pgTable("stock_movements", {
