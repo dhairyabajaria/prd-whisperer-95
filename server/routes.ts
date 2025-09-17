@@ -247,6 +247,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ALIAS ROUTES FOR COMMON ENDPOINT PATTERNS =====
+  // These provide simpler paths for commonly accessed endpoints
+  
+  // POS alias routes
+  app.get("/api/pos-terminals", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const terminals = await storage.getPosTerminals();
+      res.json(terminals);
+    } catch (error: any) {
+      console.error("Error fetching POS terminals:", error);
+      res.status(500).json({ message: "Failed to fetch POS terminals" });
+    }
+  });
+
+  app.post("/api/pos-terminals", isAuthenticated, requirePosAccess, async (req, res) => {
+    try {
+      const terminalData = insertPosTerminalSchema.parse(req.body);
+      const terminal = await storage.createPosTerminal(terminalData);
+      res.status(201).json(terminal);
+    } catch (error: any) {
+      console.error("Error creating POS terminal:", error);
+      res.status(400).json({ message: "Failed to create POS terminal", error: error.message });
+    }
+  });
+
+  // HR alias routes
+  app.get("/api/employees", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const department = req.query.department as string;
+      const employees = await storage.getEmployees(limit, department);
+      res.json(employees);
+    } catch (error: any) {
+      console.error("Error fetching employees:", error);
+      res.status(500).json({ message: "Failed to fetch employees" });
+    }
+  });
+
+  app.post("/api/employees", isAuthenticated, requireHrAccess, async (req, res) => {
+    try {
+      const employeeData = insertEmployeeSchema.parse(req.body);
+      const employee = await storage.createEmployee(employeeData);
+      res.status(201).json(employee);
+    } catch (error: any) {
+      console.error("Error creating employee:", error);
+      res.status(400).json({ message: "Failed to create employee", error: error.message });
+    }
+  });
+
+  // Quotations alias routes  
+  app.get("/api/quotations", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const status = req.query.status as string;
+      const quotations = await storage.getQuotations(limit, status);
+      res.json(quotations);
+    } catch (error: any) {
+      console.error("Error fetching quotations:", error);
+      res.status(500).json({ message: "Failed to fetch quotations" });
+    }
+  });
+
+  app.post("/api/quotations", isAuthenticated, requireSalesAccess, async (req, res) => {
+    try {
+      const quotationData = insertQuotationSchema.parse(req.body);
+      const quotation = await storage.createQuotation(quotationData);
+      res.status(201).json(quotation);
+    } catch (error: any) {
+      console.error("Error creating quotation:", error);
+      res.status(400).json({ message: "Failed to create quotation", error: error.message });
+    }
+  });
+
+  // Purchase orders alias routes
+  app.get("/api/purchase-orders", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const orders = await storage.getPurchaseOrders(limit);
+      res.json(orders);
+    } catch (error: any) {
+      console.error("Error fetching purchase orders:", error);
+      res.status(500).json({ message: "Failed to fetch purchase orders" });
+    }
+  });
+
+  app.post("/api/purchase-orders", isAuthenticated, requirePurchaseAccess, async (req, res) => {
+    try {
+      const orderData = insertPurchaseOrderSchema.parse(req.body);
+      const order = await storage.createPurchaseOrder(orderData);
+      res.status(201).json(order);
+    } catch (error: any) {
+      console.error("Error creating purchase order:", error);
+      res.status(400).json({ message: "Failed to create purchase order", error: error.message });
+    }
+  });
+
   // Customer routes
   app.get("/api/customers", isAuthenticated, async (req, res) => {
     try {
@@ -3732,6 +3828,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching reporting dashboard:", error);
       res.status(500).json({ message: "Failed to fetch reporting dashboard" });
     }
+  });
+
+
+  // Catch-all for unmatched API routes to ensure JSON error responses
+  app.use('/api/*', (req, res) => {
+    res.status(404).json({ 
+      message: "API endpoint not found",
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+      suggestion: "Check the API documentation for available endpoints"
+    });
   });
 
   const httpServer = createServer(app);
