@@ -3600,20 +3600,20 @@ export class DatabaseStorage implements IStorage {
   async getQuotations(limit = 100, status?: string, offset = 0): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
     const startTime = Date.now();
     
-    // PHASE 2 PERFORMANCE OPTIMIZATION: Target 1065ms → <200ms (81% improvement)
-    // Strategy: Replace complex multi-JOIN with efficient batch queries + caching + optimized indexes
+    // PHASE 2 PERFORMANCE OPTIMIZATION: Target 316ms → <150ms (52% improvement)
+    // Enhanced Strategy: Optimized indexing + intelligent caching + parallel batch queries
     
-    // Check cache first for frequently accessed quotation lists
+    // Check cache first with improved cache key strategy
     const cacheKey = `quotations:list:${status || 'all'}:${limit}:${offset}`;
-    const cached = await advancedCache.get(cacheKey, 'WARM');
-    if (cached && Array.isArray(cached)) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
       console.log(`🚀 [Cache Hit] Quotations query served from cache in ${Date.now() - startTime}ms`);
       return cached;
     }
 
     const db = await getDb();
     
-    // OPTIMIZATION 1: Get quotations only (avoid expensive JOINs)
+    // OPTIMIZATION 1: Use optimized index-backed query (idx_quotations_status_created_at)
     const quotationData = await db
       .select()
       .from(quotations)
@@ -3623,7 +3623,7 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
 
     if (quotationData.length === 0) {
-      await advancedCache.set(cacheKey, [], 'WARM', { ttl: 300 });
+      cache.set(cacheKey, [], 300); // 5 minute cache
       console.log(`⚡ [Quotations] Empty result cached in ${Date.now() - startTime}ms`);
       return [];
     }

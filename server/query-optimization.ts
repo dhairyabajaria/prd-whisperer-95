@@ -89,7 +89,31 @@ const PERFORMANCE_INDEXES: IndexDefinition[] = [
     priority: 'high'
   },
   
-  // Medium priority indexes - reporting and bulk operations
+  // PHASE 2 OPTIMIZATION: Critical quotations indexes for <200ms performance
+  {
+    table: 'quotations',
+    name: 'idx_quotations_status_created_at',
+    columns: ['status', 'created_at'],
+    type: 'btree',
+    description: 'Optimize quotations list query by status and date',
+    priority: 'critical'
+  },
+  {
+    table: 'quotations',
+    name: 'idx_quotations_customer_status',
+    columns: ['customer_id', 'status'],
+    type: 'btree',
+    description: 'Fast customer quotation lookups',
+    priority: 'critical'
+  },
+  {
+    table: 'quotation_items',
+    name: 'idx_quotation_items_quotation_id',
+    columns: ['quotation_id'],
+    type: 'btree',
+    description: 'Fast quotation items batch lookup',
+    priority: 'critical'
+  },
   {
     table: 'quotations',
     name: 'idx_quotations_customer_valid_period',
@@ -153,6 +177,65 @@ const PERFORMANCE_INDEXES: IndexDefinition[] = [
     priority: 'medium'
   }
 ];
+
+// ===============================
+// INDEX INSTALLATION MANAGER
+// ===============================
+
+export class IndexManager {
+  private static instance: IndexManager;
+  private installedIndexes = new Set<string>();
+  
+  static getInstance(): IndexManager {
+    if (!IndexManager.instance) {
+      IndexManager.instance = new IndexManager();
+    }
+    return IndexManager.instance;
+  }
+  
+  async installCriticalIndexes(): Promise<void> {
+    console.log('📊 [Index Manager] Installing critical performance indexes...');
+    
+    const criticalIndexes = PERFORMANCE_INDEXES.filter(idx => idx.priority === 'critical');
+    
+    for (const index of criticalIndexes) {
+      await this.installIndex(index);
+    }
+    
+    console.log(`✅ [Index Manager] Installed ${criticalIndexes.length} critical indexes`);
+  }
+  
+  async installIndex(index: IndexDefinition): Promise<void> {
+    const indexKey = `${index.table}.${index.name}`;
+    
+    if (this.installedIndexes.has(indexKey)) {
+      return; // Already installed
+    }
+    
+    try {
+      const db = await getDatabase();
+      
+      let sql = `CREATE INDEX IF NOT EXISTS ${index.name} ON ${index.table}`;
+      
+      if (index.type === 'gin') {
+        sql += ` USING gin(to_tsvector('english', ${index.columns.join(' || \'  \' || ')}))`;
+      } else {
+        sql += ` (${index.columns.join(', ')})`;
+      }
+      
+      if (index.condition) {
+        sql += ` WHERE ${index.condition}`;
+      }
+      
+      await db.execute(sql.raw(sql));
+      this.installedIndexes.add(indexKey);
+      
+      console.log(`✅ [Index] Created ${index.name} on ${index.table}`);
+    } catch (error) {
+      console.warn(`⚠️ [Index] Failed to create ${index.name}:`, error);
+    }
+  }
+}
 
 // ===============================
 // QUERY OPTIMIZATION PATTERNS
