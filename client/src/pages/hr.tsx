@@ -275,11 +275,13 @@ export default function HRPage() {
   }
 
   // Helper functions
-  const formatCurrency = (amount: string | number) => {
+  const formatCurrency = (amount: string | number | null | undefined) => {
+    if (amount === null || amount === undefined) return 'AOA 0,00';
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-US', {
+    if (isNaN(num)) return 'AOA 0,00';
+    return new Intl.NumberFormat('pt-AO', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'AOA'
     }).format(num);
   };
 
@@ -323,7 +325,7 @@ export default function HRPage() {
     const matchesSearch = employee.position?.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
                          employee.department?.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
                          employee.employeeNumber?.toLowerCase().includes(employeeSearchTerm.toLowerCase());
-    const matchesDepartment = !selectedDepartment || employee.department === selectedDepartment;
+    const matchesDepartment = !selectedDepartment || selectedDepartment === 'all-departments' || employee.department === selectedDepartment;
     return matchesSearch && matchesDepartment;
   }) || [];
 
@@ -556,7 +558,7 @@ export default function HRPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Employment Status</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || undefined}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-employment-status">
                                       <SelectValue placeholder="Select status" />
@@ -581,7 +583,7 @@ export default function HRPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Work Schedule</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || undefined}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-work-schedule">
                                       <SelectValue placeholder="Select schedule" />
@@ -821,7 +823,7 @@ export default function HRPage() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Entry Type</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || undefined}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-entry-type">
                                       <SelectValue placeholder="Select type" />
@@ -850,7 +852,7 @@ export default function HRPage() {
                               <FormItem>
                                 <FormLabel>Clock In</FormLabel>
                                 <FormControl>
-                                  <Input type="datetime-local" {...field} data-testid="input-clock-in" />
+                                  <Input type="datetime-local" {...field} value={field.value ? (field.value instanceof Date ? field.value.toISOString().slice(0, 16) : field.value) : ''} data-testid="input-clock-in" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -864,7 +866,7 @@ export default function HRPage() {
                               <FormItem>
                                 <FormLabel>Clock Out</FormLabel>
                                 <FormControl>
-                                  <Input type="datetime-local" {...field} data-testid="input-clock-out" />
+                                  <Input type="datetime-local" {...field} value={field.value ? (field.value instanceof Date ? field.value.toISOString().slice(0, 16) : field.value) : ''} data-testid="input-clock-out" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1157,10 +1159,10 @@ export default function HRPage() {
                               {formatDate(payroll.endDate)}
                             </TableCell>
                             <TableCell data-testid={`text-gross-pay-${payroll.id}`}>
-                              {formatCurrency(payroll.totalGrossPay)}
+                              {formatCurrency(payroll.totalGrossPay || 0)}
                             </TableCell>
                             <TableCell data-testid={`text-net-pay-${payroll.id}`}>
-                              {formatCurrency(payroll.totalNetPay)}
+                              {formatCurrency(payroll.totalNetPay || 0)}
                             </TableCell>
                             <TableCell>
                               <Badge 

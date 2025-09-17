@@ -8,14 +8,12 @@ export async function isOpenAIConfigured(): Promise<boolean> {
   // Get the API key using robust secret loading
   const apiKey = await getReplitSecretAsync('OPENAI_API_KEY') || await getReplitSecretAsync('OPENAI_API_KEY_ENV_VAR');
   
-  // Enhanced debug logging in development
+  // Enhanced debug logging in development (sensitive data removed for security)
   if (process.env.NODE_ENV === 'development') {
     console.log('🔍 OpenAI Configuration Debug (DEV ONLY):', {
       hasOPENAI_API_KEY: !!(process.env.OPENAI_API_KEY),
       hasOPENAI_API_KEY_ENV_VAR: !!(process.env.OPENAI_API_KEY_ENV_VAR),
       apiKeyFromRobustLoader: !!(apiKey),
-      apiKeyLength: apiKey ? apiKey.length : 0,
-      apiKeyStartsWith: apiKey ? apiKey.substring(0, 7) + '...' : 'none',
       isConfigured: !!(apiKey && apiKey !== "default_key" && apiKey.trim().length > 0),
       openaiEnvVarsCount: Object.keys(process.env).filter(key => key.includes('OPENAI')).length,
       totalEnvVarsCount: Object.keys(process.env).length

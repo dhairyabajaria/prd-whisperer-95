@@ -43,7 +43,8 @@ import {
   MapPin,
   CheckCircle,
   XCircle,
-  Activity
+  Activity,
+  FileText
 } from "lucide-react";
 import { insertPosTerminalSchema, insertPosSessionSchema, InsertPosTerminal, InsertPosSession } from "@shared/schema";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -109,6 +110,20 @@ interface CartItem {
   total: number;
 }
 
+interface PaymentMethod {
+  id: string;
+  method: 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'check' | 'credit';
+  amount: number;
+  cardTransactionId?: string;
+  cardLast4?: string;
+  cardType?: string;
+  mobileMoneyNumber?: string;
+  mobileMoneyProvider?: string;
+  checkNumber?: string;
+  bankName?: string;
+  referenceNumber?: string;
+}
+
 // Schema for opening a session
 const openSessionSchema = z.object({
   terminalId: z.string().min(1, "Terminal is required"),
@@ -129,6 +144,243 @@ const terminalFormSchema = insertPosTerminalSchema.extend({
   warehouseId: z.string().min(1, "Warehouse is required"),
 });
 
+// Payment form schema
+const paymentFormSchema = z.object({
+  method: z.enum(['cash', 'card', 'mobile_money', 'bank_transfer', 'check', 'credit']),
+  amount: z.coerce.number().min(0.01, "Amount must be positive"),
+  cardTransactionId: z.string().optional(),
+  cardLast4: z.string().optional(),
+  cardType: z.string().optional(),
+  mobileMoneyNumber: z.string().optional(),
+  mobileMoneyProvider: z.string().optional(),
+  checkNumber: z.string().optional(),
+  bankName: z.string().optional(),
+  referenceNumber: z.string().optional(),
+});
+
+// Payment Form Component
+function PaymentForm({ remainingAmount, onAddPayment }: { 
+  remainingAmount: number; 
+  onAddPayment: (payment: Omit<PaymentMethod, 'id'>) => void; 
+}) {
+  const paymentForm = useForm<z.infer<typeof paymentFormSchema>>({
+    resolver: zodResolver(paymentFormSchema),
+    defaultValues: {
+      method: 'cash',
+      amount: remainingAmount,
+    },
+  });
+
+  const selectedMethod = paymentForm.watch('method');
+
+  const handleSubmit = (data: z.infer<typeof paymentFormSchema>) => {
+    onAddPayment(data);
+    paymentForm.reset({ method: 'cash', amount: remainingAmount });
+  };
+
+  return (
+    <Form {...paymentForm}>
+      <form onSubmit={paymentForm.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={paymentForm.control}
+          name="method"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Payment Method</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-payment-method">
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="credit">Credit</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={paymentForm.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  {...field}
+                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  data-testid="input-payment-amount"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Additional fields based on payment method */}
+        {selectedMethod === 'card' && (
+          <>
+            <FormField
+              control={paymentForm.control}
+              name="cardLast4"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Card Last 4 Digits</FormLabel>
+                  <FormControl>
+                    <Input placeholder="1234" maxLength={4} {...field} data-testid="input-card-last4" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={paymentForm.control}
+              name="cardType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Card Type</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-card-type">
+                        <SelectValue placeholder="Select card type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="visa">Visa</SelectItem>
+                      <SelectItem value="mastercard">Mastercard</SelectItem>
+                      <SelectItem value="amex">American Express</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={paymentForm.control}
+              name="cardTransactionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Transaction ID (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="TXN123456" {...field} data-testid="input-transaction-id" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        {selectedMethod === 'mobile_money' && (
+          <>
+            <FormField
+              control={paymentForm.control}
+              name="mobileMoneyProvider"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mobile Money Provider</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-mobile-provider">
+                        <SelectValue placeholder="Select provider" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="orange">Orange Money</SelectItem>
+                      <SelectItem value="movicel">Movicel Money</SelectItem>
+                      <SelectItem value="unitel">Unitel Money</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={paymentForm.control}
+              name="mobileMoneyNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mobile Money Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="+244 9XX XXX XXX" {...field} data-testid="input-mobile-number" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        {selectedMethod === 'check' && (
+          <FormField
+            control={paymentForm.control}
+            name="checkNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Check Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="Check #" {...field} data-testid="input-check-number" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {selectedMethod === 'bank_transfer' && (
+          <>
+            <FormField
+              control={paymentForm.control}
+              name="bankName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bank Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Bank name" {...field} data-testid="input-bank-name" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={paymentForm.control}
+              name="referenceNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reference Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Transfer reference" {...field} data-testid="input-reference-number" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        <div className="flex justify-end space-x-2">
+          <Button type="submit" data-testid="button-add-payment-confirm">
+            Add Payment
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 export default function POS() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
@@ -136,6 +388,9 @@ export default function POS() {
   const [selectedTerminal, setSelectedTerminal] = useState<string>("");
   const [activeSession, setActiveSession] = useState<PosSession | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [payments, setPayments] = useState<PaymentMethod[]>([]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [currentPaymentType, setCurrentPaymentType] = useState<'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'check' | 'credit'>('cash');
   const [isOpenSessionModalOpen, setIsOpenSessionModalOpen] = useState(false);
   const [isCloseSessionModalOpen, setIsCloseSessionModalOpen] = useState(false);
   const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
@@ -235,26 +490,20 @@ export default function POS() {
       setIsOpenSessionModalOpen(false);
       openSessionForm.reset();
       toast({
-        title: "Success",
-        description: "POS session opened successfully",
+        title: "Session Opened",
+        description: "POS session started successfully. Ready for sales!",
       });
       refetchSession();
       refetchSessions();
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to open session",
-        variant: "destructive",
-      });
-    },
+    onError: (error) => handlePosError(error, "Open Session"),
   });
 
   // Close session mutation
   const closeSessionMutation = useMutation({
     mutationFn: ({ sessionId, actualCash, notes }: { sessionId: string; actualCash: number; notes?: string }) =>
       apiRequest(`/api/pos/sessions/${sessionId}/close`, "PATCH", { actualCash, notes }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       // Invalidate specific active session query for the current terminal
       if (selectedTerminal) {
         queryClient.invalidateQueries({
@@ -267,25 +516,98 @@ export default function POS() {
       setIsCloseSessionModalOpen(false);
       closeSessionForm.reset();
       toast({
-        title: "Success",
-        description: "POS session closed successfully",
+        title: "Session Closed",
+        description: `Session closed with ${formatCurrency(variables.actualCash)} in cash`,
       });
       refetchSessions();
     },
-    onError: (error) => {
+    onError: (error) => handlePosError(error, "Close Session"),
+  });
+
+  // Enhanced error handling function
+  function handlePosError(error: any, context: string) {
+    console.error(`POS Error [${context}]:`, error);
+    
+    // Check for specific error types
+    if (error?.message?.includes('insufficient stock')) {
       toast({
-        title: "Error",
-        description: "Failed to close session",
+        title: "Insufficient Stock",
+        description: "One or more items don't have enough stock available",
         variant: "destructive",
       });
-    },
-  });
+      return;
+    }
+    
+    if (error?.message?.includes('expired product')) {
+      toast({
+        title: "Expired Product",
+        description: "Cannot sell expired products. Please check your inventory",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (error?.message?.includes('session')) {
+      toast({
+        title: "Session Error",
+        description: "There's an issue with your POS session. Please check if it's still active",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (error?.message?.includes('payment')) {
+      toast({
+        title: "Payment Error",
+        description: "There was an issue processing the payment. Please verify payment details",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+      toast({
+        title: "Connection Error",
+        description: "Unable to connect to the server. Please check your connection",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (error?.status === 403) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to perform this action",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (error?.status === 401) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in again to continue",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 2000);
+      return;
+    }
+    
+    // Generic error fallback
+    toast({
+      title: "Error",
+      description: `Failed to ${context.toLowerCase()}. Please try again`,
+      variant: "destructive",
+    });
+  }
 
   // Create sale mutation
   const createSaleMutation = useMutation({
     mutationFn: (saleData: any) => apiRequest("/api/pos/sales", "POST", saleData),
     onSuccess: () => {
-      setCart([]);
+      resetSale(); // Reset both cart and payments
       queryClient.invalidateQueries({ queryKey: ["/api/pos/receipts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/pos/sessions"] });
       // Invalidate the active session for the current terminal
@@ -296,17 +618,11 @@ export default function POS() {
       }
       refetchSession();
       toast({
-        title: "Success",
-        description: "Sale completed successfully",
+        title: "Sale Completed",
+        description: `Successfully processed sale of ${formatCurrency(getCartTotal())}`,
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to process sale",
-        variant: "destructive",
-      });
-    },
+    onError: (error) => handlePosError(error, "Process Sale"),
   });
 
   // Create terminal mutation
@@ -438,8 +754,39 @@ export default function POS() {
     return cart.reduce((sum, item) => sum + item.total, 0);
   };
 
+  // Payment management functions
+  const addPayment = (payment: Omit<PaymentMethod, 'id'>) => {
+    const newPayment = { ...payment, id: Date.now().toString() };
+    setPayments([...payments, newPayment]);
+  };
+
+  const removePayment = (paymentId: string) => {
+    setPayments(payments.filter(p => p.id !== paymentId));
+  };
+
+  const getTotalPayments = () => {
+    return payments.reduce((sum, payment) => sum + payment.amount, 0);
+  };
+
+  const getRemainingAmount = () => {
+    return Math.max(0, getCartTotal() - getTotalPayments());
+  };
+
   const processSale = () => {
     if (!activeSession || cart.length === 0) return;
+
+    // Check if payment is complete
+    const totalAmount = getCartTotal();
+    const totalPaid = getTotalPayments();
+    
+    if (totalPaid < totalAmount) {
+      toast({
+        title: "Incomplete Payment",
+        description: `Need $${(totalAmount - totalPaid).toFixed(2)} more in payments`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const saleData = {
       sessionId: activeSession.id,
@@ -448,17 +795,29 @@ export default function POS() {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
-      payments: [
-        {
-          method: 'cash' as const,
-          amount: getCartTotal(),
-        }
-      ],
+      payments: payments.map(payment => ({
+        method: payment.method,
+        amount: payment.amount,
+        cardTransactionId: payment.cardTransactionId,
+        cardLast4: payment.cardLast4,
+        cardType: payment.cardType,
+        mobileMoneyNumber: payment.mobileMoneyNumber,
+        mobileMoneyProvider: payment.mobileMoneyProvider,
+        checkNumber: payment.checkNumber,
+        bankName: payment.bankName,
+        referenceNumber: payment.referenceNumber,
+      })),
       taxRate: 0,
       discountAmount: 0,
     };
 
     createSaleMutation.mutate(saleData);
+  };
+
+  // Reset cart and payments after successful sale
+  const resetSale = () => {
+    setCart([]);
+    setPayments([]);
   };
 
   if (isLoading || !isAuthenticated) {
@@ -473,9 +832,9 @@ export default function POS() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('pt-AO', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'AOA'
     }).format(amount);
   };
 
@@ -744,11 +1103,85 @@ export default function POS() {
                                 <span data-testid="cart-total">{formatCurrency(getCartTotal())}</span>
                               </div>
                               
+                              {/* Payment Methods Section */}
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">Payments</span>
+                                  <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+                                    <DialogTrigger asChild>
+                                      <Button size="sm" variant="outline" data-testid="button-add-payment">
+                                        <Plus className="w-4 h-4 mr-1" />
+                                        Add Payment
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Add Payment Method</DialogTitle>
+                                      </DialogHeader>
+                                      <PaymentForm 
+                                        remainingAmount={getRemainingAmount()}
+                                        onAddPayment={(payment) => {
+                                          addPayment(payment);
+                                          setIsPaymentModalOpen(false);
+                                        }}
+                                      />
+                                    </DialogContent>
+                                  </Dialog>
+                                </div>
+                                
+                                {/* Payment List */}
+                                {payments.length > 0 && (
+                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {payments.map((payment) => (
+                                      <div key={payment.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                                        <div className="flex items-center space-x-2">
+                                          {payment.method === 'cash' && <Banknote className="w-4 h-4" />}
+                                          {payment.method === 'card' && <CreditCard className="w-4 h-4" />}
+                                          {payment.method === 'mobile_money' && <Smartphone className="w-4 h-4" />}
+                                          {payment.method === 'bank_transfer' && <Wallet className="w-4 h-4" />}
+                                          {payment.method === 'check' && <FileText className="w-4 h-4" />}
+                                          {payment.method === 'credit' && <DollarSign className="w-4 h-4" />}
+                                          <span className="text-sm capitalize">{payment.method.replace('_', ' ')}</span>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                          <span className="text-sm font-medium">{formatCurrency(payment.amount)}</span>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 w-6 p-0 text-destructive"
+                                            onClick={() => removePayment(payment.id)}
+                                            data-testid={`button-remove-payment-${payment.id}`}
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {/* Payment Summary */}
+                                {payments.length > 0 && (
+                                  <div className="space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                      <span>Total Paid:</span>
+                                      <span className="font-medium">{formatCurrency(getTotalPayments())}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span>Remaining:</span>
+                                      <span className={`font-medium ${getRemainingAmount() > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                        {formatCurrency(getRemainingAmount())}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
                               <Button
                                 className="w-full"
                                 size="lg"
                                 onClick={processSale}
-                                disabled={createSaleMutation.isPending}
+                                disabled={createSaleMutation.isPending || getTotalPayments() < getCartTotal()}
                                 data-testid="button-process-sale"
                               >
                                 {createSaleMutation.isPending ? (
@@ -756,7 +1189,7 @@ export default function POS() {
                                 ) : (
                                   <>
                                     <Receipt className="w-4 h-4 mr-2" />
-                                    Process Sale
+                                    Process Sale {getTotalPayments() < getCartTotal() && `(Need ${formatCurrency(getRemainingAmount())} more)`}
                                   </>
                                 )}
                               </Button>
