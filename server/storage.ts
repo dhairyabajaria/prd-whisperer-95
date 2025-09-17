@@ -197,7 +197,8 @@ import {
   type InsertReportExport,
 } from "@shared/schema";
 import { getDb } from "./db";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql, inArray } from "drizzle-orm";
+import { advancedCache, CACHE_KEYS } from "./advanced-cache-system";
 
 // Interface for storage operations
 export interface IStorage {
@@ -3422,27 +3423,12 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // CRM Module - Quotation operations
+  // CRM Module - Quotation operations  
   async getQuotations(limit = 100, status?: string, offset = 0): Promise<(Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[]> {
     const db = await getDb();
     
-    // CRITICAL FIX: Two-step query plan to avoid full dataset scan
-    // Step 1: Get quotation IDs with proper LIMIT/OFFSET for pagination
-    const quotationIds = await db
-      .select({ id: quotations.id })
-      .from(quotations)
-      .where(status ? sql`${quotations.status} = ${status}` : sql`true`)
-      .orderBy(desc(quotations.createdAt))
-      .limit(limit)
-      .offset(offset);
-
-    // If no quotations found, return empty array
-    if (quotationIds.length === 0) {
-      return [];
-    }
-
-    // Step 2: Get full data only for the limited quotation IDs
-    const quotationIdList = quotationIds.map(q => q.id);
+    // PERFORMANCE OPTIMIZATION: Simple but effective query with database indexes
+    // Step 1: Get all quotations with joins in single optimized query
     const allData = await db
       .select({
         quotation: quotations,
@@ -3456,8 +3442,10 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(quotations.salesRepId, users.id))
       .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
       .leftJoin(products, eq(quotationItems.productId, products.id))
-      .where(sql`${quotations.id} = ANY(${quotationIdList})`)
-      .orderBy(desc(quotations.createdAt));
+      .where(status ? eq(quotations.status, status as any) : sql`true`)
+      .orderBy(desc(quotations.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     // Group results by quotation ID to reconstruct the hierarchical structure
     const quotationMap = new Map<string, Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] }>();
@@ -3484,10 +3472,8 @@ export class DatabaseStorage implements IStorage {
       }
     });
 
-    // Maintain the order from Step 1 by preserving quotationIdList order
-    const result = quotationIdList
-      .map(id => quotationMap.get(id))
-      .filter(Boolean) as (Quotation & { customer: Customer; salesRep?: User; items: (QuotationItem & { product: Product })[] })[];
+    // Return results as array maintaining order
+    const result = Array.from(quotationMap.values());
     
     return result;
   }
@@ -3528,6 +3514,11 @@ export class DatabaseStorage implements IStorage {
   async createQuotation(quotationData: InsertQuotation): Promise<Quotation> {
     const db = await getDb();
     const [quotation] = await db.insert(quotations).values(quotationData).returning();
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate quotations cache after creation
+    await advancedCache.invalidate('quotations:list:*');
+    console.log('♻️  [Cache Invalidation] Quotations cache cleared after create');
+    
     return quotation;
   }
 
@@ -3538,6 +3529,11 @@ export class DatabaseStorage implements IStorage {
       .set({ ...quotationData, updatedAt: new Date() })
       .where(eq(quotations.id, id))
       .returning();
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate quotations cache after update
+    await advancedCache.invalidate('quotations:list:*');
+    console.log('♻️  [Cache Invalidation] Quotations cache cleared after update');
+    
     return quotation;
   }
 
@@ -3545,6 +3541,10 @@ export class DatabaseStorage implements IStorage {
     const db = await getDb();
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
     await db.delete(quotations).where(eq(quotations.id, id));
+    
+    // PERFORMANCE OPTIMIZATION: Invalidate quotations cache after deletion
+    await advancedCache.invalidate('quotations:list:*');
+    console.log('♻️  [Cache Invalidation] Quotations cache cleared after delete');
   }
 
   async createQuotationItem(itemData: InsertQuotationItem): Promise<QuotationItem> {
