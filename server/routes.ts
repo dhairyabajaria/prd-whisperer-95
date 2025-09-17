@@ -70,6 +70,7 @@ import {
 import { z } from "zod";
 import type { RequestHandler } from "express";
 import { getCachedDashboardMetrics, memoryOptimizedMiddleware, invalidateDashboardMetricsCache } from "../critical-cache-implementation";
+import { createPhase3Middleware, addPhase3Routes, enhancedDatabaseQuery, orchestrator } from "./phase3-integration";
 
 // Performance optimization: User authentication cache - Target: 608ms → <200ms
 const userCache = new Map<string, { user: any; timestamp: number }>();
@@ -225,6 +226,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const storage = await getStorage();
   console.log('✅ Storage ready for routes');
 
+  // Phase 3: Apply advanced performance middleware
+  const phase3Middleware = createPhase3Middleware();
+  app.use(...phase3Middleware);
+
   // Performance optimization: Enable gzip compression for API responses
   app.use(compression({
     level: 6, // Balanced compression level for performance
@@ -277,6 +282,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
+
+  // Phase 3: Add system management routes
+  addPhase3Routes(app);
 
   // Dashboard routes - with Redis caching for performance
   app.get("/api/dashboard/metrics", isAuthenticated, memoryOptimizedMiddleware(), async (req, res) => {
