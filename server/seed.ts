@@ -221,14 +221,11 @@ async function seedDatabase() {
         description: "Pain relief and fever reducer tablets",
         sku: "PARA500-001",
         category: "Analgesics",
-        brand: "PharmaBrand",
+        manufacturer: "PharmaBrand",
         unitPrice: "2.50",
-        unitCost: "1.20",
-        unit: "tablet",
-        batchTracking: true,
-        expiryTracking: true,
-        reorderLevel: 500,
-        maxLevel: 5000,
+        minStockLevel: 500,
+        requiresBatchTracking: true,
+        shelfLifeDays: 1095, // 3 years
         isActive: true,
       },
       {
@@ -237,14 +234,11 @@ async function seedDatabase() {
         description: "Antibiotic capsules",
         sku: "AMOX250-001", 
         category: "Antibiotics",
-        brand: "PharmaBrand",
+        manufacturer: "PharmaBrand",
         unitPrice: "8.75",
-        unitCost: "4.20",
-        unit: "capsule",
-        batchTracking: true,
-        expiryTracking: true,
-        reorderLevel: 200,
-        maxLevel: 2000,
+        minStockLevel: 200,
+        requiresBatchTracking: true,
+        shelfLifeDays: 730, // 2 years
         isActive: true,
       },
       {
@@ -253,15 +247,11 @@ async function seedDatabase() {
         description: "Long-acting insulin injection",
         sku: "INS100-001",
         category: "Diabetes Care",
-        brand: "InsulinCorp",
+        manufacturer: "InsulinCorp",
         unitPrice: "45.00",
-        unitCost: "22.50",
-        unit: "vial",
-        batchTracking: true,
-        expiryTracking: true,
-        reorderLevel: 50,
-        maxLevel: 500,
-        temperatureControlled: true,
+        minStockLevel: 50,
+        requiresBatchTracking: true,
+        shelfLifeDays: 365, // 1 year
         isActive: true,
       },
       {
@@ -270,14 +260,11 @@ async function seedDatabase() {
         description: "Disposable 3-layer surgical masks",
         sku: "MASK3L-001",
         category: "Medical Supplies",
-        brand: "MedSupply",
+        manufacturer: "MedSupply",
         unitPrice: "0.75",
-        unitCost: "0.35",
-        unit: "piece",
-        batchTracking: false,
-        expiryTracking: false,
-        reorderLevel: 1000,
-        maxLevel: 50000,
+        minStockLevel: 1000,
+        requiresBatchTracking: false,
+        shelfLifeDays: 1825, // 5 years
         isActive: true,
       }
     ]).onConflictDoNothing().returning();
@@ -292,9 +279,8 @@ async function seedDatabase() {
         warehouseId: "warehouse-main-001",
         quantity: 2500,
         batchNumber: "PARA2024001",
-        expiryDate: new Date("2025-12-31"),
+        expiryDate: "2027-12-31",
         costPerUnit: "1.20",
-        location: "A-001-01",
       },
       {
         id: "inv-amox-main-001",
@@ -302,9 +288,8 @@ async function seedDatabase() {
         warehouseId: "warehouse-main-001", 
         quantity: 800,
         batchNumber: "AMOX2024001",
-        expiryDate: new Date("2025-06-30"),
+        expiryDate: "2026-12-31",
         costPerUnit: "4.20",
-        location: "A-002-01",
       },
       {
         id: "inv-insulin-cold-001",
@@ -312,16 +297,14 @@ async function seedDatabase() {
         warehouseId: "warehouse-cold-001",
         quantity: 150,
         batchNumber: "INS2024001",
-        expiryDate: new Date("2025-03-31"),
+        expiryDate: "2026-09-30",
         costPerUnit: "22.50",
-        location: "C-001-01",
       },
       {
         id: "inv-mask-main-001",
         productId: "product-mask-001",
         warehouseId: "warehouse-main-001",
         quantity: 25000,
-        location: "B-001-01",
       }
     ]).onConflictDoNothing().returning();
     console.log(`✅ Created ${seedInventory.length} inventory records`);
@@ -334,8 +317,8 @@ async function seedDatabase() {
         orderNumber: "SO-2024-001",
         customerId: "customer-hospital-001",
         salesRepId: "sales-user-001",
-        orderDate: new Date("2024-09-10"),
-        deliveryDate: new Date("2024-09-17"),
+        orderDate: "2024-09-10",
+        deliveryDate: "2024-09-17",
         status: "confirmed",
         subtotal: "12500.00",
         taxAmount: "1875.00",
@@ -347,8 +330,8 @@ async function seedDatabase() {
         orderNumber: "SO-2024-002",
         customerId: "customer-pharmacy-001",
         salesRepId: "sales-user-002",
-        orderDate: new Date("2024-09-12"),
-        deliveryDate: new Date("2024-09-19"),
+        orderDate: "2024-09-12",
+        deliveryDate: "2024-09-19",
         status: "draft",
         subtotal: "3250.00",
         taxAmount: "487.50", 
@@ -412,8 +395,8 @@ async function seedDatabase() {
         orderNumber: "PO-2024-001",
         supplierId: "supplier-pharma-001",
         createdBy: "finance-user-001",
-        orderDate: new Date("2024-09-05"),
-        expectedDate: new Date("2024-09-25"),
+        orderDate: "2024-09-05",
+        expectedDeliveryDate: "2024-09-25",
         status: "sent",
         subtotal: "25000.00",
         taxAmount: "3750.00",
@@ -426,8 +409,8 @@ async function seedDatabase() {
         orderNumber: "PO-2024-002",
         supplierId: "supplier-local-001",
         createdBy: "inventory-user-001",
-        orderDate: new Date("2024-09-08"),
-        expectedDate: new Date("2024-09-15"),
+        orderDate: "2024-09-08",
+        expectedDeliveryDate: "2024-09-15",
         status: "confirmed",
         subtotal: "8500.00",
         taxAmount: "1275.00",
@@ -484,9 +467,8 @@ async function seedDatabase() {
         quotationNumber: "QT-2024-001",
         customerId: "customer-clinic-001",
         salesRepId: "sales-user-001",
-        createdBy: "sales-user-001",
-        quotationDate: new Date("2024-09-13"),
-        validityDate: new Date("2024-10-13"),
+        quotationDate: "2024-09-13",
+        validityDate: "2024-10-13",
         status: "sent",
         subtotal: "15750.00",
         taxAmount: "2362.50",
@@ -498,9 +480,8 @@ async function seedDatabase() {
         quotationNumber: "QT-2024-002",
         customerId: "customer-pharmacy-001",
         salesRepId: "sales-user-002",
-        createdBy: "sales-user-002",
-        quotationDate: new Date("2024-09-14"),
-        validityDate: new Date("2024-09-28"),
+        quotationDate: "2024-09-14",
+        validityDate: "2024-09-28",
         status: "draft",
         subtotal: "8900.00",
         taxAmount: "1335.00",
@@ -542,7 +523,7 @@ async function seedDatabase() {
 
     // 14. Seed Leads
     console.log("🎯 Seeding leads...");
-    const seedLeads = await db.insert(leads).values([
+    const leadsData = [
       {
         id: "lead-001",
         firstName: "Fernando",
@@ -551,11 +532,11 @@ async function seedDatabase() {
         position: "Doctor",
         email: "fernando.silva@hmc.ao",
         phone: "+244 222 678 901",
-        leadStatus: "qualified",
-        pipelineStage: "needs_analysis",
+        leadStatus: "qualified" as const,
+        pipelineStage: "needs_analysis" as const,
         source: "referral",
         estimatedValue: "75000.00",
-        probability: 65,
+        conversionProbability: "0.65",
         assignedTo: "sales-user-001",
         notes: "Interested in complete pharmaceutical inventory management system",
       },
@@ -567,11 +548,11 @@ async function seedDatabase() {
         position: "Manager",
         email: "ana.costa@farmacpopular.ao",
         phone: "+244 222 345 678",
-        leadStatus: "new",
-        pipelineStage: "initial_contact",
+        leadStatus: "new" as const,
+        pipelineStage: "initial_contact" as const,
         source: "website",
         estimatedValue: "45000.00",
-        probability: 25,
+        conversionProbability: "0.25",
         assignedTo: "sales-user-002",
         notes: "Chain of 5 pharmacies looking for inventory management solution",
       },
@@ -583,15 +564,16 @@ async function seedDatabase() {
         position: "Doctor",
         email: "paulo.mendes@cmgirassol.ao", 
         phone: "+244 222 456 789",
-        leadStatus: "qualified",
-        pipelineStage: "proposal_sent",
+        leadStatus: "qualified" as const,
+        pipelineStage: "proposal_sent" as const,
         source: "cold_call",
         estimatedValue: "28000.00",
-        probability: 80,
+        conversionProbability: "0.80",
         assignedTo: "sales-user-001",
         notes: "Ready to move forward pending final approval from board",
       }
-    ]).onConflictDoNothing().returning();
+    ];
+    const seedLeads = await db.insert(leads).values(leadsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${seedLeads.length} leads`);
 
     // 15. Commission Entries (skipped - requires invoices to be created first)
@@ -606,10 +588,10 @@ async function seedDatabase() {
         employeeNumber: "EMP001",
         department: "Sales",
         position: "Senior Sales Representative",
-        hireDate: new Date("2023-01-15"),
-        salary: "2500.00",
+        hireDate: "2023-01-15",
+        baseSalary: "2500.00",
         currency: "USD",
-        status: "active",
+        employmentStatus: "active",
       },
       {
         id: "emp-002",
@@ -617,10 +599,10 @@ async function seedDatabase() {
         employeeNumber: "EMP002", 
         department: "Sales",
         position: "Sales Representative",
-        hireDate: new Date("2023-06-01"),
-        salary: "2000.00",
+        hireDate: "2023-06-01",
+        baseSalary: "2000.00",
         currency: "USD",
-        status: "active",
+        employmentStatus: "active",
       },
       {
         id: "emp-003",
@@ -628,10 +610,10 @@ async function seedDatabase() {
         employeeNumber: "EMP003",
         department: "Warehouse",
         position: "Inventory Manager",
-        hireDate: new Date("2022-09-01"),
-        salary: "2200.00", 
+        hireDate: "2022-09-01",
+        baseSalary: "2200.00", 
         currency: "USD",
-        status: "active",
+        employmentStatus: "active",
       }
     ]).onConflictDoNothing().returning();
     console.log(`✅ Created ${seedEmployees.length} employees`);
@@ -641,6 +623,7 @@ async function seedDatabase() {
     const seedTerminals = await db.insert(posTerminals).values([
       {
         id: "pos-terminal-001",
+        terminalNumber: "POS001",
         name: "Main Counter Terminal",
         location: "Main Distribution Center - Counter 1",
         warehouseId: "warehouse-main-001",
@@ -648,6 +631,7 @@ async function seedDatabase() {
       },
       {
         id: "pos-terminal-002",
+        terminalNumber: "POS002",
         name: "Benguela Branch Terminal",
         location: "Benguela Branch - Sales Counter",
         warehouseId: "warehouse-branch-001",
@@ -663,25 +647,25 @@ async function seedDatabase() {
         id: "campaign-001",
         name: "Q4 Hospital Outreach",
         description: "Targeted campaign for hospital procurement departments",
-        type: "email",
+        campaignType: "email",
         status: "active",
-        startDate: new Date("2024-09-01"),
-        endDate: new Date("2024-12-31"),
+        startDate: "2024-09-01",
+        endDate: "2024-12-31",
         budget: "5000.00",
         targetAudience: "Hospital procurement managers",
-        createdBy: "sales-user-001",
+        managerId: "sales-user-001",
       },
       {
         id: "campaign-002",
         name: "Pharmacy Partnership Program",
         description: "Promotional campaign for independent pharmacies",
-        type: "promotional",
+        campaignType: "promotional",
         status: "active", 
-        startDate: new Date("2024-08-15"),
-        endDate: new Date("2024-11-15"),
+        startDate: "2024-08-15",
+        endDate: "2024-11-15",
         budget: "3500.00",
         targetAudience: "Independent pharmacy owners",
-        createdBy: "sales-user-002",
+        managerId: "sales-user-002",
       }
     ]).onConflictDoNothing().returning();
     console.log(`✅ Created ${seedCampaigns.length} marketing campaigns`);
@@ -691,34 +675,34 @@ async function seedDatabase() {
     const seedFxRates = await db.insert(fxRates).values([
       {
         id: "fx-usd-eur-001",
-        fromCurrency: "USD",
-        toCurrency: "EUR",
+        baseCurrency: "USD",
+        quoteCurrency: "EUR",
         rate: "0.85",
-        date: new Date("2024-09-15"),
+        asOfDate: "2024-09-15",
         source: "ECB",
       },
       {
         id: "fx-eur-usd-001",
-        fromCurrency: "EUR", 
-        toCurrency: "USD",
+        baseCurrency: "EUR", 
+        quoteCurrency: "USD",
         rate: "1.18",
-        date: new Date("2024-09-15"),
+        asOfDate: "2024-09-15",
         source: "ECB",
       },
       {
         id: "fx-usd-aoa-001", 
-        fromCurrency: "USD",
-        toCurrency: "AOA",
+        baseCurrency: "USD",
+        quoteCurrency: "AOA",
         rate: "825.50",
-        date: new Date("2024-09-15"),
+        asOfDate: "2024-09-15",
         source: "BNA",
       },
       {
         id: "fx-aoa-usd-001",
-        fromCurrency: "AOA",
-        toCurrency: "USD", 
+        baseCurrency: "AOA",
+        quoteCurrency: "USD", 
         rate: "0.0012",
-        date: new Date("2024-09-15"),
+        asOfDate: "2024-09-15",
         source: "BNA",
       }
     ]).onConflictDoNothing().returning();
@@ -740,7 +724,7 @@ async function seedDatabase() {
     console.log(`   • ${seedQuotations.length} quotations`);
     console.log(`   • ${seedQuotationItems.length} quotation items`);
     console.log(`   • ${seedLeads.length} leads`);
-    console.log(`   • ${seedCommissions.length} commission entries`);
+    console.log(`   • Commission entries skipped (requires invoices first)`);
     console.log(`   • ${seedEmployees.length} employees`);
     console.log(`   • ${seedTerminals.length} POS terminals`);
     console.log(`   • ${seedCampaigns.length} marketing campaigns`);
