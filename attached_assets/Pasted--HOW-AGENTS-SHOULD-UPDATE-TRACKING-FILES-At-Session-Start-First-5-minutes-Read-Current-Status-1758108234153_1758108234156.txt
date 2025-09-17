@@ -1,0 +1,105 @@
+🔄 HOW AGENTS SHOULD UPDATE TRACKING FILES
+At Session Start (First 5 minutes):
+Read Current Status:
+
+# Agent should read these files in order:
+1. progress-dashboard.md → Overall status
+2. implementation-plan.md → Session objectives
+3. implementation-log-[latest-date].md → Previous results
+Update Progress Dashboard:
+
+# Update the "Last Updated" timestamp
+**Last Updated:** [Current Date/Time]
+# Update system health metrics based on current logs
+# Update any resolved/new issues discovered
+During Session Work:
+Create Session Log:
+
+# Copy session-log-template.md to new file:
+cp session-log-template.md implementation-log-2025-09-18.md
+# Fill in real-time as work progresses:
+- Session objectives
+- Tasks completed with details
+- Performance metrics before/after
+- Issues encountered and resolved
+Track Progress in Real-Time:
+
+# In progress-dashboard.md, update:
+- Phase completion percentages
+- Performance metrics table
+- Critical issues status
+- System health indicators
+At Session End (Last 10 minutes):
+Complete Session Documentation:
+
+# In implementation-log-[date].md:
+- Fill in all template sections
+- Document final performance metrics
+- List next session priorities
+- Add handoff notes for next agent
+Update Master Progress:
+
+# In progress-dashboard.md:
+- Update overall completion percentage
+- Mark completed tasks as ✅
+- Update "Next Session Priorities"
+- Refresh system status based on latest state
+Update Project Status:
+
+# In replit.md, add new log entry:
+**🕐 [Date] - [Time]**: **SESSION [X] COMPLETE**
+- Implementation: [Key achievements]
+- Status: [Current system state]
+- Next Steps: [Immediate priorities for next session]
+📊 SPECIFIC UPDATE EXAMPLES
+Example: Database Fix Completed
+In progress-dashboard.md:
+
+| **Database Connection** | 🟢 CONNECTED | Sept 18, 10:30 AM | CONNECTED | Secret loading fixed |
+In session log:
+
+### Task 2.1: Database Secret Loading Fix
+**Status:** ✅ COMPLETE
+**Results Achieved:**
+- DATABASE_URL now loading successfully from environment
+- PostgreSQL connection restored
+- Storage layer switched from memory to database
+- No data loss during transition
+Example: Phase 2 Completion
+In progress-dashboard.md:
+
+- 🚧 **Phase 2: Query Optimization** - 100% Complete (September 18-19, 2025)
+### Progress Visualization
+Phase 1: ████████████████████████ 100% ✅
+Phase 2: ████████████████████████ 100% ✅  
+Phase 3: ░░░░░░░░░░░░░░░░░░░░░░░░   0% 📅
+Overall: ████████████░░░░░░░░░░░░  60%
+🎯 KEY BENEFITS OF THIS SYSTEM
+For Continuity:
+No Repeated Work: Previous accomplishments clearly documented
+Clear Next Steps: Each session knows exactly what to work on
+Progress Tracking: Real-time visibility into completion status
+Issue Management: Critical problems tracked across sessions
+For Efficiency:
+Quick Startup: New agent gets context in 5 minutes
+Structured Work: Clear objectives and time estimates
+Validated Progress: Success criteria defined for each task
+Systematic Approach: Methodical completion without gaps
+For Quality:
+Documentation: All changes tracked with rationale
+Testing: Validation requirements defined
+Performance Metrics: Before/after measurements
+Risk Management: Issues and mitigation strategies documented
+📅 SESSION HANDOFF TEMPLATE
+Each session should end with this handoff note:
+
+**Session Completed By:** [Agent Name]
+**Next Session Priority:** [Top 3 critical tasks]
+**System Status:** [Overall health summary]
+**Blockers:** [Any issues preventing progress]
+**Ready for Next Agent:** [✅ YES / ❌ NO - with reason]
+**Critical Handoff Notes:**
+- [Most important context for next agent]
+- [Any urgent issues discovered]
+- [Files modified that need attention]
+This system ensures that each new session can immediately pick up where the previous one ended, with full context and clear priorities, minimizing startup time and preventing duplicate work.
