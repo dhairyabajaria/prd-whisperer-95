@@ -343,29 +343,65 @@ export function memoryOptimizedMiddleware() {
 }
 
 /**
- * Optimized connection pool configuration
- * Addresses concurrent query performance issues
+ * Enhanced connection pool configuration for high-concurrency pharmaceutical ERP
+ * Addresses concurrent query performance issues and connection stability
+ * Optimized for Phase 1 Critical Performance Improvements
  */
 export const optimizedPoolConfig = {
-  // Connection pool settings
-  max: 20,                    // Maximum connections
-  min: 5,                     // Minimum connections
-  idleTimeoutMillis: 30000,   // Close idle connections after 30s
-  connectionTimeoutMillis: 5000, // Timeout for new connections
+  // Enhanced connection pool settings - optimized for concurrent requests
+  max: 25,                    // Increased maximum connections for high concurrency
+  min: 8,                     // Higher minimum to maintain warm connections
+  idleTimeoutMillis: 60000,   // Extended idle timeout to reduce connection churn
+  connectionTimeoutMillis: 10000, // Increased timeout for better reliability under load
   
-  // Query settings
-  statement_timeout: 30000,   // 30s query timeout
-  query_timeout: 30000,      // 30s query timeout
+  // Enhanced query settings with better error handling
+  statement_timeout: 45000,   // Extended query timeout for complex dashboard metrics
+  query_timeout: 45000,      // Longer timeout for analytical queries
   
-  // Replication and retry
-  retryDelayOnFailover: 100,
-  maxRetriesPerRequest: 3,
+  // Advanced connection management
+  retryDelayOnFailover: 200,  // Increased retry delay for better stability
+  maxRetriesPerRequest: 5,    // More retries for resilience
   
-  // Monitoring
-  log: (message: string) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[DB Pool] ${message}`);
+  // Connection health monitoring
+  acquireTimeoutMillis: 15000, // Time to wait for connection acquisition
+  reapIntervalMillis: 5000,   // Check for idle connections every 5s
+  
+  // PostgreSQL-specific optimizations
+  application_name: 'pharmaceutical_erp',
+  
+  // Enhanced monitoring with performance tracking
+  log: (message: string, level: 'info' | 'warn' | 'error' = 'info') => {
+    const timestamp = new Date().toISOString();
+    const prefix = `[DB Pool ${timestamp}]`;
+    
+    if (level === 'error') {
+      console.error(`❌ ${prefix} ${message}`);
+    } else if (level === 'warn') {
+      console.warn(`⚠️  ${prefix} ${message}`);
+    } else if (process.env.NODE_ENV === 'development') {
+      console.log(`🔧 ${prefix} ${message}`);
     }
+  },
+  
+  // Connection validation
+  validate: async (connection: any) => {
+    try {
+      await connection.query('SELECT 1');
+      return true;
+    } catch (error) {
+      console.error('Connection validation failed:', error);
+      return false;
+    }
+  },
+  
+  // Connection pool events for monitoring
+  afterCreate: (connection: any, callback: any) => {
+    console.log('🔗 New database connection established');
+    callback(null, connection);
+  },
+  
+  beforeDestroy: (connection: any) => {
+    console.log('🔌 Database connection being destroyed');
   }
 };
 

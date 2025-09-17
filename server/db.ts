@@ -20,71 +20,167 @@ async function initializeDatabase(): Promise<void> {
   }
 
   initializationPromise = (async () => {
-    try {
-      console.log('🚀 [DB] Starting enhanced database initialization...');
-      
-      // Use the working getDatabaseUrlAsync from secretLoader.ts
-      const databaseUrl = await getDatabaseUrlAsync();
-      
-      if (!databaseUrl) {
-        throw new Error('DATABASE_URL could not be obtained from any source. Please check your database configuration.');
-      }
-      
-      console.log('🚀 [DB] Creating optimized database connection with enhanced pool config...');
-      const poolConfig = {
-        connectionString: databaseUrl,
-        ...optimizedPoolConfig,
-        // Neon-specific optimizations
-        keepAlive: true,
-        keepAliveInitialDelayMillis: 10000
-      };
-      
-      console.log(`[DB Pool] Configured with max=${optimizedPoolConfig.max}, min=${optimizedPoolConfig.min} connections`);
-      const newPool = new Pool(poolConfig);
-      const newDb = drizzle({ client: newPool, schema });
-      
-      // Test the connection
-      console.log('🧪 [DB] Testing database connection...');
-      await newPool.query('SELECT 1 as test');
-      
-      console.log('✅ [DB] Database connection test successful!');
-      
-      // Set globals after successful test
-      pool = newPool;
-      db = newDb;
-      isInitialized = true;
-      
-      // Register shutdown handlers only once
-      if (!shutdownHandlersRegistered) {
-        registerShutdownHandlers();
-        shutdownHandlersRegistered = true;
-      }
-      
-      console.log('🎉 [DB] Database initialization completed successfully!');
-      
-    } catch (error) {
-      console.error('❌ [DB] Database initialization failed:', error);
-      
-      // Clean up on failure and reset initialization promise
-      if (pool) {
-        try {
-          await pool.end();
-        } catch (cleanupError) {
-          console.error('❌ [DB] Error cleaning up pool:', cleanupError);
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🚀 [DB] Starting enhanced database initialization (attempt ${attempt}/${maxRetries})...`);
+        
+        // Use the working getDatabaseUrlAsync from secretLoader.ts
+        const databaseUrl = await getDatabaseUrlAsync();
+        
+        if (!databaseUrl) {
+          throw new Error('DATABASE_URL could not be obtained from any source. Please check your database configuration.');
         }
-        pool = null;
-        db = null;
-        isInitialized = false;
+        
+        console.log('🚀 [DB] Creating optimized database connection with enhanced pool config...');
+        const poolConfig = {
+          connectionString: databaseUrl,
+          ...optimizedPoolConfig,
+          // Neon-specific optimizations for better connection handling
+          keepAlive: true,
+          keepAliveInitialDelayMillis: 10000,
+          // Enhanced error handling
+          acquireTimeoutMillis: optimizedPoolConfig.acquireTimeoutMillis || 15000,
+          // Better connection management
+          allowExitOnIdle: false,
+          // Connection validation
+          idleTimeoutMillis: optimizedPoolConfig.idleTimeoutMillis || 60000
+        };
+        
+        console.log(`[DB Pool] Configured with max=${optimizedPoolConfig.max}, min=${optimizedPoolConfig.min} connections`);
+        const newPool = new Pool(poolConfig);
+        
+        // Enhanced connection event monitoring
+        newPool.on('connect', (client) => {
+          console.log('🔗 [DB Pool] New client connected to pool');
+        });
+        
+        newPool.on('error', (err, client) => {
+          console.error('❌ [DB Pool] Unexpected error on idle client:', err);
+        });
+        
+        newPool.on('acquire', () => {
+          console.log('🎯 [DB Pool] Client acquired from pool');
+        });
+        
+        newPool.on('release', () => {
+          console.log('🔄 [DB Pool] Client released back to pool');
+        });
+        
+        // Create the drizzle instance
+        const newDb = drizzle({ client: newPool, schema });
+        
+        // Enhanced connection testing with retry logic
+        console.log('🧪 [DB] Testing database connection with enhanced validation...');
+        
+        // Test basic connectivity
+        await newPool.query('SELECT 1 as test');
+        
+        // Test schema access
+        await newPool.query('SELECT tablename FROM pg_tables WHERE schemaname = $1 LIMIT 1', ['public']);
+        
+        // Test connection pool health
+        await testConnectionPoolHealth(newPool);
+        
+        console.log('✅ [DB] Database connection test successful!');
+        
+        // Set globals after successful test
+        pool = newPool;
+        db = newDb;
+        isInitialized = true;
+        
+        // Register shutdown handlers only once
+        if (!shutdownHandlersRegistered) {
+          registerShutdownHandlers();
+          shutdownHandlersRegistered = true;
+        }
+        
+        // Start connection pool monitoring
+        startConnectionPoolMonitoring();
+        
+        console.log('🎉 [DB] Database initialization completed successfully!');
+        return; // Success - exit retry loop
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`❌ [DB] Database initialization failed (attempt ${attempt}/${maxRetries}):`, error);
+        
+        // Clean up on failure
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (cleanupError) {
+            console.error('❌ [DB] Error cleaning up pool:', cleanupError);
+          }
+          pool = null;
+          db = null;
+          isInitialized = false;
+        }
+        
+        // Wait before retry (exponential backoff)
+        if (attempt < maxRetries) {
+          const retryDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          console.log(`⏳ [DB] Retrying in ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
       }
-      
-      // Reset initialization promise to allow retry
-      initializationPromise = null;
-      
-      throw error;
     }
+    
+    // All retries exhausted
+    console.error('💥 [DB] All database initialization attempts failed. Last error:', lastError);
+    
+    // Reset initialization promise to allow future retry
+    initializationPromise = null;
+    
+    throw lastError || new Error('Database initialization failed after all retries');
   })();
 
   return initializationPromise;
+}
+
+// Connection pool health testing function
+async function testConnectionPoolHealth(testPool: Pool): Promise<void> {
+  console.log('🔍 [DB] Testing connection pool health...');
+  
+  try {
+    // Test multiple concurrent connections
+    const promises = Array.from({ length: 5 }, (_, i) => 
+      testPool.query(`SELECT ${i + 1} as connection_test`)
+    );
+    
+    const results = await Promise.all(promises);
+    console.log(`✅ [DB] Connection pool health test passed: ${results.length} concurrent queries successful`);
+    
+  } catch (error) {
+    console.error('❌ [DB] Connection pool health test failed:', error);
+    throw error;
+  }
+}
+
+// Connection pool monitoring function
+function startConnectionPoolMonitoring(): void {
+  console.log('📊 [DB] Starting connection pool monitoring...');
+  
+  setInterval(() => {
+    if (pool) {
+      const totalCount = pool.totalCount;
+      const idleCount = pool.idleCount;
+      const waitingCount = pool.waitingCount;
+      
+      console.log(`📊 [DB Pool Status] Total: ${totalCount}, Idle: ${idleCount}, Waiting: ${waitingCount}`);
+      
+      // Alert on potential issues
+      if (waitingCount > 10) {
+        console.warn(`⚠️  [DB Pool] High waiting queue detected: ${waitingCount} waiting connections`);
+      }
+      
+      if (totalCount >= optimizedPoolConfig.max * 0.9) {
+        console.warn(`⚠️  [DB Pool] Near connection limit: ${totalCount}/${optimizedPoolConfig.max} connections used`);
+      }
+    }
+  }, 30000); // Monitor every 30 seconds
 }
 
 // Start async database initialization
