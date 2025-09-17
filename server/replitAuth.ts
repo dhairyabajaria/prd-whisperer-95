@@ -265,30 +265,56 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   try {
     // Development bypass for in-memory storage
     if (process.env.NODE_ENV === 'development') {
-      // Auto-provision a dev user if not authenticated
-      const devUser = {
+      const { storage } = await import("./storage");
+      
+      // Check for test user header for RBAC testing
+      const testUserId = req.headers['x-test-user-id'] as string;
+      
+      let targetUserId = 'dev-user-1'; // Default to admin user
+      let userData = null;
+      
+      if (testUserId) {
+        // Use specified test user for testing
+        targetUserId = testUserId;
+        userData = await storage.getUser(testUserId);
+        
+        if (!userData) {
+          return res.status(401).json({ 
+            message: `Test user not found: ${testUserId}`,
+            availableTestUsers: ['dev-user-1', 'sales-user-1', 'finance-user-1', 'hr-user-1', 'pos-user-1', 'marketing-user-1', 'inventory-user-1']
+          });
+        }
+      } else {
+        // Default dev user
+        userData = await storage.getUser('dev-user-1');
+        
+        // Ensure default dev user exists
+        if (!userData) {
+          await storage.upsertUser({
+            id: 'dev-user-1',
+            email: 'dev@pharma.com',
+            firstName: 'Dev',
+            lastName: 'User',
+            profileImageUrl: null,
+            role: 'admin',
+          });
+          userData = await storage.getUser('dev-user-1');
+        }
+      }
+      
+      // Create user object for request
+      const authUser = {
         claims: {
-          sub: 'dev-user-1',
-          email: 'dev@pharma.com',
-          first_name: 'Dev',
-          last_name: 'User'
+          sub: userData!.id,
+          email: userData!.email,
+          first_name: userData!.firstName,
+          last_name: userData!.lastName
         },
         expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
       };
       
-      // Ensure dev user exists in storage
-      const { storage } = await import("./storage");
-      await storage.upsertUser({
-        id: devUser.claims.sub,
-        email: devUser.claims.email,
-        firstName: devUser.claims.first_name,
-        lastName: devUser.claims.last_name,
-        profileImageUrl: null,
-        role: 'admin', // Add admin role for dev user to access all modules
-      });
-      
       // Attach user to request
-      (req as any).user = devUser;
+      (req as any).user = authUser;
       return next();
     }
     
