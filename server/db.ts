@@ -204,17 +204,20 @@ function stopConnectionPoolMonitoring(): void {
   }
 }
 
-// Start async database initialization
-console.log('🔧 [DB] Starting enhanced database initialization...');
-
-// Start initialization immediately (async)
-initializeDatabase()
-  .then(() => {
-    console.log('🎊 [DB] Database initialization completed successfully!');
-  })
-  .catch((error) => {
-    console.error('💥 [DB] Database initialization failed completely:', error);
-  });
+// TEMPORARILY DISABLED: Complex database initialization causing startup failures
+// Will re-enable after basic connectivity is working
+// 
+// // Start async database initialization
+// console.log('🔧 [DB] Starting enhanced database initialization...');
+// 
+// // Start initialization immediately (async)
+// initializeDatabase()
+//   .then(() => {
+//     console.log('🎊 [DB] Database initialization completed successfully!');
+//   })
+//   .catch((error) => {
+//     console.error('💥 [DB] Database initialization failed completely:', error);
+//   });
 
 // MEMORY LEAK FIX: Enhanced shutdown function with timer cleanup
 async function shutdownDatabase(): Promise<void> {

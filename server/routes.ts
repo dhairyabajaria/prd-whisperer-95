@@ -78,7 +78,8 @@ import {
   cache 
 } from "./cache";
 import { memoryOptimizedMiddleware } from "../critical-cache-implementation";
-import { createPhase3Middleware, addPhase3Routes, enhancedDatabaseQuery, orchestrator } from "./phase3-integration";
+// TEMPORARILY DISABLED: Phase 3 components causing startup failures - will re-enable after basic connectivity is fixed
+// import { createPhase3Middleware, addPhase3Routes, enhancedDatabaseQuery, orchestrator } from "./phase3-integration";
 
 // Performance optimization: User authentication cache - Target: 608ms → <200ms
 const userCache = new Map<string, { user: any; timestamp: number }>();
@@ -235,8 +236,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('✅ Storage ready for routes');
 
   // Phase 3: Apply advanced performance middleware
-  const phase3Middleware = createPhase3Middleware();
-  app.use(...phase3Middleware);
+  // TEMPORARILY DISABLED: Phase 3 middleware causing startup failures
+  // const phase3Middleware = createPhase3Middleware();
+  // app.use(...phase3Middleware);
 
   // MEMORY LEAK FIX: Apply memory optimized middleware for concurrent request handling
   app.use(memoryOptimizedMiddleware());
@@ -296,7 +298,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 3: Add system management routes
-  addPhase3Routes(app);
+  // TEMPORARILY DISABLED: Phase 3 routes causing startup failures  
+  // addPhase3Routes(app);
 
   // Dashboard routes - with enhanced in-memory caching for performance
   app.get("/api/dashboard/metrics", isAuthenticated, cacheMiddleware(), async (req, res) => {
