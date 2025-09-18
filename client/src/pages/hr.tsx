@@ -37,7 +37,8 @@ import {
   Building,
   Star,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -614,8 +615,16 @@ export default function HRPage() {
                             type="submit" 
                             disabled={createEmployeeMutation.isPending}
                             data-testid="button-save-employee"
+                            className="flex items-center space-x-2"
                           >
-                            {createEmployeeMutation.isPending ? "Creating..." : "Create Employee"}
+                            {createEmployeeMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Creating...</span>
+                              </>
+                            ) : (
+                              "Create Employee"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -907,7 +916,14 @@ export default function HRPage() {
                             disabled={createTimeEntryMutation.isPending}
                             data-testid="button-save-time-entry"
                           >
-                            {createTimeEntryMutation.isPending ? "Creating..." : "Create Entry"}
+                            {createTimeEntryMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Creating...</span>
+                              </>
+                            ) : (
+                              "Create Entry"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -1101,7 +1117,14 @@ export default function HRPage() {
                             disabled={createPayrollMutation.isPending}
                             data-testid="button-save-payroll"
                           >
-                            {createPayrollMutation.isPending ? "Creating..." : "Create Payroll Run"}
+                            {createPayrollMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Creating...</span>
+                              </>
+                            ) : (
+                              "Create Payroll Run"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -1412,7 +1435,14 @@ export default function HRPage() {
                             disabled={createReviewMutation.isPending}
                             data-testid="button-save-review"
                           >
-                            {createReviewMutation.isPending ? "Creating..." : "Create Review"}
+                            {createReviewMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Creating...</span>
+                              </>
+                            ) : (
+                              "Create Review"
+                            )}
                           </Button>
                         </div>
                       </form>
