@@ -137,7 +137,11 @@ class DatabaseReplicaManager {
   }>();
 
   constructor() {
-    this.initializePools();
+    // Initialize pools with error handling to prevent unhandled rejections
+    void this.initializePools().catch(err => {
+      console.error('❌ [Replica Manager] Initialization failed:', err);
+      console.log('🔄 [Replica Manager] Application will continue with fallback database access');
+    });
     this.startHealthMonitoring();
   }
 
@@ -146,7 +150,9 @@ class DatabaseReplicaManager {
     
     const primaryUrl = await getDatabaseUrlAsync();
     if (!primaryUrl) {
-      throw new Error('Primary database URL not available');
+      console.log('⚠️  [Replica Manager] Primary database URL not available - replica manager disabled');
+      console.log('🔄 [Replica Manager] Application will continue with memory storage');
+      return; // Gracefully return instead of throwing
     }
 
     // Initialize each replica pool
@@ -187,7 +193,8 @@ class DatabaseReplicaManager {
     }
 
     if (this.pools.size === 0) {
-      throw new Error('No database pools could be initialized');
+      console.log('⚠️  [Replica Manager] No database pools initialized - using fallback database access');
+      return; // Don't throw - just continue with fallback behavior
     }
 
     console.log(`🎉 [Replica Manager] Initialized ${this.pools.size} database pools`);
@@ -209,7 +216,7 @@ class DatabaseReplicaManager {
   private async performHealthChecks(): Promise<void> {
     const now = Date.now();
     
-    for (const [name, status] of this.pools.entries()) {
+    for (const [name, status] of Array.from(this.pools.entries())) {
       if (now - status.lastHealthCheck < status.config.healthCheckInterval) {
         continue; // Skip if checked recently
       }
@@ -373,7 +380,7 @@ class DatabaseReplicaManager {
         replica.currentReadLoad--;
         
         console.log(`⚡ [Query] ${replica.config.name} executed ${queryType} in ${duration}ms`);
-        return result;
+        return result as T;
         
       } catch (error) {
         replica.currentReadLoad--;
