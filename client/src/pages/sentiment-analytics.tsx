@@ -518,21 +518,25 @@ export default function SentimentAnalytics() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ChartContainer config={chartConfig} className="h-64">
-                      <LineChart data={mockSentimentTrend}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line 
-                          type="monotone" 
-                          dataKey="average" 
-                          stroke="var(--chart-4)" 
-                          strokeWidth={3}
-                          name="Average Sentiment"
-                        />
-                      </LineChart>
-                    </ChartContainer>
+                    {globalLoading ? (
+                      <Skeleton className="h-64 w-full" />
+                    ) : (
+                      <ChartContainer config={chartConfig} className="h-64">
+                        <LineChart data={mockSentimentTrend}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="average" 
+                            stroke="var(--chart-4)" 
+                            strokeWidth={3}
+                            name="Average Sentiment"
+                          />
+                        </LineChart>
+                      </ChartContainer>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -546,22 +550,26 @@ export default function SentimentAnalytics() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ChartContainer config={chartConfig} className="h-64">
-                    <RechartsBarChart data={[
-                      { type: 'Email', positive: 68, neutral: 22, negative: 10 },
-                      { type: 'Phone', positive: 55, neutral: 30, negative: 15 },
-                      { type: 'Meeting', positive: 75, neutral: 20, negative: 5 },
-                      { type: 'SMS', positive: 60, neutral: 25, negative: 15 },
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="type" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="positive" fill="var(--chart-1)" name="Positive" />
-                      <Bar dataKey="neutral" fill="var(--chart-2)" name="Neutral" />
-                      <Bar dataKey="negative" fill="var(--chart-3)" name="Negative" />
-                    </RechartsBarChart>
-                  </ChartContainer>
+                  {globalLoading ? (
+                    <Skeleton className="h-64 w-full" />
+                  ) : (
+                    <ChartContainer config={chartConfig} className="h-64">
+                      <RechartsBarChart data={[
+                        { type: 'Email', positive: 68, neutral: 22, negative: 10 },
+                        { type: 'Phone', positive: 55, neutral: 30, negative: 15 },
+                        { type: 'Meeting', positive: 75, neutral: 20, negative: 5 },
+                        { type: 'SMS', positive: 60, neutral: 25, negative: 15 },
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="type" />
+                        <YAxis />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="positive" fill="var(--chart-1)" name="Positive" />
+                        <Bar dataKey="neutral" fill="var(--chart-2)" name="Neutral" />
+                        <Bar dataKey="negative" fill="var(--chart-3)" name="Negative" />
+                      </RechartsBarChart>
+                    </ChartContainer>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Save, X, TrendingUp } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Save, X, TrendingUp, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -789,9 +789,19 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                       type="submit" 
                       disabled={createQuotationMutation.isPending || updateQuotationMutation.isPending}
                       data-testid="button-save-quotation"
+                      className="flex items-center space-x-2"
                     >
-                      <Save className="h-4 w-4 mr-2" />
-                      {quotation ? "Update" : "Create"} Quotation
+                      {createQuotationMutation.isPending || updateQuotationMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>{quotation ? "Updating..." : "Creating..."}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          {quotation ? "Update" : "Create"} Quotation
+                        </>
+                      )}
                     </Button>
                   </div>
                 </form>

@@ -42,7 +42,8 @@ import {
   Send,
   ArrowRight,
   Bell,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1061,8 +1062,15 @@ export default function Purchases() {
                   <Button type="button" variant="outline" onClick={() => setIsCreatePRModalOpen(false)} data-testid="button-cancel-pr">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createPRMutation.isPending} data-testid="button-submit-pr">
-                    {createPRMutation.isPending ? "Creating..." : "Create Purchase Request"}
+                  <Button type="submit" disabled={createPRMutation.isPending} data-testid="button-submit-pr" className="flex items-center space-x-2">
+                    {createPRMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      "Create Purchase Request"
+                    )}
                   </Button>
                 </div>
               </form>
@@ -1385,8 +1393,15 @@ export default function Purchases() {
                   <Button type="button" variant="outline" onClick={() => setIsCreatePOModalOpen(false)} data-testid="button-cancel-po">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createPOMutation.isPending} data-testid="button-submit-po">
-                    {createPOMutation.isPending ? "Creating..." : "Create Purchase Order"}
+                  <Button type="submit" disabled={createPOMutation.isPending} data-testid="button-submit-po" className="flex items-center space-x-2">
+                    {createPOMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      "Create Purchase Order"
+                    )}
                   </Button>
                 </div>
               </form>
@@ -1686,8 +1701,15 @@ export default function Purchases() {
                   <Button type="button" variant="outline" onClick={() => setIsCreateGRModalOpen(false)} data-testid="button-cancel-gr">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createGRMutation.isPending} data-testid="button-submit-gr">
-                    {createGRMutation.isPending ? "Creating..." : "Create Goods Receipt"}
+                  <Button type="submit" disabled={createGRMutation.isPending} data-testid="button-submit-gr" className="flex items-center space-x-2">
+                    {createGRMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      "Create Goods Receipt"
+                    )}
                   </Button>
                 </div>
               </form>
@@ -2024,8 +2046,15 @@ export default function Purchases() {
                   }} data-testid="button-cancel-bill">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createBillMutation.isPending} data-testid="button-submit-bill">
-                    {createBillMutation.isPending ? "Creating..." : "Create Vendor Bill"}
+                  <Button type="submit" disabled={createBillMutation.isPending} data-testid="button-submit-bill" className="flex items-center space-x-2">
+                    {createBillMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      "Create Vendor Bill"
+                    )}
                   </Button>
                 </div>
               </form>
