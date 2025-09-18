@@ -42,7 +42,8 @@ import {
   Pause,
   BarChart3,
   FileText,
-  Filter
+  Filter,
+  Loader2
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -799,7 +800,14 @@ export default function MarketingPage() {
                             disabled={createCampaignMutation.isPending || updateCampaignMutation.isPending}
                             data-testid="button-save-campaign"
                           >
-                            {createCampaignMutation.isPending || updateCampaignMutation.isPending ? "Saving..." : "Save Campaign"}
+                            {createCampaignMutation.isPending || updateCampaignMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              "Save Campaign"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -1298,7 +1306,14 @@ export default function MarketingPage() {
                             disabled={createLeadMutation.isPending || updateLeadMutation.isPending}
                             data-testid="button-save-lead"
                           >
-                            {createLeadMutation.isPending || updateLeadMutation.isPending ? "Saving..." : "Save Lead"}
+                            {createLeadMutation.isPending || updateLeadMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              "Save Lead"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -1682,7 +1697,14 @@ export default function MarketingPage() {
                             disabled={createCommunicationMutation.isPending}
                             data-testid="button-save-communication"
                           >
-                            {createCommunicationMutation.isPending ? "Logging..." : "Log Communication"}
+                            {createCommunicationMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Logging...</span>
+                              </>
+                            ) : (
+                              "Log Communication"
+                            )}
                           </Button>
                         </div>
                       </form>
