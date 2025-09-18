@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, Search, Plus, Edit, Trash2, Calendar, Factory, Hash, Pill, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Package, Search, Plus, Edit, Trash2, Calendar, Factory, Hash, Pill, AlertTriangle, CheckCircle, Clock, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type InsertProduct } from "@shared/schema";
@@ -516,8 +516,14 @@ export default function ProductsPage() {
                           type="submit"
                           disabled={createProductMutation.isPending || updateProductMutation.isPending}
                         >
-                          {createProductMutation.isPending || updateProductMutation.isPending ? "Saving..." : 
-                           editingProduct ? "Update Product" : "Create Product"}
+                          {createProductMutation.isPending || updateProductMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Saving...</span>
+                            </>
+                          ) : (
+                           editingProduct ? "Update Product" : "Create Product"
+                          )}
                         </Button>
                       </div>
                     </form>

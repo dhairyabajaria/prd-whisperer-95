@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Warehouse, Search, Plus, Edit, Trash2, MapPin, Package, Gauge, Building } from "lucide-react";
+import { Warehouse, Search, Plus, Edit, Trash2, MapPin, Package, Gauge, Building, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertWarehouseSchema, type Warehouse as WarehouseType, type InsertWarehouse } from "@shared/schema";
@@ -413,8 +413,14 @@ export default function WarehousesPage() {
                           type="submit"
                           disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}
                         >
-                          {createWarehouseMutation.isPending || updateWarehouseMutation.isPending ? "Saving..." : 
-                           editingWarehouse ? "Update Warehouse" : "Create Warehouse"}
+                          {createWarehouseMutation.isPending || updateWarehouseMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Saving...</span>
+                            </>
+                          ) : (
+                           editingWarehouse ? "Update Warehouse" : "Create Warehouse"
+                          )}
                         </Button>
                       </div>
                     </form>
