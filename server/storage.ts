@@ -7557,6 +7557,82 @@ export class DatabaseStorage implements IStorage {
     const db = await getDb();
     await db.delete(competitorPrices).where(eq(competitorPrices.id, id));
   }
+
+  // Test user initialization
+  async initializeTestUsers(): Promise<void> {
+    console.log('🧪 [TEST USERS] Initializing test users for RBAC testing...');
+    
+    const testUsers = [
+      {
+        id: 'dev-user-1',
+        email: 'dev@pharma.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        role: 'admin' as const
+      },
+      {
+        id: 'sales-user-1',
+        email: 'sales@pharma.com',
+        firstName: 'Sales',
+        lastName: 'Manager',
+        role: 'sales' as const
+      },
+      {
+        id: 'finance-user-1',
+        email: 'finance@pharma.com',
+        firstName: 'Finance',
+        lastName: 'Controller',
+        role: 'finance' as const
+      },
+      {
+        id: 'hr-user-1',
+        email: 'hr@pharma.com',
+        firstName: 'HR',
+        lastName: 'Manager',
+        role: 'hr' as const
+      },
+      {
+        id: 'pos-user-1',
+        email: 'pos@pharma.com',
+        firstName: 'POS',
+        lastName: 'Operator',
+        role: 'pos' as const
+      },
+      {
+        id: 'marketing-user-1',
+        email: 'marketing@pharma.com',
+        firstName: 'Marketing',
+        lastName: 'Specialist',
+        role: 'marketing' as const
+      },
+      {
+        id: 'inventory-user-1',
+        email: 'inventory@pharma.com',
+        firstName: 'Inventory',
+        lastName: 'Manager',
+        role: 'inventory' as const
+      }
+    ];
+
+    for (const user of testUsers) {
+      try {
+        const existingUser = await this.getUser(user.id);
+        if (!existingUser) {
+          await this.upsertUser({
+            ...user,
+            profileImageUrl: null
+          });
+          console.log(`✅ [TEST USERS] Created test user: ${user.firstName} ${user.lastName} (${user.role})`);
+        } else {
+          console.log(`✓ [TEST USERS] Test user already exists: ${user.firstName} ${user.lastName} (${user.role})`);
+        }
+      } catch (error) {
+        console.error(`❌ [TEST USERS] Failed to create test user ${user.id}:`, error);
+      }
+    }
+    
+    console.log('🎉 [TEST USERS] Test user initialization complete!');
+  }
   
 }
 
@@ -7640,6 +7716,12 @@ async function initializeStorage(): Promise<IStorage> {
       try {
         console.log('Initializing database storage...');
         const dbStorage = new DatabaseStorage();
+        
+        // Initialize test users for development
+        if (process.env.NODE_ENV === 'development') {
+          await dbStorage.initializeTestUsers();
+        }
+        
         console.log('✅ Successfully initialized database storage');
         return dbStorage;
       } catch (error) {
@@ -7651,6 +7733,12 @@ async function initializeStorage(): Promise<IStorage> {
     } else {
       console.log('📝 DATABASE_URL not available, using memory storage for development');
       const memStorage = new MemStorage();
+      
+      // Initialize test users for development with memory storage
+      if (process.env.NODE_ENV === 'development') {
+        await memStorage.initializeTestUsers();
+      }
+      
       console.log('✅ Successfully initialized memory storage');
       return memStorage;
     }

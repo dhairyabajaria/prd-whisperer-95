@@ -3712,4 +3712,81 @@ export class MemStorage implements IStorage {
   async markReportExportComplete(): Promise<any> { throw new Error("Not implemented in memory storage"); }
   async markReportExportFailed(): Promise<any> { throw new Error("Not implemented in memory storage"); }
 
+  // Test user initialization
+  async initializeTestUsers(): Promise<void> {
+    console.log('🧪 [TEST USERS] Initializing test users in memory storage...');
+    
+    const testUsers = [
+      {
+        id: 'dev-user-1',
+        email: 'dev@pharma.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        role: 'admin' as const
+      },
+      {
+        id: 'sales-user-1',
+        email: 'sales-test@pharma.com',
+        firstName: 'Sales',
+        lastName: 'Manager',
+        role: 'sales' as const
+      },
+      {
+        id: 'finance-user-1',
+        email: 'finance-test@pharma.com',
+        firstName: 'Finance',
+        lastName: 'Controller',
+        role: 'finance' as const
+      },
+      {
+        id: 'hr-user-1',
+        email: 'hr-test@pharma.com',
+        firstName: 'HR',
+        lastName: 'Manager',
+        role: 'hr' as const
+      },
+      {
+        id: 'pos-user-1',
+        email: 'pos-test@pharma.com',
+        firstName: 'POS',
+        lastName: 'Operator',
+        role: 'pos' as const
+      },
+      {
+        id: 'marketing-user-1',
+        email: 'marketing-test@pharma.com',
+        firstName: 'Marketing',
+        lastName: 'Specialist',
+        role: 'marketing' as const
+      },
+      {
+        id: 'inventory-user-1',
+        email: 'inventory-test@pharma.com',
+        firstName: 'Inventory',
+        lastName: 'Manager',
+        role: 'inventory' as const
+      }
+    ];
+
+    for (const user of testUsers) {
+      // Check if user already exists (idempotent)
+      if (!this.users.has(user.id)) {
+        const userData: User = {
+          ...user,
+          profileImageUrl: null,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        this.users.set(user.id, userData);
+        console.log(`✅ [TEST USERS] Created test user: ${user.firstName} ${user.lastName} (${user.role})`);
+      } else {
+        console.log(`✓ [TEST USERS] Test user already exists: ${user.firstName} ${user.lastName} (${user.role})`);
+      }
+    }
+    
+    console.log('🎉 [TEST USERS] Test user initialization complete in memory storage!');
+  }
+
 }
