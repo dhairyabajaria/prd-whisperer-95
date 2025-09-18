@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Search, Plus, AlertTriangle, Calendar, MapPin, Hash, Pill } from "lucide-react";
+import { Package, Search, Plus, AlertTriangle, Calendar, MapPin, Hash, Pill, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertInventorySchema, type Inventory, type Product, type Warehouse, type InsertInventory } from "@shared/schema";
@@ -339,8 +339,16 @@ export default function InventoryPage() {
                         type="submit" 
                         disabled={createInventoryMutation.isPending}
                         data-testid="button-submit-inventory"
+                        className="flex items-center space-x-2"
                       >
-                        {createInventoryMutation.isPending ? "Adding..." : "Add Item"}
+                        {createInventoryMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Adding...</span>
+                          </>
+                        ) : (
+                          "Add Item"
+                        )}
                       </Button>
                     </div>
                   </form>

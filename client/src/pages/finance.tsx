@@ -28,7 +28,8 @@ import {
   TrendingDown,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -530,8 +531,16 @@ export default function Finance() {
                             type="submit" 
                             disabled={createInvoiceMutation.isPending}
                             data-testid="button-submit-invoice"
+                            className="flex items-center space-x-2"
                           >
-                            {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                            {createInvoiceMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Creating...</span>
+                              </>
+                            ) : (
+                              "Create Invoice"
+                            )}
                           </Button>
                         </div>
                       </form>
