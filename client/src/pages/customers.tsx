@@ -4,6 +4,8 @@ import { Link } from "wouter";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
 import AIChatModal from "@/components/ai-chat-modal";
+import { SectionErrorBoundary, ComponentErrorBoundary } from "@/components/error-boundary";
+import { QueryErrorFallback, useQueryErrorHandler } from "@/components/query-error-fallback";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +30,9 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { toast } = useToast();
+  const errorHandler = useQueryErrorHandler(refetchCustomers);
 
-  const { data: customersData, isLoading, error } = useQuery<Customer[]>({
+  const { data: customersData, isLoading, error, refetch: refetchCustomers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
 
@@ -353,16 +356,8 @@ export default function Customers() {
             subtitle="Manage customer relationships and credit terms"
             onOpenAIChat={() => setIsChatOpen(true)}
           />
-          <main className="flex-1 flex items-center justify-center">
-            <Card className="w-full max-w-md mx-4">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Users className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Unable to Load Customer Data</h3>
-                  <p className="text-muted-foreground text-sm">There was a problem loading customer information. Please check your internet connection and refresh the page.</p>
-                </div>
-              </CardContent>
-            </Card>
+          <main className="flex-1 flex items-center justify-center p-6">
+            {errorHandler.renderErrorFallback(error, "card", true)}
           </main>
         </div>
       </div>
@@ -380,8 +375,9 @@ export default function Customers() {
           onOpenAIChat={() => setIsChatOpen(true)}
         />
         
-        <main className="flex-1 overflow-y-auto p-6" data-testid="main-customers">
-          {/* Header Actions */}
+        <SectionErrorBoundary data-testid="customers-main-error-boundary">
+          <main className="flex-1 overflow-y-auto p-6" data-testid="main-customers">
+            {/* Header Actions */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4 flex-1">
               <div className="relative">
@@ -792,7 +788,8 @@ export default function Customers() {
               </div>
             )}
           </div>
-        </main>
+          </main>
+        </SectionErrorBoundary>
       </div>
 
       <AIChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />

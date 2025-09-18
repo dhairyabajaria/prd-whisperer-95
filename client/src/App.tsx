@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { PageErrorBoundary, SectionErrorBoundary } from "@/components/error-boundary";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -30,45 +31,63 @@ function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
-    <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} />
-          <Route path="/customers" component={Customers} />
-          <Route path="/customers/:id" component={CustomerDetail} />
-          <Route path="/products" component={Products} />
-          <Route path="/suppliers" component={Suppliers} />
-          <Route path="/warehouses" component={Warehouses} />
-          <Route path="/inventory" component={Inventory} />
-          <Route path="/sales" component={Sales} />
-          <Route path="/quotations" component={Quotations} />
-          <Route path="/commissions" component={Commissions} />
-          <Route path="/pipeline" component={Pipeline} />
-          <Route path="/purchases" component={Purchases} />
-          <Route path="/finance" component={Finance} />
-          <Route path="/pos" component={POS} />
-          <Route path="/hr" component={HR} />
-          <Route path="/marketing" component={Marketing} />
-          <Route path="/sentiment-analytics" component={SentimentAnalytics} />
-          <Route path="/ai-assistant" component={AIAssistant} />
-          <Route path="/settings" component={Settings} />
-        </>
-      )}
-      <Route component={NotFound} />
-    </Switch>
+    <SectionErrorBoundary data-testid="app-router-error-boundary">
+      <Switch>
+        {isLoading || !isAuthenticated ? (
+          <Route path="/" component={Landing} />
+        ) : (
+          <>
+            <Route path="/" component={Dashboard} />
+            <Route path="/customers" component={Customers} />
+            <Route path="/customers/:id" component={CustomerDetail} />
+            <Route path="/products" component={Products} />
+            <Route path="/suppliers" component={Suppliers} />
+            <Route path="/warehouses" component={Warehouses} />
+            <Route path="/inventory" component={Inventory} />
+            <Route path="/sales" component={Sales} />
+            <Route path="/quotations" component={Quotations} />
+            <Route path="/commissions" component={Commissions} />
+            <Route path="/pipeline" component={Pipeline} />
+            <Route path="/purchases" component={Purchases} />
+            <Route path="/finance" component={Finance} />
+            <Route path="/pos" component={POS} />
+            <Route path="/hr" component={HR} />
+            <Route path="/marketing" component={Marketing} />
+            <Route path="/sentiment-analytics" component={SentimentAnalytics} />
+            <Route path="/ai-assistant" component={AIAssistant} />
+            <Route path="/settings" component={Settings} />
+          </>
+        )}
+        <Route component={NotFound} />
+      </Switch>
+    </SectionErrorBoundary>
   );
 }
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <PageErrorBoundary 
+      data-testid="app-root-error-boundary"
+      onError={(error, errorInfo) => {
+        // Log critical app-level errors
+        console.error("🚨 Critical App Error:", error, errorInfo);
+        
+        // Send to analytics in production
+        if (!import.meta.env.DEV && window.gtag) {
+          window.gtag('event', 'exception', {
+            description: `Critical App Error: ${error.message}`,
+            fatal: true
+          });
+        }
+      }}
+    >
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </PageErrorBoundary>
   );
 }
 
