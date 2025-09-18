@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
-import MetricCard from "@/components/metric-card";
+import MetricCard, { MetricCardSkeleton } from "@/components/metric-card";
 import ExpiryAlertsTable from "@/components/expiry-alerts-table";
 import AIRecommendations from "@/components/ai-recommendations";
 import AIChatModal from "@/components/ai-chat-modal";
@@ -126,18 +126,12 @@ export default function Dashboard() {
           {/* Metrics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
             {metricsLoading ? (
-              Array.from({ length: 4 }).map((_, index) => (
-                <Card key={index} className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <Skeleton className="h-4 w-24 mb-2" />
-                      <Skeleton className="h-8 w-16 mb-2" />
-                      <Skeleton className="h-4 w-32" />
-                    </div>
-                    <Skeleton className="w-12 h-12 rounded-lg" />
-                  </div>
-                </Card>
-              ))
+              <>
+                <MetricCardSkeleton testId="card-revenue" />
+                <MetricCardSkeleton testId="card-products" />
+                <MetricCardSkeleton testId="card-orders" />
+                <MetricCardSkeleton testId="card-outstanding" />
+              </>
             ) : metrics ? (
               <>
                 <MetricCard

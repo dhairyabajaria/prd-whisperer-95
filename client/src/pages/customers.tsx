@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableCardSkeleton } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Users, Search, Plus, Edit, Trash2, DollarSign, Calendar, Phone, Mail, MapPin, FileText, CreditCard, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus, Brain, RefreshCw } from "lucide-react";
+import { Users, Search, Plus, Edit, Trash2, DollarSign, Calendar, Phone, Mail, MapPin, FileText, CreditCard, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus, Brain, RefreshCw, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema, type Customer, type InsertCustomer } from "@shared/schema";
@@ -473,8 +474,16 @@ export default function Customers() {
                         type="submit" 
                         disabled={createCustomerMutation.isPending}
                         data-testid="button-submit-customer"
+                        className="flex items-center space-x-2"
                       >
-                        {createCustomerMutation.isPending ? "Creating..." : "Create Customer"}
+                        {createCustomerMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Creating...</span>
+                          </>
+                        ) : (
+                          "Create Customer"
+                        )}
                       </Button>
                     </div>
                   </form>
@@ -486,27 +495,9 @@ export default function Customers() {
           {/* Customers Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
-              Array.from({ length: 6 }).map((_, index) => (
-                <Card key={index} className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <Skeleton className="h-6 w-32 mb-2" />
-                      <Skeleton className="h-4 w-24 mb-1" />
-                      <Skeleton className="h-4 w-28" />
-                    </div>
-                    <Skeleton className="h-6 w-16 rounded-full" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                  <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-8 w-16" />
-                  </div>
-                </Card>
-              ))
+              <div className="col-span-full">
+                <TableCardSkeleton rows={6} />
+              </div>
             ) : filteredCustomers.length > 0 ? (
               filteredCustomers.map((customer) => (
                 <Card key={customer.id} className="hover:shadow-md transition-shadow" data-testid={`card-customer-${customer.id}`}>

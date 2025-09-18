@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +12,21 @@ interface MetricCardProps {
   iconBgColor: string;
   subtitleColor: string;
   testId?: string;
+}
+
+export function MetricCardSkeleton({ testId }: { testId?: string }) {
+  return (
+    <Card className="p-6 metric-card" data-testid={`${testId}-skeleton`}>
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <Skeleton className="h-4 w-24 mb-2" />
+          <Skeleton className="h-8 w-20 mb-2" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="w-12 h-12 rounded-lg" />
+      </div>
+    </Card>
+  );
 }
 
 export default function MetricCard({ 

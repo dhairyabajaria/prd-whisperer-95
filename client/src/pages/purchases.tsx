@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -2366,11 +2367,16 @@ export default function Purchases() {
                     Array.from({ length: 5 }).map((_, index) => (
                       <tr key={index}>
                         <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
-                        <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                        <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                        <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
                         <td className="px-6 py-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
                         <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
-                        <td className="px-6 py-4"><Skeleton className="h-8 w-16" /></td>
+                        <td className="px-6 py-4">
+                          <div className="flex space-x-2">
+                            <Skeleton className="h-8 w-8 rounded" />
+                            <Skeleton className="h-8 w-8 rounded" />
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : matchResults && matchResults.length > 0 ? (
