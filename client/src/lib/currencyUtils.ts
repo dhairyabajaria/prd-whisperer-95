@@ -288,24 +288,49 @@ export const setUserPreferredCurrency = (currency: CurrencyCode): void => {
   }
 };
 
-// Currency input validation
+// Currency input validation with enhanced error messages
 export const validateCurrencyInput = (value: string): { isValid: boolean; error?: string } => {
   if (!value.trim()) {
-    return { isValid: false, error: 'Amount is required' };
+    return { isValid: false, error: 'Please enter an amount (e.g., 100.00, 1,250.50)' };
   }
 
   const numValue = parseCurrencyAmount(value);
   
   if (isNaN(numValue)) {
-    return { isValid: false, error: 'Invalid currency format' };
+    return { 
+      isValid: false, 
+      error: 'Please enter a valid number format (e.g., 100.00, 1,250.50). Special characters and letters are not allowed.' 
+    };
   }
 
   if (numValue < 0) {
-    return { isValid: false, error: 'Amount cannot be negative' };
+    return { 
+      isValid: false, 
+      error: 'Amount must be positive - negative values are not allowed for financial transactions' 
+    };
   }
 
   if (numValue > 999999999.99) {
-    return { isValid: false, error: 'Amount is too large' };
+    return { 
+      isValid: false, 
+      error: 'Amount is too large - maximum allowed is 999,999,999.99. Please contact admin for larger transactions.' 
+    };
+  }
+
+  if (numValue === 0) {
+    return { 
+      isValid: false, 
+      error: 'Amount must be greater than zero - please enter a positive value' 
+    };
+  }
+
+  // Check for too many decimal places
+  const decimalPart = value.includes('.') ? value.split('.')[1] : '';
+  if (decimalPart && decimalPart.length > 2) {
+    return { 
+      isValid: false, 
+      error: 'Amount can have at most 2 decimal places (e.g., 100.25, not 100.255)' 
+    };
   }
 
   return { isValid: true };

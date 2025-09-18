@@ -2222,11 +2222,30 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
-// Insert schemas
+// Insert schemas with enhanced validation messages
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Customer name is required - please enter the full business name").max(255, "Customer name must be 255 characters or less"),
+  email: z.string().optional().refine(
+    (val) => !val || z.string().email().safeParse(val).success,
+    "Please enter a valid email address (e.g., contact@company.com)"
+  ),
+  phone: z.string().optional().refine(
+    (val) => !val || val.length >= 7,
+    "Phone number must be at least 7 digits. Include country code if international"
+  ),
+  creditLimit: z.string().refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0,
+    "Credit limit must be a valid positive number (e.g., 10000.00)"
+  ),
+  paymentTerms: z.number().int().min(0, "Payment terms must be 0 or more days").max(365, "Payment terms cannot exceed 365 days"),
+  taxId: z.string().optional().refine(
+    (val) => !val || val.length >= 3,
+    "Tax ID must be at least 3 characters if provided"
+  ),
 });
 
 export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
@@ -2239,6 +2258,22 @@ export const insertSupplierSchema = createInsertSchema(suppliers).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Supplier name is required - please enter the full business name").max(255, "Supplier name must be 255 characters or less"),
+  email: z.string().optional().refine(
+    (val) => !val || z.string().email().safeParse(val).success,
+    "Please enter a valid email address for supplier communications"
+  ),
+  phone: z.string().optional().refine(
+    (val) => !val || val.length >= 7,
+    "Phone number must be at least 7 digits. Include country code if international"
+  ),
+  country: z.string().optional().refine(
+    (val) => !val || val.length >= 2,
+    "Country must be at least 2 characters (e.g., US, UK, Angola)"
+  ),
+  creditDays: z.number().int().min(0, "Credit days must be 0 or more").max(365, "Credit days cannot exceed 365 days"),
+  currency: z.string().length(3, "Currency code must be exactly 3 characters (e.g., USD, EUR, AOA)"),
 });
 
 export const insertWarehouseSchema = createInsertSchema(warehouses).omit({
@@ -2250,6 +2285,22 @@ export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  sku: z.string().min(1, "SKU is required for inventory tracking").max(100, "SKU must be 100 characters or less"),
+  name: z.string().min(1, "Product name is required").max(255, "Product name must be 255 characters or less"),
+  category: z.string().optional().refine(
+    (val) => !val || val.length >= 2,
+    "Product category should be at least 2 characters if provided"
+  ),
+  unitPrice: z.string().optional().refine(
+    (val) => !val || (!isNaN(parseFloat(val)) && parseFloat(val) >= 0),
+    "Unit price must be a valid positive number"
+  ),
+  minStockLevel: z.number().int().min(0, "Minimum stock level cannot be negative"),
+  shelfLifeDays: z.number().int().optional().refine(
+    (val) => !val || val > 0,
+    "Shelf life must be a positive number of days"
+  ),
 });
 
 export const insertInventorySchema = createInsertSchema(inventory).omit({
@@ -2362,11 +2413,47 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  firstName: z.string().min(1, "First name is required for proper lead identification").max(100, "First name must be 100 characters or less"),
+  lastName: z.string().min(1, "Last name is required for proper lead identification").max(100, "Last name must be 100 characters or less"),
+  email: z.string().optional().refine(
+    (val) => !val || z.string().email().safeParse(val).success,
+    "Please enter a valid email address for lead communications (e.g., john@company.com)"
+  ),
+  phone: z.string().optional().refine(
+    (val) => !val || val.length >= 7,
+    "Phone number must be at least 7 digits for reliable contact"
+  ),
+  company: z.string().optional().refine(
+    (val) => !val || val.length >= 2,
+    "Company name must be at least 2 characters if provided"
+  ),
+  estimatedValue: z.string().optional().refine(
+    (val) => !val || (!isNaN(parseFloat(val)) && parseFloat(val) >= 0),
+    "Estimated value must be a valid positive number or left empty"
+  ),
+  assignedTo: z.string().optional().refine(
+    (val) => !val || val.length > 0,
+    "Please assign this lead to a team member for follow-up"
+  ),
 });
 
 export const insertCommunicationSchema = createInsertSchema(communications).omit({
   id: true,
   createdAt: true,
+}).extend({
+  communicationType: z.enum(['email', 'phone', 'sms', 'meeting', 'letter', 'visit'], {
+    errorMap: () => ({ message: "Please select a communication type (email, phone, SMS, meeting, letter, or visit)" })
+  }),
+  subject: z.string().optional().refine(
+    (val) => !val || val.length >= 3,
+    "Subject should be at least 3 characters to provide clear context"
+  ),
+  content: z.string().min(1, "Communication content is required - please describe what was discussed or communicated").max(5000, "Communication content must be 5000 characters or less"),
+  direction: z.enum(['inbound', 'outbound'], {
+    errorMap: () => ({ message: "Please specify if this was an inbound or outbound communication" })
+  }),
+  userId: z.string().min(1, "User who handled this communication must be specified"),
 });
 
 export const insertSentimentAnalysisSchema = createInsertSchema(sentimentAnalyses).omit({
@@ -2408,6 +2495,28 @@ export const insertQuotationSchema = createInsertSchema(quotations).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  quotationNumber: z.string().min(1, "Quotation number is required and should be unique (e.g., QUO-2024-001)"),
+  customerId: z.string().min(1, "Please select a customer from the dropdown list"),
+  salesRepId: z.string().optional().refine(
+    (val) => !val || val.length > 0,
+    "Please assign a sales representative for this quotation"
+  ),
+  quotationDate: z.string().min(1, "Quotation date is required"),
+  validityDate: z.string().min(1, "Validity date is required - quotations must have an expiration date"),
+  currency: z.string().length(3, "Currency must be a 3-letter code (e.g., USD, EUR, AOA)"),
+  fxRate: z.string().refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+    "Exchange rate must be a positive number (e.g., 1.0 for base currency)"
+  ),
+  subtotal: z.string().refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0,
+    "Subtotal must be a valid positive amount"
+  ),
+  totalAmount: z.string().refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0,
+    "Total amount must be a valid positive amount"
+  ),
 });
 
 export const insertQuotationItemSchema = createInsertSchema(quotationItems).omit({
@@ -2476,11 +2585,39 @@ export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  prNumber: z.string().min(1, "Purchase request number is required and should be unique (e.g., PR-2024-001)"),
+  requesterId: z.string().min(1, "Requester must be specified - please select who is making this request"),
+  supplierId: z.string().optional().refine(
+    (val) => !val || val.length > 0,
+    "Please select a preferred supplier or leave empty for competitive bidding"
+  ),
+  totalAmount: z.string().refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0,
+    "Total amount must be a valid positive number (calculated from line items)"
+  ),
+  currency: z.string().length(3, "Currency must be a 3-letter code (e.g., USD, EUR, AOA)"),
+  notes: z.string().optional().refine(
+    (val) => !val || val.length <= 1000,
+    "Notes must be 1000 characters or less"
+  ),
 });
 
 export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseRequestItems).omit({
   id: true,
   createdAt: true,
+}).extend({
+  prId: z.string().min(1, "Purchase request ID is required"),
+  productId: z.string().min(1, "Please select a product from the catalog"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1 unit").max(999999, "Quantity cannot exceed 999,999 units"),
+  unitPrice: z.string().optional().refine(
+    (val) => !val || (!isNaN(parseFloat(val)) && parseFloat(val) >= 0),
+    "Unit price must be a valid positive number or left empty for quotation"
+  ),
+  notes: z.string().optional().refine(
+    (val) => !val || val.length <= 500,
+    "Item notes must be 500 characters or less"
+  ),
 });
 
 export const insertApprovalSchema = createInsertSchema(approvals).omit({

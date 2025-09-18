@@ -31,17 +31,17 @@ import {
   validateCurrencyInput 
 } from "@/lib/currencyUtils";
 
-// Extended schema for the form with line items
+// Extended schema for the form with enhanced validation messages
 const quotationFormSchema = insertQuotationSchema.extend({
-  quotationDate: z.string(),
-  validityDate: z.string(),
+  quotationDate: z.string().min(1, "Please select a quotation date"),
+  validityDate: z.string().min(1, "Please select a validity date - quotations must have an expiration"),
   items: z.array(z.object({
-    productId: z.string().min(1, "Product is required"),
-    quantity: z.number().min(1, "Quantity must be at least 1"),
-    unitPrice: z.number().min(0, "Unit price must be non-negative"),
-    discount: z.number().min(0).max(100, "Discount must be between 0 and 100"),
-    tax: z.number().min(0).max(100, "Tax must be between 0 and 100"),
-  }))
+    productId: z.string().min(1, "Please select a product from the dropdown - quotation items must specify which product is being quoted"),
+    quantity: z.number().int().min(1, "Quantity must be at least 1 unit - please enter a positive whole number").max(999999, "Quantity cannot exceed 999,999 units - please contact admin for larger orders"),
+    unitPrice: z.number().min(0, "Unit price cannot be negative - please enter a valid price (0 or higher)").max(999999.99, "Unit price too high - maximum is 999,999.99 per unit"),
+    discount: z.number().min(0, "Discount cannot be negative - enter 0 for no discount").max(100, "Discount cannot exceed 100% - maximum discount is 100%"),
+    tax: z.number().min(0, "Tax rate cannot be negative - enter 0 for tax-exempt items").max(100, "Tax rate cannot exceed 100% - please verify the correct tax percentage"),
+  })).min(1, "Please add at least one item to the quotation - quotations cannot be empty")
 });
 
 type QuotationFormData = z.infer<typeof quotationFormSchema>;
@@ -138,8 +138,8 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
         .catch(error => {
           console.warn('Failed to fetch FX rate:', error);
           toast({
-            title: "Exchange Rate Warning",
-            description: `Could not fetch current ${baseCurrency}/${selectedCurrency} rate. Using default rate.`,
+            title: "Exchange Rate Issue",
+            description: `Unable to fetch the latest ${baseCurrency}/${selectedCurrency} exchange rate. Using rate of 1.0 - please verify pricing manually or try refreshing the page.`,
             variant: "destructive",
           });
         })
@@ -230,9 +230,28 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       form.reset();
     },
     onError: (error: any) => {
+      console.error('Quotation creation error:', error);
+      let errorMessage = "Unable to create quotation. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('quotation_number')) {
+          errorMessage = "This quotation number already exists. Please use a unique quotation number.";
+        } else if (error.message.includes('customer')) {
+          errorMessage = "Selected customer is invalid or inactive. Please choose a different customer.";
+        } else if (error.message.includes('product')) {
+          errorMessage = "One or more selected products are invalid or inactive. Please review your product selection.";
+        } else if (error.message.includes('unauthorized')) {
+          errorMessage = "You don't have permission to create quotations. Please contact your administrator.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Error creating quotation: ${error.message}`;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: error.message || "Failed to create quotation",
+        title: "Quotation Creation Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -290,9 +309,30 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
       onClose();
     },
     onError: (error: any) => {
+      console.error('Quotation update error:', error);
+      let errorMessage = "Unable to update quotation. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('quotation_number')) {
+          errorMessage = "This quotation number already exists. Please use a unique quotation number.";
+        } else if (error.message.includes('customer')) {
+          errorMessage = "Selected customer is invalid or inactive. Please choose a different customer.";
+        } else if (error.message.includes('product')) {
+          errorMessage = "One or more selected products are invalid or inactive. Please review your product selection.";
+        } else if (error.message.includes('unauthorized')) {
+          errorMessage = "You don't have permission to update this quotation. Please contact your administrator.";
+        } else if (error.message.includes('not found')) {
+          errorMessage = "This quotation no longer exists. It may have been deleted by another user.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Error updating quotation: ${error.message}`;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: error.message || "Failed to update quotation",
+        title: "Quotation Update Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },

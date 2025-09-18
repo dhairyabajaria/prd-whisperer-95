@@ -454,8 +454,37 @@ export default function Pipeline() {
       createForm.reset();
       toast({ title: "Success", description: "Lead created successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create lead", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('Lead creation error:', error);
+      let errorMessage = "Unable to create lead. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('email') && error.message.includes('unique')) {
+          errorMessage = "This email address is already registered as a lead. Please use a different email address.";
+        } else if (error.message.includes('phone') && error.message.includes('unique')) {
+          errorMessage = "This phone number is already registered as a lead. Please use a different phone number.";
+        } else if (error.message.includes('validation')) {
+          errorMessage = "Please check all required fields. Make sure email format is correct and lead score is between 0-100.";
+        } else if (error.message.includes('assignedTo')) {
+          errorMessage = "Selected sales representative is invalid. Please choose a different sales rep.";
+        } else if (error.message.includes('leadSource')) {
+          errorMessage = "Invalid lead source. Please select a valid lead source from the dropdown.";
+        } else if (error.message.includes('leadScore')) {
+          errorMessage = "Lead score must be between 0 and 100. Please enter a valid score.";
+        } else if (error.message.includes('estimatedValue')) {
+          errorMessage = "Invalid estimated value. Please enter a valid monetary amount.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Error creating lead: ${error.message}`;
+        }
+      }
+      
+      toast({ 
+        title: "Lead Creation Failed", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -471,8 +500,37 @@ export default function Pipeline() {
       editForm.reset();
       toast({ title: "Success", description: "Lead updated successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update lead", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('Lead update error:', error);
+      let errorMessage = "Unable to update lead. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('email') && error.message.includes('unique')) {
+          errorMessage = "This email address is already used by another lead. Please use a different email address.";
+        } else if (error.message.includes('phone') && error.message.includes('unique')) {
+          errorMessage = "This phone number is already used by another lead. Please use a different phone number.";
+        } else if (error.message.includes('not found')) {
+          errorMessage = "This lead no longer exists. It may have been deleted by another user.";
+        } else if (error.message.includes('assignedTo')) {
+          errorMessage = "Selected sales representative is invalid. Please choose a different sales rep.";
+        } else if (error.message.includes('leadScore')) {
+          errorMessage = "Lead score must be between 0 and 100. Please enter a valid score.";
+        } else if (error.message.includes('stage')) {
+          errorMessage = "Invalid pipeline stage. Please select a valid stage from the available options.";
+        } else if (error.message.includes('validation')) {
+          errorMessage = "Please check all fields. Make sure email format is correct and all values are valid.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Error updating lead: ${error.message}`;
+        }
+      }
+      
+      toast({ 
+        title: "Lead Update Failed", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -551,8 +609,37 @@ export default function Pipeline() {
       activityForm.reset();
       toast({ title: "Success", description: "Activity added successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to add activity", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('Communication activity error:', error);
+      let errorMessage = "Unable to add communication activity. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('lead')) {
+          errorMessage = "Selected lead is invalid or no longer exists. Please refresh the page and try again.";
+        } else if (error.message.includes('communicationType')) {
+          errorMessage = "Invalid communication type. Please select a valid type from the dropdown.";
+        } else if (error.message.includes('direction')) {
+          errorMessage = "Invalid communication direction. Please select either inbound or outbound.";
+        } else if (error.message.includes('outcome')) {
+          errorMessage = "Invalid outcome type. Please select a valid outcome from the available options.";
+        } else if (error.message.includes('duration')) {
+          errorMessage = "Invalid duration. Please enter a positive number for duration in minutes.";
+        } else if (error.message.includes('validation')) {
+          errorMessage = "Please check all required fields. Subject and notes are required for activities.";
+        } else if (error.message.includes('unauthorized')) {
+          errorMessage = "You don't have permission to add activities for this lead. Please contact your administrator.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Error adding activity: ${error.message}`;
+        }
+      }
+      
+      toast({ 
+        title: "Communication Activity Failed", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -660,13 +747,13 @@ export default function Pipeline() {
   const handleCreateLead = (data: InsertLead) => {
     const cleanedData = {
       ...data,
-      assignedTo: data.assignedTo === "unassigned" || !data.assignedTo ? null : data.assignedTo,
-      email: data.email || null,
-      phone: data.phone || null,
-      company: data.company || null,
-      position: data.position || null,
-      source: data.source || null,
-      notes: data.notes || null,
+      assignedTo: data.assignedTo === "unassigned" || !data.assignedTo ? undefined : data.assignedTo,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      company: data.company || undefined,
+      position: data.position || undefined,
+      source: data.source || undefined,
+      notes: data.notes || undefined,
     };
     createLeadMutation.mutate(cleanedData);
   };
@@ -676,13 +763,13 @@ export default function Pipeline() {
     
     const cleanedData = {
       ...data,
-      assignedTo: data.assignedTo === "unassigned" || !data.assignedTo ? null : data.assignedTo,
-      email: data.email || null,
-      phone: data.phone || null,
-      company: data.company || null,
-      position: data.position || null,
-      source: data.source || null,
-      notes: data.notes || null,
+      assignedTo: data.assignedTo === "unassigned" || !data.assignedTo ? undefined : data.assignedTo,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      company: data.company || undefined,
+      position: data.position || undefined,
+      source: data.source || undefined,
+      notes: data.notes || undefined,
     };
     updateLeadMutation.mutate({ id: selectedLead.id, data: cleanedData });
   };

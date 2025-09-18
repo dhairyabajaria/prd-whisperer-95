@@ -322,7 +322,7 @@ export default function Purchases() {
   });
 
   // Mutations
-  const createPRMutation = useMutation({
+  const createPRMutation = useMutation<any, Error, InsertPurchaseRequest>({
     mutationFn: async (data: InsertPurchaseRequest) => {
       const response = await apiRequest("POST", "/api/purchases/requests", data);
       return await response.json();
@@ -337,7 +337,7 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const createPOMutation = useMutation({
+  const createPOMutation = useMutation<any, Error, InsertPurchaseOrder>({
     mutationFn: async (data: InsertPurchaseOrder) => {
       const response = await apiRequest("POST", "/api/purchases/orders", data);
       return await response.json();
@@ -367,7 +367,7 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const approvePRMutation = useMutation({
+  const approvePRMutation = useMutation<any, Error, { id: string; level: number; comment?: string }>({
     mutationFn: async ({ id, level, comment }: { id: string; level: number; comment?: string }) => {
       const response = await apiRequest("POST", `/api/purchases/requests/${id}/approve`, { level, comment });
       return await response.json();
@@ -384,7 +384,7 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const rejectPRMutation = useMutation({
+  const rejectPRMutation = useMutation<any, Error, { id: string; level: number; comment: string }>({
     mutationFn: async ({ id, level, comment }: { id: string; level: number; comment: string }) => {
       const response = await apiRequest("POST", `/api/purchases/requests/${id}/reject`, { level, comment });
       return await response.json();
@@ -401,7 +401,7 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const convertPRToPOMutation = useMutation({
+  const convertPRToPOMutation = useMutation<any, Error, { prId: string; poData: any }>({
     mutationFn: async ({ prId, poData }: { prId: string; poData: any }) => {
       const response = await apiRequest("POST", `/api/purchases/requests/${prId}/convert-to-po`, poData);
       return await response.json();
@@ -418,7 +418,7 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const addPRLineItemMutation = useMutation({
+  const addPRLineItemMutation = useMutation<any, Error, { prId: string; item: InsertPurchaseRequestItem }>({
     mutationFn: async ({ prId, item }: { prId: string; item: InsertPurchaseRequestItem }) => {
       const response = await apiRequest("POST", `/api/purchases/requests/${prId}/items`, item);
       return await response.json();
@@ -454,7 +454,7 @@ export default function Purchases() {
     onError: handleMutationError,
   });
 
-  const resolveMatchExceptionMutation = useMutation({
+  const resolveMatchExceptionMutation = useMutation<any, Error, { matchId: string; notes: string }>({
     mutationFn: async ({ matchId, notes }: { matchId: string; notes: string }) => {
       const response = await apiRequest("POST", `/api/purchases/match/${matchId}/resolve`, { notes });
       return await response.json();
@@ -524,7 +524,7 @@ export default function Purchases() {
   });
 
   // Goods Receipt mutations
-  const createGRMutation = useMutation({
+  const createGRMutation = useMutation<any, Error, InsertGoodsReceipt>({
     mutationFn: async (data: InsertGoodsReceipt) => {
       const response = await apiRequest("POST", "/api/purchases/receipts", data);
       return await response.json();
@@ -554,7 +554,7 @@ export default function Purchases() {
   });
 
   // Vendor Bills mutations
-  const createBillMutation = useMutation({
+  const createBillMutation = useMutation<any, Error, InsertVendorBill>({
     mutationFn: async (data: InsertVendorBill) => {
       const response = await apiRequest("POST", "/api/purchases/bills", data);
       return await response.json();
@@ -607,7 +607,7 @@ export default function Purchases() {
   });
 
   // Competitor Prices mutations
-  const createCompPriceMutation = useMutation({
+  const createCompPriceMutation = useMutation<any, Error, InsertCompetitorPrice>({
     mutationFn: async (data: InsertCompetitorPrice) => {
       const response = await apiRequest("POST", "/api/purchases/competitor-prices", data);
       return await response.json();
@@ -633,9 +633,89 @@ export default function Purchases() {
       }, 500);
       return;
     }
+    
+    console.error('Purchase operation error:', error);
+    let errorMessage = "Operation failed. Please try again.";
+    let errorTitle = "Operation Failed";
+    
+    if (error.message) {
+      // Purchase Request specific errors
+      if (error.message.includes('purchase_request') || error.message.includes('PR')) {
+        errorTitle = "Purchase Request Failed";
+        if (error.message.includes('pr_number') && error.message.includes('unique')) {
+          errorMessage = "This PR number already exists. Please use a different PR number.";
+        } else if (error.message.includes('supplier')) {
+          errorMessage = "Selected supplier is invalid or inactive. Please choose a different supplier.";
+        } else if (error.message.includes('requester')) {
+          errorMessage = "Invalid requester. Please verify the requesting user.";
+        } else if (error.message.includes('approval') && error.message.includes('rule')) {
+          errorMessage = "No approval rules configured for this request amount. Please contact admin.";
+        } else if (error.message.includes('product')) {
+          errorMessage = "One or more selected products are invalid or inactive. Please review your product selection.";
+        } else {
+          errorMessage = `Error processing purchase request: ${error.message}`;
+        }
+      }
+      // Purchase Order specific errors
+      else if (error.message.includes('purchase_order') || error.message.includes('PO')) {
+        errorTitle = "Purchase Order Failed";
+        if (error.message.includes('order_number') && error.message.includes('unique')) {
+          errorMessage = "This PO number already exists. Please use a different PO number.";
+        } else if (error.message.includes('purchase_request')) {
+          errorMessage = "Referenced purchase request is invalid or not approved. Please verify the PR status.";
+        } else if (error.message.includes('supplier')) {
+          errorMessage = "Selected supplier is invalid or inactive. Please choose a different supplier.";
+        } else if (error.message.includes('currency')) {
+          errorMessage = "Invalid currency or exchange rate. Please verify currency settings.";
+        } else {
+          errorMessage = `Error creating purchase order: ${error.message}`;
+        }
+      }
+      // Goods Receipt specific errors
+      else if (error.message.includes('goods_receipt') || error.message.includes('GR')) {
+        errorTitle = "Goods Receipt Failed";
+        if (error.message.includes('purchase_order')) {
+          errorMessage = "Referenced purchase order is invalid or not found. Please verify the PO.";
+        } else if (error.message.includes('warehouse')) {
+          errorMessage = "Selected warehouse is invalid. Please choose a valid warehouse location.";
+        } else if (error.message.includes('quantity')) {
+          errorMessage = "Received quantity exceeds ordered quantity. Please verify the amounts.";
+        } else if (error.message.includes('batch')) {
+          errorMessage = "Invalid batch number format. Please enter a valid batch number.";
+        } else {
+          errorMessage = `Error processing goods receipt: ${error.message}`;
+        }
+      }
+      // Vendor Bill specific errors
+      else if (error.message.includes('vendor_bill') || error.message.includes('bill')) {
+        errorTitle = "Vendor Bill Failed";
+        if (error.message.includes('bill_number') && error.message.includes('unique')) {
+          errorMessage = "This bill number already exists. Please use a different bill number.";
+        } else if (error.message.includes('supplier')) {
+          errorMessage = "Selected supplier is invalid. Please choose a valid supplier.";
+        } else if (error.message.includes('purchase_order')) {
+          errorMessage = "Referenced purchase order is invalid. Please verify the PO number.";
+        } else if (error.message.includes('amount')) {
+          errorMessage = "Bill amount validation failed. Please verify all amounts and totals.";
+        } else {
+          errorMessage = `Error processing vendor bill: ${error.message}`;
+        }
+      }
+      // Generic operation-specific errors
+      else if (error.message.includes('validation')) {
+        errorMessage = "Please check all required fields and ensure data is in the correct format.";
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = "Network error - please check your connection and try again.";
+      } else if (error.message.includes('unauthorized')) {
+        errorMessage = "You don't have permission for this operation. Please contact your administrator.";
+      } else {
+        errorMessage = `Operation error: ${error.message}`;
+      }
+    }
+    
     toast({
-      title: "Error",
-      description: "Operation failed. Please try again.",
+      title: errorTitle,
+      description: errorMessage,
       variant: "destructive",
     });
   }
@@ -673,7 +753,7 @@ export default function Purchases() {
     if (!validTypes.includes(file.type)) {
       toast({
         title: "Invalid File Type",
-        description: "Please upload a JPEG, PNG, or PDF file.",
+        description: "Please upload a JPEG, PNG, or PDF file for bill processing. Supported formats: .jpg, .jpeg, .png, .pdf",
         variant: "destructive"
       });
       return;
@@ -729,7 +809,10 @@ export default function Purchases() {
       billForm.setValue('currency', ocrResults.currency);
     }
     if (ocrResults.paymentTerms) {
-      billForm.setValue('notes', `Payment Terms: ${ocrResults.paymentTerms}`);
+      // Store payment terms in ocrRaw field since there's no notes field in vendor bills
+      const currentOcrRaw = billForm.getValues('ocrRaw') || '';
+      const newOcrRaw = currentOcrRaw ? `${currentOcrRaw}\nPayment Terms: ${ocrResults.paymentTerms}` : `Payment Terms: ${ocrResults.paymentTerms}`;
+      billForm.setValue('ocrRaw', newOcrRaw);
     }
     
     // Try to match supplier by name
@@ -2290,7 +2373,7 @@ export default function Purchases() {
                                 <Button 
                                   size="sm" 
                                   variant="outline"
-                                  onClick={() => ocrBillMutation.mutate(bill.id)}
+                                  onClick={() => ocrBillMutation.mutate({ ocrRaw: bill.id })}
                                   disabled={ocrBillMutation.isPending}
                                   data-testid={`button-ocr-bill-${bill.id}`}
                                 >
@@ -2530,7 +2613,7 @@ export default function Purchases() {
             />
           </div>
           <Button 
-            onClick={() => refreshFxRatesMutation.mutate()}
+            onClick={() => refreshFxRatesMutation.mutate(undefined)}
             disabled={refreshFxRatesMutation.isPending}
             variant="outline"
             data-testid="button-refresh-rates"
@@ -3013,7 +3096,7 @@ export default function Purchases() {
                 <div className="text-sm mt-1">
                   <label className="font-medium">Status:</label>
                   <span className="ml-2">
-                    <Badge className={getStatusColor(selectedMatch.status)} size="sm">
+                    <Badge className={getStatusColor(selectedMatch.status)}>
                       {getStatusText(selectedMatch.status)}
                     </Badge>
                   </span>

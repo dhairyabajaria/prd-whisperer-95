@@ -120,7 +120,7 @@ export default function Customers() {
         description: "Customer created successfully",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Unauthorized",
@@ -132,23 +132,49 @@ export default function Customers() {
         }, 500);
         return;
       }
+      
+      console.error('Customer creation error:', error);
+      let errorMessage = "Unable to create customer. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('email') && error.message.includes('unique')) {
+          errorMessage = "This email address is already registered. Please use a different email address.";
+        } else if (error.message.includes('phone') && error.message.includes('unique')) {
+          errorMessage = "This phone number is already registered. Please use a different phone number.";
+        } else if (error.message.includes('taxId') && error.message.includes('unique')) {
+          errorMessage = "This tax ID is already registered. Please use a different tax ID.";
+        } else if (error.message.includes('creditLimit')) {
+          errorMessage = "Invalid credit limit. Please enter a valid number for the credit limit.";
+        } else if (error.message.includes('paymentTerms')) {
+          errorMessage = "Invalid payment terms. Please enter a valid number of days (1-365).";
+        } else if (error.message.includes('assignedSalesRep')) {
+          errorMessage = "Selected sales representative is invalid. Please choose a different sales rep.";
+        } else if (error.message.includes('validation')) {
+          errorMessage = "Please check all required fields. Make sure email format is correct and all required information is provided.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Error creating customer: ${error.message}`;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to create customer",
+        title: "Customer Creation Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: InsertCustomer) => {
-    // Clean up empty values - convert empty strings to null for optional FK fields
+    // Clean up empty values - convert empty strings to undefined for optional FK fields
     const cleanedData = {
       ...data,
-      assignedSalesRep: data.assignedSalesRep || null,
-      email: data.email || null,
-      phone: data.phone || null,
-      address: data.address || null,
-      taxId: data.taxId || null,
+      assignedSalesRep: data.assignedSalesRep || undefined,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      address: data.address || undefined,
+      taxId: data.taxId || undefined,
     };
     createCustomerMutation.mutate(cleanedData);
   };
@@ -211,7 +237,7 @@ export default function Customers() {
         description: `Sentiment analysis completed for ${result.processed} communications`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Unauthorized",
@@ -223,9 +249,27 @@ export default function Customers() {
         }, 500);
         return;
       }
+      
+      console.error('Sentiment analysis error:', error);
+      let errorMessage = "Unable to recalculate sentiment analysis. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('no communications')) {
+          errorMessage = "No communications found for sentiment analysis. Add customer communications first.";
+        } else if (error.message.includes('AI service')) {
+          errorMessage = "AI sentiment analysis service is temporarily unavailable. Please try again later.";
+        } else if (error.message.includes('quota') || error.message.includes('limit')) {
+          errorMessage = "AI analysis quota exceeded. Please contact admin or try again later.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Sentiment analysis error: ${error.message}`;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to recalculate sentiment",
+        title: "Sentiment Analysis Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -259,7 +303,7 @@ export default function Customers() {
       // Redirect to quotation page when we have it
       // navigate(`/quotations/${quotation.id}`);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Unauthorized",
@@ -271,9 +315,29 @@ export default function Customers() {
         }, 500);
         return;
       }
+      
+      console.error('Quick quotation creation error:', error);
+      let errorMessage = "Unable to create quotation for this customer. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('customer')) {
+          errorMessage = "Customer is invalid or inactive. Please verify the customer is active before creating a quotation.";
+        } else if (error.message.includes('sales_rep')) {
+          errorMessage = "No sales representative assigned to this customer. Please assign a sales rep first.";
+        } else if (error.message.includes('quotation_number')) {
+          errorMessage = "Unable to generate unique quotation number. Please try again in a moment.";
+        } else if (error.message.includes('currency')) {
+          errorMessage = "Currency configuration error. Please contact admin or try again.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else {
+          errorMessage = `Quotation creation error: ${error.message}`;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to create quotation",
+        title: "Quick Quotation Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -294,8 +358,8 @@ export default function Customers() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Users className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load customers</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+                  <h3 className="text-lg font-medium mb-2">Unable to Load Customer Data</h3>
+                  <p className="text-muted-foreground text-sm">There was a problem loading customer information. Please check your internet connection and refresh the page.</p>
                 </div>
               </CardContent>
             </Card>

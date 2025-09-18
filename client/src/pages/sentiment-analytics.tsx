@@ -206,7 +206,7 @@ export default function SentimentAnalytics() {
         description: "Sentiment analysis completed successfully",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Unauthorized",
@@ -218,9 +218,31 @@ export default function SentimentAnalytics() {
         }, 500);
         return;
       }
+      
+      console.error('Sentiment analysis error:', error);
+      let errorMessage = "Unable to analyze sentiment for this customer. Please try again.";
+      
+      if (error.message) {
+        if (error.message.includes('no communications')) {
+          errorMessage = "No communications found for this customer. Add customer communications first to enable sentiment analysis.";
+        } else if (error.message.includes('AI service') || error.message.includes('OpenAI')) {
+          errorMessage = "AI sentiment analysis service is temporarily unavailable. Please try again later or contact admin.";
+        } else if (error.message.includes('quota') || error.message.includes('limit')) {
+          errorMessage = "AI analysis quota exceeded. Please contact admin or try again later.";
+        } else if (error.message.includes('customer')) {
+          errorMessage = "Selected customer is invalid or no longer exists. Please refresh the page and try again.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again.";
+        } else if (error.message.includes('processing')) {
+          errorMessage = "Error processing communications for analysis. Please ensure communications contain valid text content.";
+        } else {
+          errorMessage = `Sentiment analysis error: ${error.message}`;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to analyze sentiment",
+        title: "Sentiment Analysis Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },
