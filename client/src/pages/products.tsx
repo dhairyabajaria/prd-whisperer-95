@@ -42,10 +42,10 @@ export default function ProductsPage() {
       description: "",
       category: "",
       manufacturer: "",
-      unitPrice: "0",
+      unitPrice: "",
       minStockLevel: 0,
       requiresBatchTracking: true,
-      shelfLifeDays: null,
+      shelfLifeDays: undefined,
       isActive: true,
     },
   });
@@ -153,15 +153,14 @@ export default function ProductsPage() {
   });
 
   const onSubmit = (data: InsertProduct) => {
-    // Clean up empty values
-    const cleanedData = {
+    // Clean up empty values - convert empty strings to undefined for optional fields
+    const cleanedData: InsertProduct = {
       ...data,
-      description: data.description || null,
-      category: data.category || null,
-      manufacturer: data.manufacturer || null,
-      unitPrice: data.unitPrice || null,
-      minStockLevel: data.minStockLevel || null,
-      shelfLifeDays: data.shelfLifeDays || null,
+      description: data.description?.trim() || undefined,
+      category: data.category?.trim() || undefined,
+      manufacturer: data.manufacturer?.trim() || undefined,
+      unitPrice: data.unitPrice?.trim() || undefined,
+      shelfLifeDays: data.shelfLifeDays || undefined,
     };
 
     if (editingProduct) {
@@ -179,10 +178,10 @@ export default function ProductsPage() {
       description: product.description || "",
       category: product.category || "",
       manufacturer: product.manufacturer || "",
-      unitPrice: product.unitPrice || "0",
+      unitPrice: product.unitPrice || "",
       minStockLevel: product.minStockLevel || 0,
       requiresBatchTracking: product.requiresBatchTracking ?? false,
-      shelfLifeDays: product.shelfLifeDays || null,
+      shelfLifeDays: product.shelfLifeDays || undefined,
       isActive: product.isActive ?? true,
     });
     setIsCreateModalOpen(true);
@@ -352,6 +351,7 @@ export default function ProductsPage() {
                                 placeholder="Product description..."
                                 className="min-h-[80px]"
                                 {...field}
+                                value={field.value || ""}
                               />
                             </FormControl>
                             <FormMessage />
@@ -381,7 +381,7 @@ export default function ProductsPage() {
                             <FormItem>
                               <FormLabel>Manufacturer</FormLabel>
                               <FormControl>
-                                <Input data-testid="input-product-manufacturer" placeholder="e.g., PharmaCorp" {...field} />
+                                <Input data-testid="input-product-manufacturer" placeholder="e.g., PharmaCorp" {...field} value={field.value || ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>

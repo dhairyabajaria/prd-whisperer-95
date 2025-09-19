@@ -28,8 +28,8 @@ export default function TopBar({ title, subtitle, onOpenAIChat }: TopBarProps) {
     <header className="bg-card border-b border-border px-6 py-4" data-testid="topbar-main">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground" data-testid="text-page-title">{title}</h2>
-          <p className="text-muted-foreground" data-testid="text-page-subtitle">{subtitle}</p>
+          <h2 className="text-page-title text-foreground" data-testid="text-page-title">{title}</h2>
+          <p className="text-page-subtitle text-muted-foreground" data-testid="text-page-subtitle">{subtitle}</p>
         </div>
         
         <div className="flex items-center space-x-4">
@@ -67,22 +67,22 @@ export default function TopBar({ title, subtitle, onOpenAIChat }: TopBarProps) {
                   <div className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
                     <div>
-                      <p className="text-sm font-medium">Expiry Alert</p>
-                      <p className="text-xs text-muted-foreground">12 products expiring within 90 days</p>
+                      <p className="text-body-small font-medium">Expiry Alert</p>
+                      <p className="text-form-hint text-muted-foreground">12 products expiring within 90 days</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                     <div>
-                      <p className="text-sm font-medium">Low Stock</p>
-                      <p className="text-xs text-muted-foreground">5 products below minimum stock level</p>
+                      <p className="text-body-small font-medium">Low Stock</p>
+                      <p className="text-form-hint text-muted-foreground">5 products below minimum stock level</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
                     <div>
-                      <p className="text-sm font-medium">Overdue Payment</p>
-                      <p className="text-xs text-muted-foreground">8 invoices overdue for payment</p>
+                      <p className="text-body-small font-medium">Overdue Payment</p>
+                      <p className="text-form-hint text-muted-foreground">8 invoices overdue for payment</p>
                     </div>
                   </div>
                 </div>
@@ -113,19 +113,19 @@ export default function TopBar({ title, subtitle, onOpenAIChat }: TopBarProps) {
               <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50"
                    data-testid="dropdown-profile">
                 <div className="p-3 border-b border-border">
-                  <p className="font-medium text-sm" data-testid="text-profile-name">
+                  <p className="text-form-label" data-testid="text-profile-name">
                     {user?.firstName && user?.lastName 
                       ? `${user.firstName} ${user.lastName}`
                       : user?.email?.split('@')[0] || 'User'}
                   </p>
-                  <p className="text-xs text-muted-foreground" data-testid="text-profile-email">
+                  <p className="text-form-hint text-muted-foreground" data-testid="text-profile-email">
                     {user?.email}
                   </p>
                 </div>
                 <div className="p-2">
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    className="w-full text-left px-3 py-2 text-button hover:bg-muted rounded-md transition-colors"
                     data-testid="button-logout"
                   >
                     Sign Out

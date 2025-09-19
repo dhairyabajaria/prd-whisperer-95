@@ -43,11 +43,11 @@ export default function MetricCard({
     <Card className="p-6 metric-card" data-testid={testId}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-muted-foreground text-sm" data-testid={`${testId}-title`}>{title}</p>
-          <h3 className="text-2xl font-bold text-foreground" data-testid={`${testId}-value`}>
+          <p className="text-metric-label text-muted-foreground" data-testid={`${testId}-title`}>{title}</p>
+          <h3 className="text-metric-value text-foreground" data-testid={`${testId}-value`}>
             {typeof value === 'number' ? value.toLocaleString() : value}
           </h3>
-          <p className={cn("text-sm mt-1", subtitleColor)} data-testid={`${testId}-subtitle`}>
+          <p className={cn("text-metric-change mt-1", subtitleColor)} data-testid={`${testId}-subtitle`}>
             {subtitle}
           </p>
         </div>

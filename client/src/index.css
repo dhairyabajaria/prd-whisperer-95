@@ -567,6 +567,230 @@
     letter-spacing: var(--tracking-normal);
     line-height: var(--leading-normal);
   }
+
+  /* UI-Specific Typography Classes */
+  
+  /* Navigation Typography */
+  .text-nav-primary {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-nav-brand {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-snug);
+  }
+  
+  .text-nav-subtitle {
+    font-size: var(--text-xs);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Form Typography */
+  .text-form-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-form-hint {
+    font-size: var(--text-xs);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-relaxed);
+  }
+  
+  .text-form-error {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Table Typography */
+  .text-table-header {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-table-cell {
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-table-cell-emphasis {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Card Typography */
+  .text-card-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-snug);
+  }
+  
+  .text-card-subtitle {
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Metric Typography */
+  .text-metric-value {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  
+  .text-metric-large {
+    font-size: var(--text-3xl);
+    font-weight: 800;
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+  }
+  
+  .text-metric-label {
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-metric-change {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Button Typography */
+  .text-button {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-button-large {
+    font-size: var(--text-base);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-button-small {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Status and Badge Typography */
+  .text-status {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-normal);
+    text-transform: uppercase;
+  }
+  
+  .text-badge {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Page Title Typography */
+  .text-page-title {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  
+  .text-page-subtitle {
+    font-size: var(--text-base);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  /* Enhanced Spacing Utilities */
+  .spacing-section {
+    gap: var(--section-gap);
+  }
+  
+  .spacing-content {
+    gap: var(--content-gap);
+  }
+  
+  .spacing-items {
+    gap: var(--item-gap);
+  }
+  
+  .spacing-compact {
+    gap: var(--compact-gap);
+  }
+  
+  /* Padding utilities using design system variables */
+  .p-section { padding: var(--section-gap); }
+  .p-content { padding: var(--content-gap); }
+  .p-item { padding: var(--item-gap); }
+  .p-compact { padding: var(--compact-gap); }
+  
+  .px-section { padding-left: var(--section-gap); padding-right: var(--section-gap); }
+  .px-content { padding-left: var(--content-gap); padding-right: var(--content-gap); }
+  .px-item { padding-left: var(--item-gap); padding-right: var(--item-gap); }
+  .px-compact { padding-left: var(--compact-gap); padding-right: var(--compact-gap); }
+  
+  .py-section { padding-top: var(--section-gap); padding-bottom: var(--section-gap); }
+  .py-content { padding-top: var(--content-gap); padding-bottom: var(--content-gap); }
+  .py-item { padding-top: var(--item-gap); padding-bottom: var(--item-gap); }
+  .py-compact { padding-top: var(--compact-gap); padding-bottom: var(--compact-gap); }
+  
+  /* Margin utilities using design system variables */
+  .m-section { margin: var(--section-gap); }
+  .m-content { margin: var(--content-gap); }
+  .m-item { margin: var(--item-gap); }
+  .m-compact { margin: var(--compact-gap); }
+  
+  .mx-section { margin-left: var(--section-gap); margin-right: var(--section-gap); }
+  .mx-content { margin-left: var(--content-gap); margin-right: var(--content-gap); }
+  .mx-item { margin-left: var(--item-gap); margin-right: var(--item-gap); }
+  .mx-compact { margin-left: var(--compact-gap); margin-right: var(--compact-gap); }
+  
+  .my-section { margin-top: var(--section-gap); margin-bottom: var(--section-gap); }
+  .my-content { margin-top: var(--content-gap); margin-bottom: var(--content-gap); }
+  .my-item { margin-top: var(--item-gap); margin-bottom: var(--item-gap); }
+  .my-compact { margin-top: var(--compact-gap); margin-bottom: var(--compact-gap); }
+  
+  .mb-section { margin-bottom: var(--section-gap); }
+  .mb-content { margin-bottom: var(--content-gap); }
+  .mb-item { margin-bottom: var(--item-gap); }
+  .mb-compact { margin-bottom: var(--compact-gap); }
+  
+  .mt-section { margin-top: var(--section-gap); }
+  .mt-content { margin-top: var(--content-gap); }
+  .mt-item { margin-top: var(--item-gap); }
+  .mt-compact { margin-top: var(--compact-gap); }
 }
 
 .sidebar-gradient {

@@ -188,8 +188,8 @@ export default function Sidebar() {
             <Pill className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold">PharmaDist ERP</h1>
-            <p className="text-xs text-white/70">Pharmaceutical Distribution</p>
+            <h1 className="text-nav-brand text-white">PharmaDist ERP</h1>
+            <p className="text-nav-subtitle text-white/70">Pharmaceutical Distribution</p>
           </div>
         </div>
       </div>
@@ -212,8 +212,8 @@ export default function Sidebar() {
             )}
           </div>
           <div>
-            <p className="text-sm font-medium truncate" data-testid="text-username">{userName}</p>
-            <p className="text-xs text-white/70" data-testid="text-user-role">
+            <p className="text-nav-primary text-white truncate" data-testid="text-username">{userName}</p>
+            <p className="text-nav-subtitle text-white/70" data-testid="text-user-role">
               {user?.role ? getRoleDisplay(user.role) : 'User'}
             </p>
           </div>
@@ -233,7 +233,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-6 py-4 space-y-2" data-testid="nav-main">
-        <div className="text-xs text-white/70 uppercase tracking-wide mb-3">Main Menu</div>
+        <div className="text-caption text-white/70 mb-3">Main Menu</div>
         
         {navigation.map((item) => {
           if (!canAccessRoute(item.roles)) return null;
@@ -259,7 +259,7 @@ export default function Sidebar() {
           );
         })}
 
-        <div className="text-xs text-white/70 uppercase tracking-wide mt-6 mb-3">AI Tools</div>
+        <div className="text-caption text-white/70 mt-6 mb-3">AI Tools</div>
         
         {aiTools.map((item) => {
           if (!canAccessRoute(item.roles)) return null;
