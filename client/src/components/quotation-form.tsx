@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormHint, FormRequirements, FormValidationHint } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CurrencySelector, CurrencyDisplay, CurrencyInput } from "@/components/ui/currency-selector";
@@ -171,12 +171,12 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
         quotationDate: quotation.quotationDate,
         validityDate: quotation.validityDate,
         status: quotation.status,
-        currency: quotation.currency,
-        fxRate: quotation.fxRate,
-        subtotal: quotation.subtotal,
-        taxAmount: quotation.taxAmount,
-        discountAmount: quotation.discountAmount,
-        totalAmount: quotation.totalAmount,
+        currency: quotation.currency || "USD",
+        fxRate: quotation.fxRate || "1",
+        subtotal: quotation.subtotal || "0",
+        taxAmount: quotation.taxAmount || "0",
+        discountAmount: quotation.discountAmount || "0",
+        totalAmount: quotation.totalAmount || "0",
         notes: quotation.notes || "",
         items: formItems
       });
@@ -409,15 +409,45 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                     <FormField
                       control={form.control}
                       name="quotationNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Quotation Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled data-testid="input-quotation-number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const quotationValue = field.value || "";
+                        const requirements = [
+                          {
+                            text: "At least 3 characters long",
+                            satisfied: quotationValue.length >= 3,
+                            key: "minLength"
+                          },
+                          {
+                            text: "Contains alphanumeric characters",
+                            satisfied: /^[a-zA-Z0-9-_]+$/.test(quotationValue) && quotationValue.length > 0,
+                            key: "alphanumeric"
+                          },
+                          {
+                            text: "Starts with letter or number",
+                            satisfied: /^[a-zA-Z0-9]/.test(quotationValue),
+                            key: "startsValid"
+                          },
+                          {
+                            text: "No spaces or special characters",
+                            satisfied: !/\s|[!@#$%^&*()+=\[\]{}|\\:";'<>?,./]/.test(quotationValue) || quotationValue.length === 0,
+                            key: "noSpecial"
+                          }
+                        ];
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>Quotation Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g., QUO-2025-001" data-testid="input-quotation-number" />
+                            </FormControl>
+                            <FormHint type="info" show={!!field.value && requirements.every(req => req.satisfied)}>
+                              Perfect! This quotation number meets all requirements and is ready to use.
+                            </FormHint>
+                            <FormRequirements requirements={requirements} />
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
 
                     <FormField
@@ -465,6 +495,12 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                               ))}
                             </SelectContent>
                           </Select>
+                          <FormValidationHint showOnFocus={true} showOnError={true}>
+                            {!field.value ? 
+                              "Choose the customer who will receive this quotation. This determines pricing, payment terms, and contact information." :
+                              "Customer selected successfully. Payment terms and pricing will be applied based on this customer's profile."
+                            }
+                          </FormValidationHint>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -576,6 +612,12 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                               />
                             </PopoverContent>
                           </Popover>
+                          <FormValidationHint showOnFocus={true} showOnError={true}>
+                            {!field.value ? 
+                              "Set when this quotation expires. Choose a future date that gives the customer sufficient time to review and respond." :
+                              `This quotation will be valid until ${format(new Date(field.value), "PPP")}. After this date, pricing may change.`
+                            }
+                          </FormValidationHint>
                           <FormMessage />
                         </FormItem>
                       )}

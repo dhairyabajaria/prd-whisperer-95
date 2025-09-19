@@ -1,6 +1,74 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { createAppError, ErrorType, ErrorSeverity } from "@/components/error-boundary";
 
+// Network error detection utilities
+export function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    return error.message.includes('Failed to fetch') ||
+           error.message.includes('NetworkError') ||
+           error.message.includes('ERR_NETWORK') ||
+           error.message.includes('ERR_INTERNET_DISCONNECTED');
+  }
+  return false;
+}
+
+export function isRetryableError(error: unknown): boolean {
+  // Network errors are retryable
+  if (isNetworkError(error)) return true;
+  
+  // Check for retryable HTTP status codes
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as any).status;
+    return status === 408 || // Request Timeout
+           status === 429 || // Too Many Requests
+           status === 500 || // Internal Server Error
+           status === 502 || // Bad Gateway
+           status === 503 || // Service Unavailable
+           status === 504;   // Gateway Timeout
+  }
+  
+  return false;
+}
+
+// Exponential backoff with jitter
+export const createRetryDelay = (failureCount: number): number => {
+  const baseDelay = 1000; // 1 second
+  const maxDelay = 30000; // 30 seconds
+  const jitterRange = 0.1; // 10% jitter
+  
+  // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+  const exponentialDelay = Math.min(baseDelay * Math.pow(2, failureCount - 1), maxDelay);
+  
+  // Add jitter to prevent thundering herd
+  const jitter = exponentialDelay * jitterRange * (Math.random() * 2 - 1);
+  
+  return Math.max(exponentialDelay + jitter, 0);
+};
+
+// Intelligent retry logic
+export function shouldRetry(failureCount: number, error: unknown): boolean {
+  // Don't retry beyond 3 attempts
+  if (failureCount >= 3) return false;
+  
+  // Don't retry client errors (4xx) except specific cases
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as any).status;
+    
+    // Never retry these client errors
+    if (status === 400 || // Bad Request
+        status === 401 || // Unauthorized
+        status === 403 || // Forbidden
+        status === 404 || // Not Found
+        status === 410 || // Gone
+        status === 422) { // Unprocessable Entity
+      return false;
+    }
+  }
+  
+  // Retry if it's a retryable error
+  return isRetryableError(error);
+}
+
 // Enhanced error handling function that creates typed errors
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -112,8 +180,8 @@ export const getQueryFn: <T>(options: {
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {
-      // Enhance network errors for queries
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      // Enhance network errors for queries with detailed context
+      if (isNetworkError(error)) {
         throw createAppError(
           "Failed to load data",
           ErrorType.NETWORK,
@@ -135,10 +203,24 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 0, // Allow immediate cache invalidation
-      retry: false,
+      // Enhanced retry configuration
+      retry: shouldRetry,
+      retryDelay: createRetryDelay,
+      // Disable retry for successful data that becomes stale
+      refetchOnReconnect: true,
+      // Network mode for better offline handling
+      networkMode: "online",
     },
     mutations: {
-      retry: false,
+      // Enhanced retry configuration for mutations
+      retry: (failureCount, error) => {
+        // Be more conservative with mutations - only retry network errors
+        if (failureCount >= 2) return false;
+        return isNetworkError(error);
+      },
+      retryDelay: createRetryDelay,
+      // Network mode for better offline handling
+      networkMode: "online",
     },
   },
 });
