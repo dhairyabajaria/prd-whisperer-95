@@ -105,7 +105,7 @@ export default function Settings() {
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar title="Access Denied" subtitle="Administrator access required" />
+          <TopBar title="Access Denied" subtitle="Administrator access required" onOpenAIChat={() => {}} />
           <main className="flex-1 overflow-y-auto p-6">
             <Alert>
               <AlertTriangle className="h-4 w-4" />
@@ -149,9 +149,10 @@ export default function Settings() {
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar 
-          title="System Settings"
-          subtitle="Configure AI services and system preferences"
+         <TopBar 
+           title="System Settings"
+           subtitle="Configure AI services and system preferences"
+           onOpenAIChat={() => {}}
         />
         
         <main className="flex-1 overflow-y-auto p-6" data-testid="main-settings">

@@ -408,7 +408,7 @@ export default function MarketingPage() {
       leadScore: lead.leadScore,
       assignedTo: lead.assignedTo || "",
       notes: lead.notes || "",
-      estimatedValue: lead.estimatedValue,
+      estimatedValue: lead.estimatedValue || undefined,
       currency: lead.currency,
       isActive: lead.isActive,
     });
@@ -691,7 +691,7 @@ export default function MarketingPage() {
                               <FormItem>
                                 <FormLabel>Start Date</FormLabel>
                                 <FormControl>
-                                  <Input type="date" {...field} data-testid="input-campaign-start-date" />
+                                  <Input type="date" {...field} value={field.value || ""} data-testid="input-campaign-start-date" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -900,7 +900,7 @@ export default function MarketingPage() {
                               </TableCell>
                               <TableCell>
                                 <div className="text-sm">
-                                  <div>{new Date(campaign.startDate).toLocaleDateString()}</div>
+                                  <div>{campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : 'N/A'}</div>
                                   {campaign.endDate && (
                                     <div className="text-muted-foreground">
                                       to {new Date(campaign.endDate).toLocaleDateString()}

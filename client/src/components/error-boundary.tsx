@@ -143,8 +143,8 @@ class ErrorLogger {
     // TODO: Integrate with error tracking service like Sentry
     try {
       // Example: Send to analytics
-      if (window.gtag) {
-        window.gtag('event', 'exception', {
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'exception', {
           description: error.message,
           fatal: error.severity === ErrorSeverity.CRITICAL
         });

@@ -167,12 +167,12 @@ export default function SuppliersPage() {
     // Clean up empty values
     const cleanedData = {
       ...data,
-      email: data.email || null,
-      phone: data.phone || null,
-      address: data.address || null,
-      country: data.country || null,
-      creditDays: data.creditDays || null,
-      currency: data.currency || null,
+       email: data.email || undefined,
+       phone: data.phone || undefined,
+       address: data.address || null,
+       country: data.country || undefined,
+       creditDays: data.creditDays || 0,
+       currency: data.currency || "USD",
     };
 
     if (editingSupplier) {

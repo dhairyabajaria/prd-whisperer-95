@@ -23,23 +23,28 @@ export default function UnauthorizedPage({
     navigate("/signup");
   };
 
-  const customActions = [
-    {
-      label: "Sign In",
-      onClick: handleSignIn,
-      variant: "default" as const,
-      icon: <LogIn className="w-4 h-4" />,
-    }
-  ];
+   const customActions: Array<{
+     label: string;
+     onClick: () => void;
+     variant: "default" | "outline" | "ghost" | "secondary" | "destructive" | "link";
+     icon: React.ReactNode;
+   }> = [
+     {
+       label: "Sign In",
+       onClick: handleSignIn,
+       variant: "default",
+       icon: <LogIn className="w-4 h-4" />,
+     }
+   ];
 
-  if (showSignUp) {
-    customActions.push({
-      label: "Create Account",
-      onClick: handleSignUp,
-      variant: "outline",
-      icon: <UserPlus className="w-4 h-4" />,
-    });
-  }
+   if (showSignUp) {
+     customActions.push({
+       label: "Create Account",
+       onClick: handleSignUp,
+       variant: "outline",
+       icon: <UserPlus className="w-4 h-4" />,
+     });
+   }
 
   return (
     <ErrorPageTemplate

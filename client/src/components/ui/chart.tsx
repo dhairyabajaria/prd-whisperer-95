@@ -400,15 +400,15 @@ const ChartTooltipContent = React.forwardRef<
                         {item.value && (
                           <div className="space-y-1">
                             <span className="font-mono font-medium tabular-nums text-foreground block">
-                              {currencyFormatter ? currencyFormatter(item.value) : item.value.toLocaleString()}
+                              {currencyFormatter ? currencyFormatter(Number(item.value)) : Number(item.value).toLocaleString()}
                             </span>
                             
                             {/* Show percentage if requested and total available */}
                             {showPercentage && item.payload?.total && (
                               <span className="text-xs text-muted-foreground block">
                                 {percentageFormatter 
-                                  ? percentageFormatter((item.value / item.payload.total) * 100)
-                                  : `${((item.value / item.payload.total) * 100).toFixed(1)}%`
+                                   ? percentageFormatter((Number(item.value) / Number(item.payload.total)) * 100)
+                                   : `${((Number(item.value) / Number(item.payload.total)) * 100).toFixed(1)}%`
                                 }
                               </span>
                             )}
@@ -431,7 +431,7 @@ const ChartTooltipContent = React.forwardRef<
                             {/* Show comparison if requested */}
                             {showComparison && comparison && comparisonPeriod !== 'none' && (
                               <div className="text-xs text-muted-foreground">
-                                vs {comparisonPeriod.toUpperCase()}: {comparison.changePercentage > 0 ? '+' : ''}{comparison.changePercentage.toFixed(1)}%
+                                vs {comparisonPeriod?.toUpperCase() || 'PREV'}: {comparison.changePercentage > 0 ? '+' : ''}{comparison.changePercentage.toFixed(1)}%
                               </div>
                             )}
                           </div>
@@ -837,13 +837,12 @@ export const ChartGauge = React.forwardRef<
         endAngle={0}
         {...props}
       >
-        <RechartsPrimitive.RadialBar
-          minAngle={15}
-          clockWise
-          dataKey="value"
-          cornerRadius={5}
-          fill={color}
-        />
+         <RechartsPrimitive.RadialBar
+           startAngle={165}
+           dataKey="value"
+           cornerRadius={5}
+           fill={color}
+         />
       </RechartsPrimitive.RadialBarChart>
       
       <div className="absolute inset-0 flex flex-col items-center justify-center">

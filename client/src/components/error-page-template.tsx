@@ -25,7 +25,7 @@ export interface ErrorPageTemplateProps {
   customActions?: Array<{
     label: string;
     onClick: () => void;
-    variant?: "default" | "outline" | "ghost";
+    variant?: "default" | "outline" | "ghost" | "secondary" | "destructive" | "link";
     icon?: React.ReactNode;
   }>;
   className?: string;
