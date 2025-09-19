@@ -169,17 +169,27 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      const res = await fetch(queryKey.join("/") as string, {
+      const url = queryKey.join("/") as string;
+      console.log('🌐 Making API request to:', url);
+      
+      const res = await fetch(url, {
         credentials: "include",
       });
 
+      console.log('🌐 API response status:', res.status, 'for URL:', url);
+
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        console.log('🌐 Returning null for 401 response');
         return null;
       }
 
       await throwIfResNotOk(res);
-      return await res.json();
+      const data = await res.json();
+      console.log('🌐 API response data for', url, ':', data);
+      return data;
     } catch (error) {
+      console.error('🌐 API request failed for', queryKey.join("/"), ':', error);
+      
       // Enhance network errors for queries with detailed context
       if (isNetworkError(error)) {
         throw createAppError(

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { PageErrorBoundary, SectionErrorBoundary } from "@/components/error-boundary";
+import { AppDebugger } from "./debug";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -65,6 +66,8 @@ function Router() {
 }
 
 function App() {
+  console.log('🚀 App: Component rendering');
+  
   return (
     <PageErrorBoundary 
       data-testid="app-root-error-boundary"
@@ -83,6 +86,7 @@ function App() {
     >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+          <AppDebugger />
           <Toaster />
           <Router />
         </TooltipProvider>

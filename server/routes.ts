@@ -342,10 +342,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req as any).user.claims.sub;
+      console.log('🔍 Auth Route Debug - User ID:', userId);
       const user = await storage.getUser(userId);
+      console.log('🔍 Auth Route Debug - User Data:', user);
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      console.error("❌ Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
