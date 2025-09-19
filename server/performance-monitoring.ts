@@ -310,21 +310,21 @@ class PerformanceMonitor extends EventEmitter {
     // Aggregate results
     const results: ReturnType<typeof this.getMetricsAnalytics> = [];
     
-    for (const [cat, metricsMap] of grouped.entries()) {
+    for (const [cat, metricsMap] of Array.from(grouped.entries())) {
       const categoryResult = {
         category: cat,
         metrics: [] as any[]
       };
       
-      for (const [name, metricsList] of metricsMap.entries()) {
+      for (const [name, metricsList] of Array.from(metricsMap.entries())) {
         if (metricsList.length === 0) continue;
         
-        const values = metricsList.map(m => m.value);
+        const values = metricsList.map((m: any) => m.value);
         let aggregatedValue: number;
         
         switch (aggregation) {
-          case 'avg': aggregatedValue = values.reduce((sum, v) => sum + v, 0) / values.length; break;
-          case 'sum': aggregatedValue = values.reduce((sum, v) => sum + v, 0); break;
+           case 'avg': aggregatedValue = values.reduce((sum: any, v: any) => sum + v, 0) / values.length; break;
+           case 'sum': aggregatedValue = values.reduce((sum: any, v: any) => sum + v, 0); break;
           case 'min': aggregatedValue = Math.min(...values); break;
           case 'max': aggregatedValue = Math.max(...values); break;
           case 'count': aggregatedValue = values.length; break;
@@ -601,7 +601,7 @@ class PerformanceMonitor extends EventEmitter {
   private checkAlertConditions(newMetric: PerformanceMetric): void {
     const now = Date.now();
     
-    for (const alert of this.alertConditions.values()) {
+    for (const alert of Array.from(this.alertConditions.values())) {
       // Skip if alert is in cooldown
       if (alert.isActive && (now - alert.lastTriggered) < alert.cooldownMs) {
         continue;
@@ -707,7 +707,7 @@ class PerformanceMonitor extends EventEmitter {
     }
     
     // Clear all cleanup timers
-    for (const timer of this.cleanupTimers) {
+    for (const timer of Array.from(this.cleanupTimers)) {
       clearInterval(timer);
     }
     this.cleanupTimers.clear();
@@ -732,7 +732,7 @@ class PerformanceMonitor extends EventEmitter {
     system: SystemMetrics;
     cache: Awaited<ReturnType<typeof advancedCache.getHealthStatus>>;
     database: ReturnType<typeof replicaManager.getStatus>;
-    api: ReturnType<typeof this.getApiPerformanceSummary>;
+    api: any; // ReturnType<typeof this.getApiPerformanceSummary>;
     alerts: Array<{
       id: string;
       name: string;

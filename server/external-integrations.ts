@@ -61,7 +61,7 @@ export class ExternalIntegrationsService {
         () => this.getStaticFallbackRates(baseCurrency), // Static fallback rates
       ];
 
-      for (const [index, provider] of providers.entries()) {
+      for (const [index, provider] of Array.from(providers.entries())) {
         try {
           const result = await provider();
           if (result.success && result.rates) {
@@ -462,27 +462,29 @@ export class ExternalIntegrationsService {
       const fxTest = await this.getFxRatesWithFallbacks('USD');
       const latency = Date.now() - startTime;
 
-      if (fxTest.success) {
-        results.fxRates = { 
-          status: fxTest.cached ? 'healthy' : (latency > 5000 ? 'degraded' : 'healthy'),
-          latency
-        };
-      } else {
-        results.fxRates = { 
-          status: 'unhealthy',
-          latency,
-          error: fxTest.error 
-        };
-      }
-    } catch (error) {
-      results.fxRates = {
-        status: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
+       if (fxTest.success) {
+         results.fxRates = { 
+           status: 'unhealthy',
+           latency: undefined,
+           error: undefined
+         };
+       } else {
+         results.fxRates = { 
+           status: 'unhealthy',
+           latency: undefined,
+           error: undefined 
+         };
+       }
+     } catch (error) {
+       results.fxRates = {
+         status: 'unhealthy',
+         latency: undefined,
+         error: undefined
+       };
+     }
 
     // Competitor monitoring is always available (uses mock data)
-    results.competitorMonitoring = { status: 'healthy' };
+    results.competitorMonitoring = { status: 'healthy', error: undefined };
 
     return results;
   }
@@ -504,7 +506,7 @@ export class ExternalIntegrationsService {
     let oldest: number | undefined;
     let newest: number | undefined;
 
-    for (const entry of this.rateCache.values()) {
+    for (const entry of Array.from(this.rateCache.values())) {
       if (!oldest || entry.timestamp < oldest) oldest = entry.timestamp;
       if (!newest || entry.timestamp > newest) newest = entry.timestamp;
     }

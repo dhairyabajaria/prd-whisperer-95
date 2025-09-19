@@ -142,10 +142,10 @@ class Phase3SystemOrchestrator {
     });
 
     // Database replica health monitoring
-    replicaManager.on?.('replicaUnhealthy', (replica: any) => {
-      console.warn(`⚠️  [Phase 3] Database replica ${replica.name} is unhealthy`);
-      // Could trigger cache warming or query rerouting
-    });
+    // replicaManager.on?.('replicaUnhealthy', (replica: any) => {
+     //   console.warn(`⚠️  [Phase 3] Database replica ${replica.name} is unhealthy`);
+     //   // Could trigger cache warming or query rerouting
+     // });
   }
 
   /**

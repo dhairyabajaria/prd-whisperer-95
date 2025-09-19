@@ -108,7 +108,7 @@ class Phase3ValidationSuite {
       
       // Test GET operation
       const getData = await advancedCache.get(testKey, 'HOT');
-      if (!getData || getData.message !== testData.message) {
+      if (!getData || (getData as any).message !== testData.message) {
         errors.push('Cache GET operation failed or data corrupted');
       }
       

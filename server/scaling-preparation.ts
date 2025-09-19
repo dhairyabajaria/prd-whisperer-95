@@ -321,7 +321,7 @@ class HorizontalScalingManager extends EventEmitter {
     
     // Clear node tracking data
     this.nodes.clear();
-    this.requestHistory = [];
+    // this.requestHistory = []; // Property doesn't exist
     
     // Remove all event listeners to prevent memory leaks
     this.removeAllListeners();
@@ -409,7 +409,7 @@ class HorizontalScalingManager extends EventEmitter {
       
       // Clean old metrics (keep last hour)
       const cutoff = Date.now() - 3600000;
-      for (const [key, metrics] of this.scalingMetrics.entries()) {
+      for (const [key, metrics] of Array.from(this.scalingMetrics.entries())) {
         if (metrics.timestamp < cutoff) {
           this.scalingMetrics.delete(key);
         }
@@ -630,7 +630,7 @@ class HorizontalScalingManager extends EventEmitter {
       healthyNodes: number;
       totalRequests: number;
     };
-    scaling: ReturnType<typeof this.evaluateScalingNeeds>;
+    scaling: any; // ReturnType<typeof this.evaluateScalingNeeds>;
     recommendations: {
       immediate: string[];
       shortTerm: string[];
