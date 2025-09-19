@@ -123,8 +123,8 @@ export default function Dashboard() {
         />
         
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 min-h-0" data-testid="main-dashboard">
-          {/* Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          {/* Metrics Cards Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-section">
             {metricsLoading ? (
               <>
                 <MetricCardSkeleton testId="card-revenue" />
@@ -185,15 +185,18 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* Separator */}
+          <div className="divider-section" />
+
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-content">
             {/* Expiry Alerts Section */}
             <div className="xl:col-span-2">
               <ExpiryAlertsTable />
             </div>
 
             {/* Right Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-content">
               {/* AI Recommendations */}
               <AIRecommendations />
 
@@ -291,9 +294,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Recent Transactions */}
-          <div className="mt-8">
-            <Card data-testid="card-recent-transactions">
+          {/* Separator */}
+          <div className="divider-section" />
+
+          {/* Recent Transactions Section */}
+          <div>
+            <Card variant="elevated" data-testid="card-recent-transactions">
               <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-foreground">Recent Transactions</h3>
@@ -352,11 +358,13 @@ export default function Dashboard() {
                       ) : filteredTransactions.length > 0 ? (
                         filteredTransactions.slice(0, 10).map((transaction) => (
                           <tr key={transaction.id} className="table-row" data-testid={`row-transaction-${transaction.id}`}>
-                            <td className="px-6 py-4 text-sm text-foreground" data-testid={`text-date-${transaction.id}`}>
-                              {new Date(transaction.date).toLocaleDateString()}
+                            <td className="px-6 py-4" data-testid={`text-date-${transaction.id}`}>
+                              <span className="data-date">
+                                {new Date(transaction.date).toLocaleDateString()}
+                              </span>
                             </td>
                             <td className="px-6 py-4">
-                              <span className={`px-2 py-1 text-xs rounded-full capitalize ${getTransactionTypeColor(transaction.type)}`}
+                              <span className={`data-status ${getTransactionTypeColor(transaction.type)}`}
                                     data-testid={`badge-type-${transaction.id}`}>
                                 {transaction.type}
                               </span>
@@ -371,8 +379,10 @@ export default function Dashboard() {
                                 </p>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-sm font-medium text-foreground" data-testid={`text-amount-${transaction.id}`}>
-                              {formatCurrency(transaction.amount)}
+                            <td className="px-6 py-4" data-testid={`text-amount-${transaction.id}`}>
+                              <span className="data-currency">
+                                {formatCurrency(transaction.amount)}
+                              </span>
                             </td>
                             <td className="px-6 py-4">
                               <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusColor(transaction.status)}`}

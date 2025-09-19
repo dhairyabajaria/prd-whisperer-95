@@ -379,8 +379,8 @@ export default function Customers() {
         <SectionErrorBoundary data-testid="customers-main-error-boundary">
           <main className="flex-1 overflow-y-auto p-6" data-testid="main-customers">
             {/* Header Actions */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4 flex-1">
+          <div className="flex items-center justify-between mb-section">
+            <div className="flex items-center gap-content flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
@@ -395,8 +395,8 @@ export default function Customers() {
             
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground" data-testid="button-add-customer">
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button className="bg-primary text-primary-foreground data-action" data-testid="button-add-customer">
+                  <Plus className="w-4 h-4" />
                   Add Customer
                 </Button>
               </DialogTrigger>

@@ -16,7 +16,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent, 
+  ChartLegend, 
+  ChartLegendContent,
+  ChartDonut,
+  ChartGauge,
+  type ChartConfig,
+  type ComparisonData,
+  type DrillDownLevel
+} from "@/components/ui/chart";
 import { 
   Brain, 
   Search, 
@@ -74,6 +85,7 @@ import {
   Area,
   AreaChart
 } from "recharts";
+import * as React from "react";
 
 // Types for sentiment data - matching backend API response
 interface GlobalSentimentSummary {
@@ -292,7 +304,7 @@ export default function SentimentAnalytics() {
     }
   };
 
-  // Mock data for demonstration (replace with real API data when available)
+  // Mock data for demonstration with enhanced information
   const mockSentimentTrend: SentimentTrendData[] = [
     { date: '2024-01-01', positive: 65, neutral: 25, negative: 10, average: 0.55 },
     { date: '2024-01-08', positive: 70, neutral: 20, negative: 10, average: 0.60 },
@@ -300,6 +312,83 @@ export default function SentimentAnalytics() {
     { date: '2024-01-22', positive: 72, neutral: 18, negative: 10, average: 0.62 },
     { date: '2024-01-29', positive: 75, neutral: 15, negative: 10, average: 0.65 },
   ];
+
+  // Enhanced chart data with drill-down capabilities
+  const [drillDownState, setDrillDownState] = React.useState<{
+    levels: DrillDownLevel[]
+    currentLevel: number
+  }>({ 
+    levels: [{
+      id: 'root',
+      label: 'All Communications', 
+      data: pieChartData
+    }],
+    currentLevel: 0 
+  });
+
+  // Comparison data for YoY/MoM functionality
+  const comparisonData: ComparisonData = {
+    current: averageSentiment,
+    previous: averageSentiment - 0.05, // Mock previous period data
+    change: 0.05,
+    changePercentage: 8.3,
+    trend: 'up' as const
+  };
+
+  // Enhanced pie chart data with totals for percentage calculations
+  const enhancedPieChartData = pieChartData.map(item => ({
+    ...item,
+    total: totalCommunications
+  }));
+
+  // Area chart data for sentiment distribution over time
+  const areaChartData = [
+    { date: '2024-01', positive: 65, neutral: 25, negative: 10 },
+    { date: '2024-02', positive: 68, neutral: 22, negative: 10 },
+    { date: '2024-03', positive: 70, neutral: 20, negative: 10 },
+    { date: '2024-04', positive: 72, neutral: 18, negative: 10 },
+    { date: '2024-05', positive: 75, neutral: 15, negative: 10 },
+  ];
+
+  // Gauge data for customer satisfaction score
+  const customerSatisfactionScore = Math.round(averageSentiment * 100) + 50; // Convert to 0-100 scale
+
+  // Drill-down handlers
+  const handleDrillDown = (data: any, level: DrillDownLevel) => {
+    // Mock drill-down data - in real scenario this would fetch detailed data
+    const detailData = [
+      { name: 'Q1 2024', value: 125, color: '#10b981' },
+      { name: 'Q2 2024', value: 98, color: '#f59e0b' },
+      { name: 'Q3 2024', value: 67, color: '#ef4444' },
+      { name: 'Q4 2024', value: 45, color: '#8b5cf6' },
+    ];
+
+    setDrillDownState(prev => ({
+      levels: [...prev.levels, {
+        id: data.name,
+        label: `${data.name} Details`,
+        data: detailData,
+        parentId: level.id
+      }],
+      currentLevel: prev.currentLevel + 1
+    }));
+  };
+
+  const handleDrillUp = () => {
+    setDrillDownState(prev => {
+      if (prev.currentLevel > 0) {
+        return {
+          levels: prev.levels.slice(0, -1),
+          currentLevel: prev.currentLevel - 1
+        };
+      }
+      return prev;
+    });
+  };
+
+  // Format currency for tooltips
+  const formatCurrency = (value: number) => `$${value.toLocaleString()}`;
+  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
 
   const mockAIInsights: AIInsight[] = [
     {
@@ -499,9 +588,9 @@ export default function SentimentAnalytics() {
                 </Card>
               </div>
 
-              {/* Charts Section */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* Sentiment Distribution Pie Chart */}
+              {/* Enhanced Charts Section */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                {/* Enhanced Sentiment Distribution with Drill-down */}
                 <Card data-testid="card-sentiment-distribution">
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -513,15 +602,51 @@ export default function SentimentAnalytics() {
                     {globalLoading ? (
                       <Skeleton className="h-64 w-full" />
                     ) : (
-                      <ChartContainer config={chartConfig} className="h-64">
+                      <ChartContainer 
+                        config={chartConfig} 
+                        exportOptions={{
+                          enableExport: true,
+                          filename: 'sentiment-distribution',
+                          formats: ['png', 'pdf', 'csv']
+                        }}
+                        drillDown={{
+                          levels: drillDownState.levels,
+                          currentLevel: drillDownState.currentLevel,
+                          onDrillDown: handleDrillDown,
+                          onDrillUp: handleDrillUp
+                        }}
+                        comparison={comparisonData}
+                        comparisonPeriod="mom"
+                        responsiveConfig={{
+                          sm: { height: 200, fontSize: '10px' },
+                          md: { height: 250, fontSize: '12px' },
+                          lg: { height: 300, fontSize: '14px' }
+                        }}
+                      >
                         <RechartsPieChart>
                           <ChartTooltip
                             cursor={false}
-                            content={<ChartTooltipContent hideLabel />}
+                            content={<ChartTooltipContent 
+                              hideLabel
+                              showPercentage 
+                              showTrend
+                              percentageFormatter={formatPercentage}
+                            />}
                           />
-                          <RechartsPieChart data={pieChartData}>
-                            {pieChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
+                          <RechartsPieChart 
+                            data={drillDownState.levels[drillDownState.currentLevel]?.data || enhancedPieChartData}
+                            onClick={(data, index) => {
+                              if (data && drillDownState.currentLevel === 0) {
+                                handleDrillDown(data, drillDownState.levels[drillDownState.currentLevel]);
+                              }
+                            }}
+                          >
+                            {(drillDownState.levels[drillDownState.currentLevel]?.data || enhancedPieChartData).map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.color} 
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                              />
                             ))}
                           </RechartsPieChart>
                           <ChartLegend content={<ChartLegendContent />} />
@@ -531,30 +656,199 @@ export default function SentimentAnalytics() {
                   </CardContent>
                 </Card>
 
-                {/* Sentiment Trend Over Time */}
-                <Card data-testid="card-sentiment-trend">
+                {/* Customer Satisfaction Gauge */}
+                <Card data-testid="card-satisfaction-gauge">
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <Activity className="w-5 h-5 mr-2" />
-                      Sentiment Trend
+                      <Target className="w-5 h-5 mr-2" />
+                      Customer Satisfaction
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {globalLoading ? (
                       <Skeleton className="h-64 w-full" />
                     ) : (
-                      <ChartContainer config={chartConfig} className="h-64">
-                        <LineChart data={mockSentimentTrend}>
+                      <ChartContainer 
+                        config={chartConfig}
+                        exportOptions={{
+                          enableExport: true,
+                          filename: 'satisfaction-gauge',
+                          formats: ['png', 'pdf']
+                        }}
+                      >
+                        <ChartGauge 
+                          value={customerSatisfactionScore}
+                          max={100}
+                          min={0}
+                          label="Satisfaction Score"
+                          color="var(--chart-1)"
+                        />
+                      </ChartContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Sentiment Donut Chart */}
+                <Card data-testid="card-sentiment-donut">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Activity className="w-5 h-5 mr-2" />
+                      Sentiment Overview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {globalLoading ? (
+                      <Skeleton className="h-64 w-full" />
+                    ) : (
+                      <ChartContainer 
+                        config={chartConfig}
+                        exportOptions={{
+                          enableExport: true,
+                          filename: 'sentiment-donut',
+                          formats: ['png', 'pdf', 'csv']
+                        }}
+                      >
+                        <ChartDonut 
+                          data={enhancedPieChartData}
+                          config={chartConfig}
+                          innerRadius={50}
+                          outerRadius={80}
+                          centerContent={
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-foreground">
+                                {formatSentimentScore(averageSentiment)}
+                              </div>
+                              <div className="text-sm text-muted-foreground">Avg Score</div>
+                            </div>
+                          }
+                        />
+                      </ChartContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Area Chart and Line Chart Section */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+                {/* Enhanced Area Chart for Sentiment Distribution */}
+                <Card data-testid="card-sentiment-area">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <BarChart3 className="w-5 h-5 mr-2" />
+                      Sentiment Distribution Over Time
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {globalLoading ? (
+                      <Skeleton className="h-64 w-full" />
+                    ) : (
+                      <ChartContainer 
+                        config={chartConfig} 
+                        exportOptions={{
+                          enableExport: true,
+                          filename: 'sentiment-area-chart',
+                          formats: ['png', 'pdf', 'csv']
+                        }}
+                        comparison={comparisonData}
+                        comparisonPeriod="yoy"
+                      >
+                        <AreaChart data={areaChartData}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" />
                           <YAxis />
-                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <ChartTooltip 
+                            content={<ChartTooltipContent 
+                              showPercentage
+                              showComparison
+                              currencyFormatter={formatCurrency}
+                            />} 
+                          />
+                          <ChartLegend content={<ChartLegendContent />} />
+                          <Area 
+                            type="monotone" 
+                            dataKey="positive" 
+                            stackId="1"
+                            stroke="var(--chart-1)" 
+                            fill="var(--chart-1)"
+                            name="Positive"
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="neutral" 
+                            stackId="1"
+                            stroke="var(--chart-2)" 
+                            fill="var(--chart-2)"
+                            name="Neutral"
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="negative" 
+                            stackId="1"
+                            stroke="var(--chart-3)" 
+                            fill="var(--chart-3)"
+                            name="Negative"
+                          />
+                        </AreaChart>
+                      </ChartContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Enhanced Sentiment Trend Line Chart */}
+                <Card data-testid="card-sentiment-trend">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Activity className="w-5 h-5 mr-2" />
+                      Average Sentiment Trend
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {globalLoading ? (
+                      <Skeleton className="h-64 w-full" />
+                    ) : (
+                      <ChartContainer 
+                        config={chartConfig} 
+                        exportOptions={{
+                          enableExport: true,
+                          filename: 'sentiment-trend',
+                          formats: ['png', 'pdf', 'csv']
+                        }}
+                        comparison={comparisonData}
+                        comparisonPeriod="mom"
+                        responsiveConfig={{
+                          sm: { height: 200, margin: { left: 10, right: 10 } },
+                          md: { height: 250, margin: { left: 20, right: 20 } },
+                          lg: { height: 300, margin: { left: 30, right: 30 } }
+                        }}
+                      >
+                        <LineChart data={mockSentimentTrend}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 12 }}
+                            tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 12 }}
+                            domain={[0, 1]}
+                            tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                          />
+                          <ChartTooltip 
+                            content={<ChartTooltipContent 
+                              showTrend
+                              showComparison
+                              currencyFormatter={(value) => `${(value * 100).toFixed(1)}%`}
+                            />} 
+                          />
                           <Line 
                             type="monotone" 
                             dataKey="average" 
                             stroke="var(--chart-4)" 
                             strokeWidth={3}
                             name="Average Sentiment"
+                            dot={{ fill: 'var(--chart-4)', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6, stroke: 'var(--chart-4)', strokeWidth: 2 }}
                           />
                         </LineChart>
                       </ChartContainer>
@@ -563,7 +857,7 @@ export default function SentimentAnalytics() {
                 </Card>
               </div>
 
-              {/* Communication Type Breakdown */}
+              {/* Enhanced Communication Type Breakdown */}
               <Card data-testid="card-communication-breakdown">
                 <CardHeader>
                   <CardTitle className="flex items-center">
@@ -575,20 +869,57 @@ export default function SentimentAnalytics() {
                   {globalLoading ? (
                     <Skeleton className="h-64 w-full" />
                   ) : (
-                    <ChartContainer config={chartConfig} className="h-64">
+                    <ChartContainer 
+                      config={chartConfig} 
+                      exportOptions={{
+                        enableExport: true,
+                        filename: 'communication-breakdown',
+                        formats: ['png', 'pdf', 'csv']
+                      }}
+                      comparison={comparisonData}
+                      comparisonPeriod="mom"
+                      responsiveConfig={{
+                        sm: { height: 250, fontSize: '10px' },
+                        md: { height: 300, fontSize: '12px' },
+                        lg: { height: 350, fontSize: '14px' }
+                      }}
+                    >
                       <RechartsBarChart data={[
-                        { type: 'Email', positive: 68, neutral: 22, negative: 10 },
-                        { type: 'Phone', positive: 55, neutral: 30, negative: 15 },
-                        { type: 'Meeting', positive: 75, neutral: 20, negative: 5 },
-                        { type: 'SMS', positive: 60, neutral: 25, negative: 15 },
+                        { type: 'Email', positive: 68, neutral: 22, negative: 10, total: 100, trend: { direction: 'up', changePercentage: 5.2 } },
+                        { type: 'Phone', positive: 55, neutral: 30, negative: 15, total: 100, trend: { direction: 'down', changePercentage: -2.1 } },
+                        { type: 'Meeting', positive: 75, neutral: 20, negative: 5, total: 100, trend: { direction: 'up', changePercentage: 8.7 } },
+                        { type: 'SMS', positive: 60, neutral: 25, negative: 15, total: 100, trend: { direction: 'stable', changePercentage: 0.3 } },
                       ]}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="type" />
-                        <YAxis />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="positive" fill="var(--chart-1)" name="Positive" />
-                        <Bar dataKey="neutral" fill="var(--chart-2)" name="Neutral" />
-                        <Bar dataKey="negative" fill="var(--chart-3)" name="Negative" />
+                        <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            showPercentage
+                            showTrend
+                            showComparison
+                            percentageFormatter={formatPercentage}
+                          />} 
+                        />
+                        <ChartLegend content={<ChartLegendContent />} />
+                        <Bar 
+                          dataKey="positive" 
+                          fill="var(--chart-1)" 
+                          name="Positive"
+                          radius={[0, 0, 4, 4]}
+                        />
+                        <Bar 
+                          dataKey="neutral" 
+                          fill="var(--chart-2)" 
+                          name="Neutral"
+                          radius={[0, 0, 4, 4]}
+                        />
+                        <Bar 
+                          dataKey="negative" 
+                          fill="var(--chart-3)" 
+                          name="Negative"
+                          radius={[4, 4, 0, 0]}
+                        />
                       </RechartsBarChart>
                     </ChartContainer>
                   )}

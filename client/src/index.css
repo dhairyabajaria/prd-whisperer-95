@@ -791,6 +791,82 @@
   .mt-content { margin-top: var(--content-gap); }
   .mt-item { margin-top: var(--item-gap); }
   .mt-compact { margin-top: var(--compact-gap); }
+
+  /* Visual Separation Utilities */
+  .divider-section {
+    border-top: 1px solid var(--divider-main);
+    margin-top: var(--section-gap);
+    margin-bottom: var(--section-gap);
+  }
+  
+  .divider-content {
+    border-top: 1px solid var(--divider-subtle);
+    margin-top: var(--content-gap);
+    margin-bottom: var(--content-gap);
+  }
+  
+  .divider-horizontal {
+    border-top: 1px solid var(--border-section);
+    width: 100%;
+  }
+  
+  .divider-vertical {
+    border-left: 1px solid var(--border-section);
+    height: 100%;
+  }
+  
+  .border-section {
+    border: 1px solid var(--border-section);
+  }
+  
+  .border-content {
+    border: 1px solid var(--border-content);
+  }
+  
+  .border-item {
+    border: 1px solid var(--border-item);
+  }
+  
+  /* Visual Data Type Indicators */
+  .data-numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  
+  .data-currency {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+  }
+  
+  .data-date {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--muted-foreground);
+  }
+  
+  .data-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+  }
+  
+  .data-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    transition: all 0.2s ease;
+  }
+  
+  .data-action:hover {
+    color: var(--primary);
+  }
 }
 
 .sidebar-gradient {

@@ -260,10 +260,10 @@ export default function ProductsPage() {
         />
         
         <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto">
             {/* Header and Controls */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="flex flex-col sm:flex-row gap-content items-start sm:items-center justify-between mb-section">
+              <div className="flex flex-col sm:flex-row gap-content flex-1">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
@@ -291,12 +291,13 @@ export default function ProductsPage() {
                 <DialogTrigger asChild>
                   <Button 
                     data-testid="button-create-product"
+                    className="data-action"
                     onClick={() => {
                       setEditingProduct(null);
                       form.reset();
                     }}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-4 w-4" />
                     Add Product
                   </Button>
                 </DialogTrigger>
