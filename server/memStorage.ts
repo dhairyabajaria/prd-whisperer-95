@@ -2159,8 +2159,8 @@ export class MemStorage implements IStorage {
     const customer = await this.createCustomer({
       ...customerData,
       name: customerData.name || lead.company || `${lead.firstName} ${lead.lastName}`,
-      email: customerData.email || lead.email,
-      phone: customerData.phone || lead.phone,
+       email: customerData.email || lead.email || undefined,
+       phone: customerData.phone || lead.phone || undefined,
       address: customerData.address || lead.address
     });
     

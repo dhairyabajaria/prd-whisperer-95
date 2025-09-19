@@ -3605,10 +3605,10 @@ export class DatabaseStorage implements IStorage {
     
     // Check cache first with improved cache key strategy
     const cacheKey = `quotations:list:${status || 'all'}:${limit}:${offset}`;
-    const cached = inMemoryCache.get(cacheKey);
+    const cached = await advancedCache.get(cacheKey);
     if (cached) {
       console.log(`🚀 [Cache Hit] Quotations query served from cache in ${Date.now() - startTime}ms`);
-      return cached;
+       return cached as any;
     }
 
     const db = await getDb();
@@ -3623,7 +3623,7 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
 
     if (quotationData.length === 0) {
-      inMemoryCache.set(cacheKey, [], 300); // 5 minute cache
+      await advancedCache.set(cacheKey, [], 'WARM'); // 5 minute cache
       console.log(`⚡ [Quotations] Empty result cached in ${Date.now() - startTime}ms`);
       return [];
     }
