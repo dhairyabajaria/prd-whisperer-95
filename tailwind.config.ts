@@ -148,6 +148,14 @@ export default {
         "5xl": ["var(--text-5xl)", { lineHeight: "var(--leading-tight)" }],
         "6xl": ["var(--text-6xl)", { lineHeight: "var(--leading-tight)" }],
         "7xl": ["var(--text-7xl)", { lineHeight: "var(--leading-tight)" }],
+        // Semantic Typography Classes
+        body: ["var(--text-base)", { lineHeight: "var(--leading-base)", letterSpacing: "var(--tracking-body)", fontWeight: "var(--font-weight-body)" }],
+        "form-label": ["var(--text-sm)", { lineHeight: "var(--leading-normal)", letterSpacing: "var(--tracking-normal)", fontWeight: "500" }],
+        "form-hint": ["var(--text-xs)", { lineHeight: "var(--leading-relaxed)", letterSpacing: "var(--tracking-normal)", fontWeight: "400" }],
+        button: ["var(--text-sm)", { lineHeight: "var(--leading-sm)", letterSpacing: "var(--tracking-button)", fontWeight: "var(--font-weight-emphasis)" }],
+        badge: ["var(--text-xs)", { lineHeight: "var(--leading-normal)", letterSpacing: "var(--tracking-wide)", fontWeight: "600" }],
+        "table-cell": ["var(--text-sm)", { lineHeight: "var(--leading-sm)", letterSpacing: "var(--tracking-normal)", fontWeight: "var(--font-weight-body)" }],
+        "table-header": ["var(--text-sm)", { lineHeight: "var(--leading-sm)", letterSpacing: "var(--tracking-normal)", fontWeight: "var(--font-weight-semibold)" }],
       },
       lineHeight: {
         tight: "var(--leading-tight)",
