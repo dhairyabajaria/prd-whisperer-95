@@ -61,6 +61,74 @@ export default {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
+        // Entity Color System
+        customer: {
+          DEFAULT: "var(--customer-bg)",
+          foreground: "var(--customer-fg)",
+          light: "var(--customer-bg-light)",
+          "light-foreground": "var(--customer-fg-light)",
+        },
+        product: {
+          DEFAULT: "var(--product-bg)",
+          foreground: "var(--product-fg)",
+          light: "var(--product-bg-light)",
+          "light-foreground": "var(--product-fg-light)",
+        },
+        supplier: {
+          DEFAULT: "var(--supplier-bg)",
+          foreground: "var(--supplier-fg)",
+          light: "var(--supplier-bg-light)",
+          "light-foreground": "var(--supplier-fg-light)",
+        },
+        order: {
+          DEFAULT: "var(--order-bg)",
+          foreground: "var(--order-fg)",
+          light: "var(--order-bg-light)",
+          "light-foreground": "var(--order-fg-light)",
+        },
+        invoice: {
+          DEFAULT: "var(--invoice-bg)",
+          foreground: "var(--invoice-fg)",
+          light: "var(--invoice-bg-light)",
+          "light-foreground": "var(--invoice-fg-light)",
+        },
+        inventory: {
+          DEFAULT: "var(--inventory-bg)",
+          foreground: "var(--inventory-fg)",
+          light: "var(--inventory-bg-light)",
+          "light-foreground": "var(--inventory-fg-light)",
+        },
+        // Status Colors
+        success: {
+          DEFAULT: "var(--status-success-bg)",
+          foreground: "var(--status-success-fg)",
+          light: "var(--status-success-bg-light)",
+          "light-foreground": "var(--status-success-fg-light)",
+        },
+        warning: {
+          DEFAULT: "var(--status-warning-bg)",
+          foreground: "var(--status-warning-fg)",
+          light: "var(--status-warning-bg-light)",
+          "light-foreground": "var(--status-warning-fg-light)",
+        },
+        error: {
+          DEFAULT: "var(--status-error-bg)",
+          foreground: "var(--status-error-fg)",
+          light: "var(--status-error-bg-light)",
+          "light-foreground": "var(--status-error-fg-light)",
+        },
+        info: {
+          DEFAULT: "var(--status-info-bg)",
+          foreground: "var(--status-info-fg)",
+          light: "var(--status-info-bg-light)",
+          "light-foreground": "var(--status-info-fg-light)",
+        },
+        processing: {
+          DEFAULT: "var(--status-processing-bg)",
+          foreground: "var(--status-processing-fg)",
+          light: "var(--status-processing-bg-light)",
+          "light-foreground": "var(--status-processing-fg-light)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],

@@ -84,6 +84,84 @@
   --spacing-2xl: 2rem;      /* 32px */
   --spacing-3xl: 3rem;      /* 48px */
   
+  /* Entity Color Coding System */
+  /* Customer Colors */
+  --customer-bg: hsl(199, 89%, 48%);
+  --customer-fg: hsl(0, 0%, 100%);
+  --customer-bg-light: hsl(199, 89%, 95%);
+  --customer-fg-light: hsl(199, 89%, 25%);
+  
+  /* Product Colors */  
+  --product-bg: hsl(173, 58%, 39%);
+  --product-fg: hsl(0, 0%, 100%);
+  --product-bg-light: hsl(173, 58%, 95%);
+  --product-fg-light: hsl(173, 58%, 20%);
+  
+  /* Supplier Colors */
+  --supplier-bg: hsl(43, 74%, 66%);
+  --supplier-fg: hsl(43, 74%, 10%);
+  --supplier-bg-light: hsl(43, 74%, 95%);
+  --supplier-fg-light: hsl(43, 74%, 20%);
+  
+  /* Order Colors */
+  --order-bg: hsl(125, 71%, 66%);
+  --order-fg: hsl(0, 0%, 100%);
+  --order-bg-light: hsl(125, 71%, 95%);
+  --order-fg-light: hsl(125, 71%, 20%);
+  
+  /* Invoice Colors */
+  --invoice-bg: hsl(262, 83%, 58%);
+  --invoice-fg: hsl(0, 0%, 100%);
+  --invoice-bg-light: hsl(262, 83%, 95%);
+  --invoice-fg-light: hsl(262, 83%, 25%);
+  
+  /* Inventory Colors */
+  --inventory-bg: hsl(27, 87%, 67%);
+  --inventory-fg: hsl(0, 0%, 100%);
+  --inventory-bg-light: hsl(27, 87%, 95%);
+  --inventory-fg-light: hsl(27, 87%, 20%);
+  
+  /* Status Color System */
+  /* Success Status */
+  --status-success-bg: hsl(125, 71%, 66%);
+  --status-success-fg: hsl(0, 0%, 100%);
+  --status-success-bg-light: hsl(125, 71%, 95%);
+  --status-success-fg-light: hsl(125, 71%, 20%);
+  
+  /* Warning Status */
+  --status-warning-bg: hsl(43, 74%, 66%);
+  --status-warning-fg: hsl(43, 74%, 10%);
+  --status-warning-bg-light: hsl(43, 74%, 95%);
+  --status-warning-fg-light: hsl(43, 74%, 20%);
+  
+  /* Error Status */
+  --status-error-bg: hsl(0, 84%, 60%);
+  --status-error-fg: hsl(0, 0%, 100%);
+  --status-error-bg-light: hsl(0, 84%, 95%);
+  --status-error-fg-light: hsl(0, 84%, 25%);
+  
+  /* Info Status */
+  --status-info-bg: hsl(199, 89%, 48%);
+  --status-info-fg: hsl(0, 0%, 100%);
+  --status-info-bg-light: hsl(199, 89%, 95%);
+  --status-info-fg-light: hsl(199, 89%, 25%);
+  
+  /* Processing Status */
+  --status-processing-bg: hsl(262, 83%, 58%);
+  --status-processing-fg: hsl(0, 0%, 100%);
+  --status-processing-bg-light: hsl(262, 83%, 95%);
+  --status-processing-fg-light: hsl(262, 83%, 25%);
+  
+  /* Priority Level Colors */
+  --priority-critical-bg: hsl(0, 84%, 60%);
+  --priority-critical-fg: hsl(0, 0%, 100%);
+  --priority-high-bg: hsl(27, 87%, 67%);
+  --priority-high-fg: hsl(0, 0%, 100%);
+  --priority-medium-bg: hsl(43, 74%, 66%);
+  --priority-medium-fg: hsl(43, 74%, 10%);
+  --priority-low-bg: hsl(125, 71%, 66%);
+  --priority-low-fg: hsl(0, 0%, 100%);
+  
   --radius: 8px;
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
@@ -128,6 +206,79 @@
   --sidebar-accent-foreground: hsl(203.7736, 87.6033%, 52.5490%);
   --sidebar-border: hsl(205.7143, 15.7895%, 26.0784%);
   --sidebar-ring: hsl(202.8169, 89.1213%, 53.1373%);
+  
+  /* Dark Theme Entity Colors */
+  /* Customer Colors */
+  --customer-bg: hsl(199, 89%, 58%);
+  --customer-fg: hsl(0, 0%, 0%);
+  --customer-bg-light: hsl(199, 30%, 15%);
+  --customer-fg-light: hsl(199, 89%, 75%);
+  
+  /* Product Colors */
+  --product-bg: hsl(173, 58%, 49%);
+  --product-fg: hsl(0, 0%, 0%);
+  --product-bg-light: hsl(173, 30%, 15%);
+  --product-fg-light: hsl(173, 58%, 70%);
+  
+  /* Supplier Colors */
+  --supplier-bg: hsl(43, 74%, 76%);
+  --supplier-fg: hsl(43, 74%, 5%);
+  --supplier-bg-light: hsl(43, 30%, 15%);
+  --supplier-fg-light: hsl(43, 74%, 80%);
+  
+  /* Order Colors */
+  --order-bg: hsl(125, 71%, 76%);
+  --order-fg: hsl(0, 0%, 0%);
+  --order-bg-light: hsl(125, 30%, 15%);
+  --order-fg-light: hsl(125, 71%, 80%);
+  
+  /* Invoice Colors */
+  --invoice-bg: hsl(262, 83%, 68%);
+  --invoice-fg: hsl(0, 0%, 0%);
+  --invoice-bg-light: hsl(262, 30%, 15%);
+  --invoice-fg-light: hsl(262, 83%, 85%);
+  
+  /* Inventory Colors */
+  --inventory-bg: hsl(27, 87%, 77%);
+  --inventory-fg: hsl(0, 0%, 0%);
+  --inventory-bg-light: hsl(27, 30%, 15%);
+  --inventory-fg-light: hsl(27, 87%, 85%);
+  
+  /* Dark Theme Status Colors */
+  --status-success-bg: hsl(125, 71%, 76%);
+  --status-success-fg: hsl(0, 0%, 0%);
+  --status-success-bg-light: hsl(125, 30%, 15%);
+  --status-success-fg-light: hsl(125, 71%, 80%);
+  
+  --status-warning-bg: hsl(43, 74%, 76%);
+  --status-warning-fg: hsl(43, 74%, 5%);
+  --status-warning-bg-light: hsl(43, 30%, 15%);
+  --status-warning-fg-light: hsl(43, 74%, 80%);
+  
+  --status-error-bg: hsl(0, 84%, 70%);
+  --status-error-fg: hsl(0, 0%, 0%);
+  --status-error-bg-light: hsl(0, 30%, 15%);
+  --status-error-fg-light: hsl(0, 84%, 85%);
+  
+  --status-info-bg: hsl(199, 89%, 58%);
+  --status-info-fg: hsl(0, 0%, 0%);
+  --status-info-bg-light: hsl(199, 30%, 15%);
+  --status-info-fg-light: hsl(199, 89%, 75%);
+  
+  --status-processing-bg: hsl(262, 83%, 68%);
+  --status-processing-fg: hsl(0, 0%, 0%);
+  --status-processing-bg-light: hsl(262, 30%, 15%);
+  --status-processing-fg-light: hsl(262, 83%, 85%);
+  
+  /* Dark Theme Priority Colors */
+  --priority-critical-bg: hsl(0, 84%, 70%);
+  --priority-critical-fg: hsl(0, 0%, 0%);
+  --priority-high-bg: hsl(27, 87%, 77%);
+  --priority-high-fg: hsl(0, 0%, 0%);
+  --priority-medium-bg: hsl(43, 74%, 76%);
+  --priority-medium-fg: hsl(43, 74%, 5%);
+  --priority-low-bg: hsl(125, 71%, 76%);
+  --priority-low-fg: hsl(0, 0%, 0%);
 }
 
 @layer base {
@@ -167,6 +318,140 @@
   .num-proportional {
     font-variant-numeric: proportional-nums;
   }
+  
+  /* Entity Color Badge Utilities */
+  .badge-customer {
+    background-color: var(--customer-bg);
+    color: var(--customer-fg);
+  }
+  
+  .badge-customer-light {
+    background-color: var(--customer-bg-light);
+    color: var(--customer-fg-light);
+  }
+  
+  .badge-product {
+    background-color: var(--product-bg);
+    color: var(--product-fg);
+  }
+  
+  .badge-product-light {
+    background-color: var(--product-bg-light);
+    color: var(--product-fg-light);
+  }
+  
+  .badge-supplier {
+    background-color: var(--supplier-bg);
+    color: var(--supplier-fg);
+  }
+  
+  .badge-supplier-light {
+    background-color: var(--supplier-bg-light);
+    color: var(--supplier-fg-light);
+  }
+  
+  .badge-order {
+    background-color: var(--order-bg);
+    color: var(--order-fg);
+  }
+  
+  .badge-order-light {
+    background-color: var(--order-bg-light);
+    color: var(--order-fg-light);
+  }
+  
+  .badge-invoice {
+    background-color: var(--invoice-bg);
+    color: var(--invoice-fg);
+  }
+  
+  .badge-invoice-light {
+    background-color: var(--invoice-bg-light);
+    color: var(--invoice-fg-light);
+  }
+  
+  .badge-inventory {
+    background-color: var(--inventory-bg);
+    color: var(--inventory-fg);
+  }
+  
+  .badge-inventory-light {
+    background-color: var(--inventory-bg-light);
+    color: var(--inventory-fg-light);
+  }
+  
+  /* Status Badge Utilities */
+  .badge-success {
+    background-color: var(--status-success-bg);
+    color: var(--status-success-fg);
+  }
+  
+  .badge-success-light {
+    background-color: var(--status-success-bg-light);
+    color: var(--status-success-fg-light);
+  }
+  
+  .badge-warning {
+    background-color: var(--status-warning-bg);
+    color: var(--status-warning-fg);
+  }
+  
+  .badge-warning-light {
+    background-color: var(--status-warning-bg-light);
+    color: var(--status-warning-fg-light);
+  }
+  
+  .badge-error {
+    background-color: var(--status-error-bg);
+    color: var(--status-error-fg);
+  }
+  
+  .badge-error-light {
+    background-color: var(--status-error-bg-light);
+    color: var(--status-error-fg-light);
+  }
+  
+  .badge-info {
+    background-color: var(--status-info-bg);
+    color: var(--status-info-fg);
+  }
+  
+  .badge-info-light {
+    background-color: var(--status-info-bg-light);
+    color: var(--status-info-fg-light);
+  }
+  
+  .badge-processing {
+    background-color: var(--status-processing-bg);
+    color: var(--status-processing-fg);
+  }
+  
+  .badge-processing-light {
+    background-color: var(--status-processing-bg-light);
+    color: var(--status-processing-fg-light);
+  }
+  
+  /* Priority Badge Utilities */
+  .badge-priority-critical {
+    background-color: var(--priority-critical-bg);
+    color: var(--priority-critical-fg);
+  }
+  
+  .badge-priority-high {
+    background-color: var(--priority-high-bg);
+    color: var(--priority-high-fg);
+  }
+  
+  .badge-priority-medium {
+    background-color: var(--priority-medium-bg);
+    color: var(--priority-medium-fg);
+  }
+  
+  .badge-priority-low {
+    background-color: var(--priority-low-bg);
+    color: var(--priority-low-fg);
+  }
+  
   
   /* Enhanced Typography Utilities */
   .text-display-hero {
