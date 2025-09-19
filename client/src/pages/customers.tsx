@@ -208,11 +208,11 @@ export default function Customers() {
     const avgScore = sentimentSummary.averageScore;
     
     if (avgScore >= 0.3) {
-      return { icon: CheckCircle, color: "text-green-600", label: "Positive", score: avgScore };
+      return { icon: CheckCircle, color: "text-[var(--status-success-fg)]", label: "Positive", score: avgScore };
     } else if (avgScore >= -0.3) {
-      return { icon: TrendingUp, color: "text-blue-600", label: "Neutral", score: avgScore };
+      return { icon: TrendingUp, color: "text-[var(--status-info-fg)]", label: "Neutral", score: avgScore };
     } else {
-      return { icon: XCircle, color: "text-red-600", label: "Negative", score: avgScore };
+      return { icon: XCircle, color: "text-[var(--status-error-fg)]", label: "Negative", score: avgScore };
     }
   };
 
@@ -561,12 +561,12 @@ export default function Customers() {
               </div>
             ) : filteredCustomers.length > 0 ? (
               filteredCustomers.map((customer) => (
-                <Card key={customer.id} className="hover:shadow-md transition-shadow" data-testid={`card-customer-${customer.id}`}>
+                <Card key={customer.id} className="hover:shadow-md transition-shadow border-l-4 border-l-[var(--customer-bg)] bg-[var(--customer-bg-light)]/20" data-testid={`card-customer-${customer.id}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
-                          <CardTitle className="text-lg truncate" data-testid={`text-customer-name-${customer.id}`}>
+                          <CardTitle className="text-lg truncate text-[var(--customer-fg)] font-semibold" data-testid={`text-customer-name-${customer.id}`}>
                             {customer.name}
                           </CardTitle>
                           {(() => {
@@ -598,7 +598,7 @@ export default function Customers() {
                       </div>
                       <div className="flex flex-col items-end space-y-2">
                         <Badge 
-                          variant={customer.isActive ? "default" : "secondary"}
+                          className={customer.isActive ? "badge-success-light" : "badge-error-light"}
                           data-testid={`badge-status-${customer.id}`}
                         >
                           {customer.isActive ? "Active" : "Inactive"}
@@ -618,8 +618,12 @@ export default function Customers() {
                           return (
                             <div className="flex flex-col items-end space-y-1">
                               <Badge 
-                                variant="outline" 
-                                className={`text-xs ${sentiment.color} border-current`}
+                                className={`text-xs border-current ${
+                                  sentiment.label === 'Positive' ? 'badge-success-light' :
+                                  sentiment.label === 'Neutral' ? 'badge-info-light' :
+                                  sentiment.label === 'Negative' ? 'badge-error-light' :
+                                  'badge-info-light'
+                                }`}
                                 data-testid={`badge-sentiment-${customer.id}`}
                               >
                                 {sentiment.label}

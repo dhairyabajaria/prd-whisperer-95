@@ -845,21 +845,21 @@ export default function Purchases() {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'draft': return 'badge-order-light';
       case 'submitted': 
-      case 'sent': return 'bg-blue-100 text-blue-800';
+      case 'sent': return 'badge-info-light';
       case 'approved':
-      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'confirmed':
+      case 'matched': return 'badge-success-light';
       case 'received':
-      case 'posted': return 'bg-purple-100 text-purple-800';
+      case 'posted': return 'badge-processing-light';
       case 'rejected':
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'matched': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'badge-error-light';
       case 'quantity_mismatch':
-      case 'price_mismatch': return 'bg-yellow-100 text-yellow-800';
+      case 'price_mismatch': return 'badge-warning-light';
       case 'missing_receipt':
-      case 'missing_bill': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'missing_bill': return 'badge-warning-light';
+      default: return 'badge-order-light';
     }
   };
 
@@ -881,8 +881,8 @@ export default function Purchases() {
                   {dashboardMetrics?.totalPurchaseOrders || 0}
                 </h3>
               </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <ShoppingCart className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{backgroundColor: 'var(--order-bg-light)'}}>
+                <ShoppingCart className="w-6 h-6" style={{color: 'var(--order-fg)'}} />
               </div>
             </div>
           </CardContent>
@@ -897,8 +897,8 @@ export default function Purchases() {
                   {dashboardMetrics?.pendingApprovals || 0}
                 </h3>
               </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{backgroundColor: 'var(--status-warning-bg-light)'}}>
+                <AlertTriangle className="w-6 h-6" style={{color: 'var(--status-warning-fg)'}} />
               </div>
             </div>
           </CardContent>

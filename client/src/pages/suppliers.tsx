@@ -536,26 +536,26 @@ export default function SuppliersPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredSuppliers.map((supplier) => (
-                  <Card key={supplier.id} data-testid={`card-supplier-${supplier.id}`} className="hover:shadow-md transition-shadow">
+                  <Card key={supplier.id} data-testid={`card-supplier-${supplier.id}`} className="hover:shadow-md transition-shadow border-l-4 border-l-[var(--supplier-bg)] bg-[var(--supplier-bg-light)]/20">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="text-lg line-clamp-2">{supplier.name}</CardTitle>
+                          <CardTitle className="text-lg line-clamp-2 text-[var(--supplier-fg)] font-semibold">{supplier.name}</CardTitle>
                           <div className="flex items-center gap-2 mt-1">
                             {supplier.country && (
-                              <Badge data-testid={`badge-country-${supplier.id}`} variant="secondary" className="text-xs">
+                              <Badge data-testid={`badge-country-${supplier.id}`} className="badge-supplier-light text-xs">
                                 <Globe className="h-3 w-3 mr-1" />
                                 {supplier.country}
                               </Badge>
                             )}
                             {supplier.currency && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge className="badge-supplier-light text-xs border-[var(--supplier-bg)]">
                                 <DollarSign className="h-3 w-3 mr-1" />
                                 {supplier.currency}
                               </Badge>
                             )}
                             {!supplier.isActive && (
-                              <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                              <Badge className="badge-error-light text-xs">Inactive</Badge>
                             )}
                           </div>
                         </div>

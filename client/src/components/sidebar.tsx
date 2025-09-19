@@ -31,97 +31,113 @@ const navigation = [
     name: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
-    roles: ['admin', 'sales', 'inventory', 'finance']
+    roles: ['admin', 'sales', 'inventory', 'finance'],
+    entityColor: 'var(--primary)'
   },
   {
     name: "Customers",
     href: "/customers",
     icon: Users,
-    roles: ['admin', 'sales']
+    roles: ['admin', 'sales'],
+    entityColor: 'var(--customer-bg)'
   },
   {
     name: "Products",
     href: "/products",
     icon: Pill,
-    roles: ['admin', 'inventory', 'sales']
+    roles: ['admin', 'inventory', 'sales'],
+    entityColor: 'var(--product-bg)'
   },
   {
     name: "Suppliers",
     href: "/suppliers",
     icon: Building2,
-    roles: ['admin', 'inventory', 'finance']
+    roles: ['admin', 'inventory', 'finance'],
+    entityColor: 'var(--supplier-bg)'
   },
   {
     name: "Warehouses",
     href: "/warehouses",
     icon: Warehouse,
-    roles: ['admin', 'inventory']
+    roles: ['admin', 'inventory'],
+    entityColor: 'var(--inventory-bg)'
   },
   {
     name: "Inventory",
     href: "/inventory", 
     icon: Package,
-    roles: ['admin', 'inventory', 'sales']
+    roles: ['admin', 'inventory', 'sales'],
+    entityColor: 'var(--inventory-bg)'
   },
   {
     name: "Sales",
     href: "/sales",
     icon: FileText,
-    roles: ['admin', 'sales']
+    roles: ['admin', 'sales'],
+    entityColor: 'var(--invoice-bg)'
   },
   {
     name: "Quotations", 
     href: "/quotations",
     icon: Receipt,
-    roles: ['admin', 'sales']
+    roles: ['admin', 'sales'],
+    entityColor: 'var(--invoice-bg)'
   },
   {
     name: "Commissions",
     href: "/commissions",
     icon: DollarSign,
-    roles: ['admin', 'sales', 'finance']
+    roles: ['admin', 'sales', 'finance'],
+    entityColor: 'var(--invoice-bg)'
   },
   {
     name: "Pipeline",
     href: "/pipeline",
     icon: GitBranch,
-    roles: ['admin', 'sales']
+    roles: ['admin', 'sales'],
+    entityColor: 'var(--customer-bg)'
   },
   {
     name: "Purchases", 
     href: "/purchases",
     icon: ShoppingCart,
-    roles: ['admin', 'inventory']
+    roles: ['admin', 'inventory'],
+    entityColor: 'var(--order-bg)'
   },
   {
     name: "Finance",
     href: "/finance",
     icon: Calculator,
-    roles: ['admin', 'finance']
+    roles: ['admin', 'finance'],
+    entityColor: 'var(--invoice-bg)'
   },
   {
     name: "POS",
     href: "/pos",
     icon: CreditCard,
-    roles: ['admin', 'pos', 'sales']
+    roles: ['admin', 'pos', 'sales'],
+    entityColor: 'var(--invoice-bg)'
   },
   {
     name: "HR",
     href: "/hr",
     icon: UserCheck,
-    roles: ['admin', 'hr']
+    roles: ['admin', 'hr'],
+    entityColor: 'var(--customer-bg)'
   },
   {
     name: "Marketing",
     href: "/marketing",
     icon: Target,
-    roles: ['admin', 'marketing']
+    roles: ['admin', 'marketing'],
+    entityColor: 'var(--customer-bg)'
   },
   {
     name: "Settings",
     href: "/settings",
     icon: Settings,
-    roles: ['admin']
+    roles: ['admin'],
+    entityColor: 'var(--muted-foreground)'
   }
 ];
 
@@ -241,16 +257,39 @@ export default function Sidebar() {
           return (
             <Link key={item.name} href={item.href}
               className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
+                "flex items-center space-x-3 px-3 py-2 rounded-md transition-all duration-200 border-l-2",
                 isActive(item.href)
                   ? "bg-white/20 text-white"
-                  : "text-white/80 hover:bg-white/10"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
               )}
+              style={{
+                borderLeftColor: isActive(item.href) 
+                  ? item.entityColor 
+                  : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive(item.href)) {
+                  e.currentTarget.style.borderLeftColor = item.entityColor + '80'; // 50% opacity
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive(item.href)) {
+                  e.currentTarget.style.borderLeftColor = 'transparent';
+                }
+              }}
               data-testid={`link-${item.name.toLowerCase().replace(' ', '-')}`}>
-                <item.icon className="w-4 h-4" />
+                <item.icon 
+                  className="w-4 h-4 transition-colors duration-200" 
+                  style={{
+                    color: isActive(item.href) 
+                      ? item.entityColor 
+                      : item.entityColor + 'B3' // 70% opacity for non-active
+                  }} 
+                />
                 <span>{item.name}</span>
                 {item.name === "Inventory" && (
-                  <span className="ml-auto bg-destructive text-destructive-foreground text-xs px-2 py-1 rounded-full"
+                  <span className="ml-auto text-xs px-2 py-1 rounded-full" 
+                        style={{backgroundColor: 'var(--status-warning-bg)', color: 'var(--status-warning-fg)'}}
                         data-testid="badge-inventory-alerts">
                     12
                   </span>

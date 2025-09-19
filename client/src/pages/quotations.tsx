@@ -95,12 +95,12 @@ export default function Quotations() {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'sent': return 'bg-blue-100 text-blue-800';
-      case 'accepted': return 'bg-green-100 text-green-800';
-      case 'expired': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'draft': return 'badge-invoice-light';
+      case 'sent': return 'badge-info-light';
+      case 'accepted': return 'badge-success-light';
+      case 'expired': return 'badge-warning-light';
+      case 'cancelled': return 'badge-error-light';
+      default: return 'badge-invoice-light';
     }
   };
 
@@ -328,9 +328,9 @@ export default function Quotations() {
                     </thead>
                     <tbody>
                       {filteredQuotations.map((quotation) => (
-                        <tr key={quotation.id} className="border-b hover:bg-muted/50">
+                        <tr key={quotation.id} className="border-b hover:bg-muted/50 border-l-4 border-l-transparent hover:border-l-[var(--invoice-bg)] hover:bg-[var(--invoice-bg-light)]/20">
                           <td className="py-3 px-4">
-                            <span className="font-medium" data-testid={`text-quotation-number-${quotation.id}`}>
+                            <span className="font-medium text-[var(--invoice-fg)]" data-testid={`text-quotation-number-${quotation.id}`}>
                               {quotation.quotationNumber}
                             </span>
                           </td>

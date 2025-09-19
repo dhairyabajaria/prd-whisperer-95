@@ -216,10 +216,10 @@ export default function ProductsPage() {
   };
 
   const getShelfLifeStatus = (shelfLifeDays: number | null) => {
-    if (!shelfLifeDays) return { icon: Clock, color: "text-gray-500", text: "No expiry" };
-    if (shelfLifeDays <= 90) return { icon: AlertTriangle, color: "text-red-600", text: `${shelfLifeDays} days` };
-    if (shelfLifeDays <= 365) return { icon: Clock, color: "text-orange-600", text: `${shelfLifeDays} days` };
-    return { icon: CheckCircle, color: "text-green-600", text: `${shelfLifeDays} days` };
+    if (!shelfLifeDays) return { icon: Clock, color: "text-muted-foreground", text: "No expiry" };
+    if (shelfLifeDays <= 90) return { icon: AlertTriangle, color: "text-[var(--status-error-fg)]", text: `${shelfLifeDays} days` };
+    if (shelfLifeDays <= 365) return { icon: Clock, color: "text-[var(--status-warning-fg)]", text: `${shelfLifeDays} days` };
+    return { icon: CheckCircle, color: "text-[var(--status-success-fg)]", text: `${shelfLifeDays} days` };
   };
 
   if (error) {
@@ -581,18 +581,18 @@ export default function ProductsPage() {
                   const shelfLifeStatus = getShelfLifeStatus(product.shelfLifeDays);
                   
                   return (
-                    <Card key={product.id} data-testid={`card-product-${product.id}`} className="hover:shadow-md transition-shadow">
+                    <Card key={product.id} data-testid={`card-product-${product.id}`} className="hover:shadow-md transition-shadow border-l-4 border-l-[var(--product-bg)] bg-[var(--product-bg-light)]/20">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <CardTitle className="text-lg line-clamp-2">{product.name}</CardTitle>
+                            <CardTitle className="text-lg line-clamp-2 text-[var(--product-fg)] font-semibold">{product.name}</CardTitle>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge data-testid={`badge-sku-${product.id}`} variant="secondary" className="text-xs">
+                              <Badge data-testid={`badge-sku-${product.id}`} className="badge-product-light text-xs">
                                 <Hash className="h-3 w-3 mr-1" />
                                 {product.sku}
                               </Badge>
                               {!product.isActive && (
-                                <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                                <Badge className="badge-error-light text-xs">Inactive</Badge>
                               )}
                             </div>
                           </div>
@@ -660,13 +660,13 @@ export default function ProductsPage() {
                             <div className="flex items-center gap-1">
                               {product.requiresBatchTracking ? (
                                 <>
-                                  <CheckCircle className="h-3 w-3 text-green-600" />
-                                  <span className="text-green-600">Enabled</span>
+                                  <CheckCircle className="h-3 w-3 text-[var(--status-success-fg)]" />
+                                  <span className="text-[var(--status-success-fg)]">Enabled</span>
                                 </>
                               ) : (
                                 <>
-                                  <AlertTriangle className="h-3 w-3 text-orange-600" />
-                                  <span className="text-orange-600">Disabled</span>
+                                  <AlertTriangle className="h-3 w-3 text-[var(--status-warning-fg)]" />
+                                  <span className="text-[var(--status-warning-fg)]">Disabled</span>
                                 </>
                               )}
                             </div>

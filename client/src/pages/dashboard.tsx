@@ -89,20 +89,20 @@ export default function Dashboard() {
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
-      case 'sale': return 'bg-green-100 text-green-800';
-      case 'purchase': return 'bg-orange-100 text-orange-800';
-      case 'payment': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'sale': return 'badge-invoice-light';
+      case 'purchase': return 'badge-order-light';
+      case 'payment': return 'badge-success-light';
+      default: return 'badge-order-light';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'paid': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'overdue': return 'bg-red-100 text-red-800';
-      case 'confirmed': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'paid': return 'badge-success-light';
+      case 'pending': return 'badge-warning-light';
+      case 'overdue': return 'badge-error-light';
+      case 'confirmed': return 'badge-success-light';
+      default: return 'badge-invoice-light';
     }
   };
 
@@ -139,8 +139,8 @@ export default function Dashboard() {
                   value={formatCurrency(metrics.totalRevenue)}
                   subtitle="↗ 12.5% vs last month"
                   icon={DollarSign}
-                  iconColor="text-primary"
-                  iconBgColor="bg-primary/10"
+                  iconColor="text-[var(--invoice-fg)]"
+                  iconBgColor="bg-[var(--invoice-bg-light)]"
                   subtitleColor="text-green-600"
                   testId="card-revenue"
                 />
@@ -150,8 +150,8 @@ export default function Dashboard() {
                   value={metrics.activeProducts}
                   subtitle={`⚠ ${metrics.expiringProductsCount} expiring soon`}
                   icon={Package}
-                  iconColor="text-accent-foreground"
-                  iconBgColor="bg-accent"
+                  iconColor="text-[var(--product-fg)]"
+                  iconBgColor="bg-[var(--product-bg-light)]"
                   subtitleColor="text-orange-600"
                   testId="card-products"
                 />
@@ -161,8 +161,8 @@ export default function Dashboard() {
                   value={metrics.openOrders}
                   subtitle="⏱ 23 pending approval"
                   icon={FileText}
-                  iconColor="text-secondary-foreground"
-                  iconBgColor="bg-secondary"
+                  iconColor="text-[var(--order-fg)]"
+                  iconBgColor="bg-[var(--order-bg-light)]"
                   subtitleColor="text-blue-600"
                   testId="card-orders"
                 />
@@ -172,8 +172,8 @@ export default function Dashboard() {
                   value={formatCurrency(metrics.outstandingAmount)}
                   subtitle="↓ 8 overdue invoices"
                   icon={AlertCircle}
-                  iconColor="text-destructive"
-                  iconBgColor="bg-destructive/10"
+                  iconColor="text-[var(--invoice-fg)]"
+                  iconBgColor="bg-[var(--invoice-bg-light)]"
                   subtitleColor="text-red-600"
                   testId="card-outstanding"
                 />
@@ -210,7 +210,7 @@ export default function Dashboard() {
                     data-testid="button-create-invoice"
                   >
                     <div className="flex items-center space-x-3">
-                      <File className="text-primary w-5 h-5" />
+                      <File className="w-5 h-5" style={{color: 'var(--invoice-fg)'}} />
                       <span>Create Invoice</span>
                     </div>
                     <ChevronRight className="text-muted-foreground w-4 h-4" />
@@ -223,7 +223,7 @@ export default function Dashboard() {
                     data-testid="button-add-customer"
                   >
                     <div className="flex items-center space-x-3">
-                      <UserPlus className="text-primary w-5 h-5" />
+                      <UserPlus className="w-5 h-5" style={{color: 'var(--customer-fg)'}} />
                       <span>Add Customer</span>
                     </div>
                     <ChevronRight className="text-muted-foreground w-4 h-4" />
@@ -236,7 +236,7 @@ export default function Dashboard() {
                     data-testid="button-stock-movement"
                   >
                     <div className="flex items-center space-x-3">
-                      <Truck className="text-primary w-5 h-5" />
+                      <Truck className="w-5 h-5" style={{color: 'var(--inventory-fg)'}} />
                       <span>Stock Movement</span>
                     </div>
                     <ChevronRight className="text-muted-foreground w-4 h-4" />
