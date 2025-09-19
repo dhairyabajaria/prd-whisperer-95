@@ -83,7 +83,7 @@ export default function ExpiryAlertsTable() {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible max-w-full">
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr className="text-left">

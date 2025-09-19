@@ -180,7 +180,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="w-64 sidebar-gradient text-white flex flex-col" data-testid="sidebar-main">
+    <div className="w-64 sidebar-gradient text-white flex flex-col overflow-y-auto min-h-0" data-testid="sidebar-main">
       {/* Logo & Brand */}
       <div className="p-6 border-b border-white/20">
         <div className="flex items-center space-x-3">

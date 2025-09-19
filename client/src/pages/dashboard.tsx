@@ -112,17 +112,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
       
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
         <TopBar 
           title="Admin Dashboard"
           subtitle="Overview of your pharmaceutical distribution operations"
           onOpenAIChat={() => setIsChatOpen(true)}
         />
         
-        <main className="flex-1 overflow-y-auto p-6" data-testid="main-dashboard">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 min-h-0" data-testid="main-dashboard">
           {/* Metrics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
             {metricsLoading ? (
@@ -320,7 +320,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-visible max-w-full">
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr className="text-left">
