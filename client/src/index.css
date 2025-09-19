@@ -64,21 +64,21 @@
   --text-9xl: 6rem;        /* 96px - Maximum display text */
   
   /* Size-Specific Line Heights for Optimal Readability */
-  --leading-2xs: 1.2;      /* For micro text */
-  --leading-xs: 1.3;       /* For caption text */
-  --leading-sm: 1.4;       /* For small body text */
-  --leading-base: 1.5;     /* For primary body text */
-  --leading-md: 1.55;      /* For enhanced readability text */
-  --leading-lg: 1.6;       /* For large body text */
-  --leading-xl: 1.4;       /* For small headings */
-  --leading-2xl: 1.35;     /* For H4 headings */
-  --leading-3xl: 1.3;      /* For H3 headings */
-  --leading-4xl: 1.25;     /* For H2 headings */
-  --leading-5xl: 1.2;      /* For H1 headings */
-  --leading-6xl: 1.15;     /* For display text */
-  --leading-7xl: 1.1;      /* For large display */
-  --leading-8xl: 1.05;     /* For extra large display */
-  --leading-9xl: 1.0;      /* For maximum display */
+  --leading-2xs: 1.25;     /* For micro text - improved legibility */
+  --leading-xs: 1.35;      /* For caption text - enhanced spacing */
+  --leading-sm: 1.45;      /* For small body text - better readability */
+  --leading-base: 1.5;     /* For primary body text - optimal standard */
+  --leading-md: 1.5;       /* For enhanced readability text - consistent with base */
+  --leading-lg: 1.55;      /* For large body text - slightly tighter */
+  --leading-xl: 1.4;       /* For small headings - good balance */
+  --leading-2xl: 1.35;     /* For H4 headings - consistent hierarchy */
+  --leading-3xl: 1.3;      /* For H3 headings - proper scaling */
+  --leading-4xl: 1.25;     /* For H2 headings - maintains impact */
+  --leading-5xl: 1.2;      /* For H1 headings - strong presence */
+  --leading-6xl: 1.15;     /* For display text - compact elegance */
+  --leading-7xl: 1.1;      /* For large display - dramatic impact */
+  --leading-8xl: 1.05;     /* For extra large display - maximum impact */
+  --leading-9xl: 1.0;      /* For maximum display - ultra-tight heroic */
   
   /* Generic Line Heights (maintained for compatibility) */
   --leading-tight: 1.25;
@@ -88,22 +88,25 @@
   --leading-loose: 2;
   
   /* Refined Letter Spacing for Different Typography Uses */
-  --tracking-tighter: -0.05em;    /* Large display text */
-  --tracking-tight: -0.025em;     /* Headings, titles */
-  --tracking-normal: 0em;         /* Body text, default */
-  --tracking-relaxed: 0.01em;     /* Enhanced body readability */
-  --tracking-wide: 0.025em;       /* Labels, buttons */
-  --tracking-wider: 0.05em;       /* Captions, small text */
-  --tracking-widest: 0.1em;       /* Uppercase text, badges */
-  --tracking-mega: 0.15em;        /* All-caps headings */
+  --tracking-tighter: -0.04em;    /* Large display text - slightly less tight */
+  --tracking-tight: -0.02em;      /* Headings, titles - refined for better readability */
+  --tracking-normal: 0em;         /* Body text, default - unchanged */
+  --tracking-relaxed: 0.015em;    /* Enhanced body readability - subtle improvement */
+  --tracking-wide: 0.025em;       /* Labels, buttons - unchanged */
+  --tracking-wider: 0.04em;       /* Captions, small text - slightly tighter */
+  --tracking-widest: 0.08em;      /* Uppercase text, badges - more refined */
+  --tracking-mega: 0.12em;        /* All-caps headings - less aggressive */
   
-  /* Context-Specific Letter Spacing */
-  --tracking-display: -0.04em;    /* For display typography */
-  --tracking-heading: -0.02em;    /* For heading typography */
-  --tracking-body: 0em;           /* For body typography */
-  --tracking-caption: 0.03em;     /* For caption typography */
-  --tracking-button: 0.02em;      /* For button typography */
-  --tracking-label: 0.025em;      /* For form labels */
+  /* Context-Specific Letter Spacing - Enhanced for Better Readability */
+  --tracking-display: -0.03em;    /* For display typography - refined elegance */
+  --tracking-heading: -0.015em;   /* For heading typography - improved legibility */
+  --tracking-body: 0em;           /* For body typography - unchanged optimal */
+  --tracking-caption: 0.025em;    /* For caption typography - better balance */
+  --tracking-button: 0.025em;     /* For button typography - enhanced clickability */
+  --tracking-label: 0.02em;       /* For form labels - improved readability */
+  --tracking-link: 0.005em;       /* For link typography - subtle enhancement */
+  --tracking-code: 0.01em;        /* For code typography - better character distinction */
+  --tracking-quote: 0.01em;       /* For blockquotes - enhanced reading flow */
   
   /* Font Weight System for Consistent Typography */
   --font-weight-thin: 100;
@@ -1692,7 +1695,213 @@
     letter-spacing: var(--tracking-wide);
   }
   
-  /* Responsive Typography Helpers */
+  /* Enhanced Semantic Typography Classes for Pharmaceutical ERP */
+  
+  /* Page and Section Headers */
+  .text-page-title {
+    font-size: var(--text-4xl);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--tracking-heading);
+    line-height: var(--leading-4xl);
+    color: var(--foreground);
+  }
+  
+  .text-section-title {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--tracking-heading);
+    line-height: var(--leading-2xl);
+    color: var(--foreground);
+  }
+  
+  .text-card-title {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-xl);
+    color: var(--foreground);
+  }
+  
+  /* Business Content Typography */
+  .text-lead-paragraph {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--tracking-relaxed);
+    line-height: var(--leading-lg);
+    color: var(--muted-foreground);
+  }
+  
+  .text-description {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--tracking-body);
+    line-height: var(--leading-base);
+    color: var(--muted-foreground);
+  }
+  
+  .text-metadata {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-sm);
+    color: var(--muted-foreground);
+    text-transform: uppercase;
+  }
+  
+  /* Data and Numbers */
+  .text-metric {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-3xl);
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  
+  .text-metric-small {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-xl);
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  
+  .text-currency {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-lg);
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  
+  .text-percentage {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-base);
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* Interactive Elements */
+  .text-button {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-button);
+    line-height: var(--leading-sm);
+  }
+  
+  .text-button-large {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-button);
+    line-height: var(--leading-base);
+  }
+  
+  .text-link {
+    font-size: inherit;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-link);
+    line-height: inherit;
+    color: var(--primary);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.2s ease;
+  }
+  
+  .text-link:hover {
+    text-decoration-color: var(--primary);
+  }
+  
+  /* Status and Badges */
+  .text-status {
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-xs);
+    text-transform: uppercase;
+  }
+  
+  .text-badge {
+    font-size: var(--text-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--tracking-widest);
+    line-height: var(--leading-2xs);
+    text-transform: uppercase;
+  }
+  
+  /* Forms and Input Labels */
+  .text-form-label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-label);
+    line-height: var(--leading-sm);
+    color: var(--foreground);
+  }
+  
+  .text-form-helper {
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-xs);
+    color: var(--muted-foreground);
+  }
+  
+  .text-form-error {
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-xs);
+    color: var(--destructive);
+  }
+  
+  /* Technical Content */
+  .text-code-inline {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--tracking-code);
+    background: var(--muted);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+  }
+  
+  .text-code-block {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--tracking-code);
+    line-height: var(--leading-relaxed);
+  }
+  
+  /* Quotes and Emphasis */
+  .text-quote {
+    font-size: var(--text-lg);
+    font-style: italic;
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--tracking-quote);
+    line-height: var(--leading-lg);
+    color: var(--muted-foreground);
+  }
+  
+  .text-emphasis {
+    font-size: inherit;
+    font-weight: var(--font-weight-emphasis);
+    letter-spacing: inherit;
+    line-height: inherit;
+    color: var(--foreground);
+  }
+  
+  .text-strong {
+    font-size: inherit;
+    font-weight: var(--font-weight-strong);
+    letter-spacing: inherit;
+    line-height: inherit;
+    color: var(--foreground);
+  }
+  
+  /* Responsive Typography Helpers - Enhanced */
   .text-responsive-heading {
     font-size: clamp(var(--text-2xl), 4vw, var(--text-4xl));
     line-height: var(--leading-3xl);
@@ -1705,6 +1914,197 @@
     line-height: var(--leading-base);
     font-weight: var(--font-weight-body);
     letter-spacing: var(--tracking-body);
+  }
+  
+  .text-responsive-display {
+    font-size: clamp(var(--text-4xl), 8vw, var(--text-7xl));
+    line-height: var(--leading-6xl);
+    font-weight: var(--font-weight-display);
+    letter-spacing: var(--tracking-display);
+  }
+  
+  .text-responsive-metric {
+    font-size: clamp(var(--text-xl), 3vw, var(--text-3xl));
+    line-height: var(--leading-2xl);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--tracking-tight);
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* Advanced Fluid Typography System */
+  .text-fluid-hero {
+    font-size: clamp(var(--text-5xl), 10vw, var(--text-8xl));
+    line-height: clamp(var(--leading-5xl), 1.15, var(--leading-8xl));
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: var(--tracking-tighter);
+  }
+  
+  .text-fluid-display {
+    font-size: clamp(var(--text-3xl), 6vw, var(--text-6xl));
+    line-height: clamp(var(--leading-3xl), 1.2, var(--leading-6xl));
+    font-weight: var(--font-weight-display);
+    letter-spacing: var(--tracking-display);
+  }
+  
+  .text-fluid-heading {
+    font-size: clamp(var(--text-xl), 3.5vw, var(--text-4xl));
+    line-height: clamp(var(--leading-xl), 1.25, var(--leading-4xl));
+    font-weight: var(--font-weight-heading);
+    letter-spacing: var(--tracking-heading);
+  }
+  
+  .text-fluid-subheading {
+    font-size: clamp(var(--text-lg), 2.5vw, var(--text-2xl));
+    line-height: clamp(var(--leading-lg), 1.35, var(--leading-2xl));
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--tracking-normal);
+  }
+  
+  .text-fluid-body {
+    font-size: clamp(var(--text-sm), 1.8vw, var(--text-lg));
+    line-height: clamp(var(--leading-sm), 1.5, var(--leading-lg));
+    font-weight: var(--font-weight-body);
+    letter-spacing: var(--tracking-body);
+  }
+  
+  /* Breakpoint-Specific Typography Utilities */
+  @media (max-width: 640px) {
+    .text-mobile-optimized {
+      font-size: var(--text-base);
+      line-height: var(--leading-relaxed);
+      letter-spacing: var(--tracking-relaxed);
+    }
+    
+    .text-mobile-heading {
+      font-size: var(--text-2xl);
+      line-height: var(--leading-2xl);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: var(--tracking-heading);
+    }
+    
+    .text-mobile-metric {
+      font-size: var(--text-xl);
+      line-height: var(--leading-xl);
+      font-weight: var(--font-weight-bold);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+  
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .text-tablet-optimized {
+      font-size: var(--text-md);
+      line-height: var(--leading-md);
+      letter-spacing: var(--tracking-body);
+    }
+    
+    .text-tablet-heading {
+      font-size: var(--text-3xl);
+      line-height: var(--leading-3xl);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: var(--tracking-heading);
+    }
+  }
+  
+  @media (min-width: 1025px) {
+    .text-desktop-optimized {
+      font-size: var(--text-lg);
+      line-height: var(--leading-lg);
+      letter-spacing: var(--tracking-body);
+    }
+    
+    .text-desktop-heading {
+      font-size: var(--text-4xl);
+      line-height: var(--leading-4xl);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: var(--tracking-heading);
+    }
+  }
+  
+  /* Typography Hierarchy Enhancement Classes */
+  .typography-hierarchy-tight {
+    --heading-margin-top: var(--spacing-4);
+    --heading-margin-bottom: var(--spacing-2);
+    --paragraph-spacing: var(--spacing-3);
+  }
+  
+  .typography-hierarchy-normal {
+    --heading-margin-top: var(--spacing-8);
+    --heading-margin-bottom: var(--spacing-4);
+    --paragraph-spacing: var(--spacing-4);
+  }
+  
+  .typography-hierarchy-loose {
+    --heading-margin-top: var(--spacing-12);
+    --heading-margin-bottom: var(--spacing-6);
+    --paragraph-spacing: var(--spacing-6);
+  }
+  
+  /* Content Type Specific Typography */
+  .text-article {
+    font-size: var(--text-md);
+    line-height: var(--leading-relaxed);
+    letter-spacing: var(--tracking-relaxed);
+    color: var(--foreground);
+    max-width: 65ch;
+  }
+  
+  .text-article h1,
+  .text-article h2,
+  .text-article h3,
+  .text-article h4,
+  .text-article h5,
+  .text-article h6 {
+    margin-top: var(--heading-margin-top);
+    margin-bottom: var(--heading-margin-bottom);
+    color: var(--foreground);
+  }
+  
+  .text-article p {
+    margin-bottom: var(--paragraph-spacing);
+  }
+  
+  .text-dashboard-metric {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-2xl);
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  
+  .text-dashboard-label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--leading-sm);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  
+  .text-data-table-header {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-sm);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  
+  .text-data-table-cell {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--leading-sm);
+    letter-spacing: var(--tracking-normal);
+    color: var(--foreground);
+  }
+  
+  .text-data-table-numeric {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--leading-sm);
+    letter-spacing: var(--tracking-normal);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--foreground);
   }
 }
 
