@@ -666,13 +666,13 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                           className="flex-1"
                         />
                         {selectedCurrency !== baseCurrency && (
-                          <div className="text-xs text-muted-foreground whitespace-nowrap">
+                          <div className="text-form-hint text-muted-foreground whitespace-nowrap">
                             1 {baseCurrency} = {fxRate.toFixed(6)} {selectedCurrency}
                           </div>
                         )}
                       </div>
                       {selectedCurrency !== baseCurrency && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-form-hint text-muted-foreground">
                           Rate automatically fetched from live sources
                         </p>
                       )}
@@ -684,7 +684,7 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                   {/* Line Items */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium">Line Items</h3>
+                      <h3 className="text-heading-5">Line Items</h3>
                       <Button type="button" onClick={handleAddItem} data-testid="button-add-item">
                         <Plus className="h-4 w-4 mr-2" />
                         Add Item
@@ -801,7 +801,7 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-sm font-medium mb-2">Quotation Summary</div>
+                      <div className="text-form-label mb-2">Quotation Summary</div>
                       
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Subtotal:</span>
@@ -840,19 +840,19 @@ export default function QuotationForm({ quotation, isOpen, onClose, onSuccess }:
                       <Separator />
                       
                       <div className="flex justify-between items-center py-2">
-                        <span className="font-bold text-lg">Total:</span>
+                        <span className="font-bold text-metric-value">Total:</span>
                         <CurrencyDisplay
                           amount={form.watch("totalAmount") || "0"}
                           currency={selectedCurrency}
                           showConversion={selectedCurrency !== baseCurrency}
                           baseCurrency={baseCurrency}
                           data-testid="text-total"
-                          className="font-bold text-lg"
+                          className="font-bold text-metric-value"
                         />
                       </div>
                       
                       {selectedCurrency !== baseCurrency && (
-                        <div className="text-xs text-muted-foreground pt-2 border-t">
+                        <div className="text-form-hint text-muted-foreground pt-2 border-t">
                           <div className="flex items-center gap-1">
                             <TrendingUp className="h-3 w-3" />
                             Exchange rate: 1 {baseCurrency} = {fxRate.toFixed(6)} {selectedCurrency}

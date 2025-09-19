@@ -457,7 +457,56 @@
   --border-item: hsl(214.3, 31.8%, 12%);
   --divider-main: hsl(214.3, 31.8%, 20%);
   --divider-subtle: hsl(214.3, 31.8%, 8%);
-  
+}
+
+/* Comprehensive Semantic Spacing Utility Classes */
+.content-gap {
+  gap: var(--content-gap);
+}
+
+.item-gap {
+  gap: var(--item-gap);
+}
+
+.compact-gap {
+  gap: var(--compact-gap);
+}
+
+.section-spacing {
+  margin-bottom: var(--section-spacing-md);
+}
+
+.section-spacing-sm {
+  margin-bottom: var(--section-spacing-sm);
+}
+
+.section-spacing-lg {
+  margin-bottom: var(--section-spacing-lg);
+}
+
+.paragraph-spacing {
+  margin-bottom: var(--paragraph-spacing);
+}
+
+.paragraph-spacing-tight {
+  margin-bottom: var(--paragraph-spacing-tight);
+}
+
+.paragraph-spacing-loose {
+  margin-bottom: var(--paragraph-spacing-loose);
+}
+
+.heading-margin {
+  margin-top: var(--heading-margin-top);
+  margin-bottom: var(--heading-margin-bottom);
+}
+
+.heading-margin-sm {
+  margin-top: var(--heading-margin-top-sm);
+  margin-bottom: var(--heading-margin-bottom-sm);
+}
+
+.dark {
   /* Dark Theme Entity Colors */
   /* Customer Colors */
   --customer-bg: hsl(199, 89%, 58%);

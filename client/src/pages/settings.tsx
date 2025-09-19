@@ -129,7 +129,7 @@ export default function Settings() {
       return (
         <div className="flex items-center space-x-2">
           <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm text-muted-foreground">{label} configured</span>
+          <span className="text-body-small text-muted-foreground">{label} configured</span>
           <Badge variant="secondary" className="bg-green-100 text-green-800">Active</Badge>
         </div>
       );
@@ -138,7 +138,7 @@ export default function Settings() {
     return (
       <div className="flex items-center space-x-2">
         <XCircle className="h-4 w-4 text-red-600" />
-        <span className="text-sm text-muted-foreground">{label} not configured</span>
+        <span className="text-body-small text-muted-foreground">{label} not configured</span>
         <Badge variant="destructive">Inactive</Badge>
       </div>
     );
@@ -171,7 +171,7 @@ export default function Settings() {
                 {healthLoading ? (
                   <div className="flex items-center space-x-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Checking system status...</span>
+                    <span className="text-body-small text-muted-foreground">Checking system status...</span>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -197,19 +197,19 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 {/* OpenAI Status */}
                 <div className="space-y-3">
-                  <Label className="text-base font-medium">OpenAI Integration</Label>
+                  <Label className="font-medium">OpenAI Integration</Label>
                   <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="space-y-1">
                       <div className="font-medium">API Connection Status</div>
                       {healthStatus?.openaiConfigured ? (
                         <div className="flex items-center space-x-2">
                           <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="text-sm text-green-600">Connected and configured</span>
+                          <span className="text-body-small text-green-600">Connected and configured</span>
                         </div>
                       ) : (
                         <div className="flex items-center space-x-2">
                           <XCircle className="h-4 w-4 text-red-600" />
-                          <span className="text-sm text-red-600">Not configured</span>
+                          <span className="text-body-small text-red-600">Not configured</span>
                         </div>
                       )}
                     </div>
@@ -220,7 +220,7 @@ export default function Settings() {
 
                 {/* AI Features Toggle */}
                 <div className="space-y-4">
-                  <Label className="text-base font-medium">AI Features</Label>
+                  <Label className="font-medium">AI Features</Label>
                   
                   <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="space-y-1">

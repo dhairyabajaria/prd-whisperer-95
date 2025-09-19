@@ -876,8 +876,8 @@ export default function Purchases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Total Purchase Orders</p>
-                <h3 className="text-2xl font-bold" data-testid="text-total-purchase-orders">
+                <p className="text-body-small text-muted-foreground">Total Purchase Orders</p>
+                <h3 className="text-metric-value" data-testid="text-total-purchase-orders">
                   {dashboardMetrics?.totalPurchaseOrders || 0}
                 </h3>
               </div>
@@ -892,8 +892,8 @@ export default function Purchases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Pending Approvals</p>
-                <h3 className="text-2xl font-bold" data-testid="text-pending-approvals">
+                <p className="text-body-small text-muted-foreground">Pending Approvals</p>
+                <h3 className="text-metric-value" data-testid="text-pending-approvals">
                   {dashboardMetrics?.pendingApprovals || 0}
                 </h3>
               </div>
@@ -908,8 +908,8 @@ export default function Purchases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Total Purchase Value</p>
-                <h3 className="text-2xl font-bold" data-testid="text-total-purchase-value">
+                <p className="text-body-small text-muted-foreground">Total Purchase Value</p>
+                <h3 className="text-metric-value" data-testid="text-total-purchase-value">
                   {formatCurrency(dashboardMetrics?.totalPurchaseValue || 0)}
                 </h3>
               </div>
@@ -924,8 +924,8 @@ export default function Purchases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Matching Exceptions</p>
-                <h3 className="text-2xl font-bold" data-testid="text-matching-exceptions">
+                <p className="text-body-small text-muted-foreground">Matching Exceptions</p>
+                <h3 className="text-metric-value" data-testid="text-matching-exceptions">
                   {dashboardMetrics?.matchingExceptions || 0}
                 </h3>
               </div>
@@ -957,7 +957,7 @@ export default function Purchases() {
                   <div key={supplier.supplierId} className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{supplier.supplierName}</div>
-                      <div className="text-sm text-muted-foreground">{supplier.orderCount} orders</div>
+                      <div className="text-body-small text-muted-foreground">{supplier.orderCount} orders</div>
                     </div>
                     <div className="font-bold">{formatCurrency(supplier.totalValue)}</div>
                   </div>

@@ -232,8 +232,8 @@ export default function Finance() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Calculator className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load financial data</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+                  <h3 className="text-heading-5 content-gap">Failed to load financial data</h3>
+                  <p className="text-body-small text-muted-foreground">Please check your connection and try again</p>
                 </div>
               </CardContent>
             </Card>
@@ -276,11 +276,11 @@ export default function Finance() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Total Revenue</p>
-                        <h3 className="text-2xl font-bold text-foreground" data-testid="text-total-revenue">
+                        <p className="text-body-small text-muted-foreground">Total Revenue</p>
+                        <h3 className="text-metric-value text-foreground" data-testid="text-total-revenue">
                           {formatCurrency(metrics.totalRevenue)}
                         </h3>
-                        <p className="text-sm text-green-600 mt-1">↗ 12.5% vs last month</p>
+                        <p className="text-body-small text-green-600 mt-1">↗ 12.5% vs last month</p>
                       </div>
                       <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                         <TrendingUp className="w-6 h-6 text-green-600" />
@@ -293,11 +293,11 @@ export default function Finance() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Outstanding Amount</p>
-                        <h3 className="text-2xl font-bold text-foreground" data-testid="text-outstanding-amount">
+                        <p className="text-body-small text-muted-foreground">Outstanding Amount</p>
+                        <h3 className="text-metric-value text-foreground" data-testid="text-outstanding-amount">
                           {formatCurrency(metrics.outstandingAmount)}
                         </h3>
-                        <p className="text-sm text-red-600 mt-1">↓ 8 overdue invoices</p>
+                        <p className="text-body-small text-red-600 mt-1">↓ 8 overdue invoices</p>
                       </div>
                       <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                         <AlertCircle className="w-6 h-6 text-red-600" />
@@ -310,11 +310,11 @@ export default function Finance() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Paid Invoices</p>
-                        <h3 className="text-2xl font-bold text-foreground" data-testid="text-paid-invoices">
+                        <p className="text-body-small text-muted-foreground">Paid Invoices</p>
+                        <h3 className="text-metric-value text-foreground" data-testid="text-paid-invoices">
                           {filteredInvoices.filter(inv => inv.status === 'paid').length}
                         </h3>
-                        <p className="text-sm text-blue-600 mt-1">This month</p>
+                        <p className="text-body-small text-blue-600 mt-1">This month</p>
                       </div>
                       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                         <CheckCircle className="w-6 h-6 text-blue-600" />
@@ -327,11 +327,11 @@ export default function Finance() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Pending Invoices</p>
-                        <h3 className="text-2xl font-bold text-foreground" data-testid="text-pending-invoices">
+                        <p className="text-body-small text-muted-foreground">Pending Invoices</p>
+                        <h3 className="text-metric-value text-foreground" data-testid="text-pending-invoices">
                           {filteredInvoices.filter(inv => inv.status === 'sent' || inv.status === 'draft').length}
                         </h3>
-                        <p className="text-sm text-orange-600 mt-1">Awaiting payment</p>
+                        <p className="text-body-small text-orange-600 mt-1">Awaiting payment</p>
                       </div>
                       <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                         <Clock className="w-6 h-6 text-orange-600" />
@@ -559,13 +559,13 @@ export default function Finance() {
                     <table className="w-full">
                       <thead className="bg-muted/50">
                         <tr className="text-left">
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Invoice #</th>
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Customer</th>
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Date</th>
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Due Date</th>
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Amount</th>
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Invoice #</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Customer</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Due Date</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Amount</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-table-header text-muted-foreground uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">

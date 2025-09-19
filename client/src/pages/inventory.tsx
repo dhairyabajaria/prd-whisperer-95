@@ -134,8 +134,8 @@ export default function InventoryPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load inventory</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+                  <h3 className="text-heading-5 content-gap">Failed to load inventory</h3>
+                  <p className="text-body-small text-muted-foreground">Please check your connection and try again</p>
                 </div>
               </CardContent>
             </Card>

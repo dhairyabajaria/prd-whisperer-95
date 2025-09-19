@@ -237,8 +237,8 @@ export default function ProductsPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load products</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+                  <h3 className="text-heading-5 content-gap">Failed to load products</h3>
+                  <p className="text-body-small text-muted-foreground">Please check your connection and try again</p>
                 </div>
               </CardContent>
             </Card>
@@ -460,8 +460,8 @@ export default function ProductsPage() {
                           render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                               <div className="space-y-0.5">
-                                <FormLabel className="text-base">Requires Batch Tracking</FormLabel>
-                                <div className="text-sm text-muted-foreground">
+                                <FormLabel>Requires Batch Tracking</FormLabel>
+                                <div className="text-body-small text-muted-foreground">
                                   Enable batch and lot number tracking
                                 </div>
                               </div>
@@ -482,8 +482,8 @@ export default function ProductsPage() {
                           render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                               <div className="space-y-0.5">
-                                <FormLabel className="text-base">Active Product</FormLabel>
-                                <div className="text-sm text-muted-foreground">
+                                <FormLabel>Active Product</FormLabel>
+                                <div className="text-body-small text-muted-foreground">
                                   Product is available for operations
                                 </div>
                               </div>
@@ -553,8 +553,8 @@ export default function ProductsPage() {
                 <CardContent className="pt-6">
                   <div className="text-center py-12">
                     <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No products found</h3>
-                    <p className="text-muted-foreground text-sm mb-4">
+                    <h3 className="text-heading-5 content-gap">No products found</h3>
+                    <p className="text-body-small text-muted-foreground mb-4">
                       {searchTerm || categoryFilter !== "all" 
                         ? "Try adjusting your search or filters"
                         : "Get started by creating your first product"
@@ -586,14 +586,14 @@ export default function ProductsPage() {
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <CardTitle className="text-lg line-clamp-2 text-[var(--product-fg)] font-semibold">{product.name}</CardTitle>
+                            <CardTitle className="text-heading-5 line-clamp-2 text-[var(--product-fg)]">{product.name}</CardTitle>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge data-testid={`badge-sku-${product.id}`} className="badge-product-light text-xs">
+                              <Badge data-testid={`badge-sku-${product.id}`} className="badge-product-light">
                                 <Hash className="h-3 w-3 mr-1" />
                                 {product.sku}
                               </Badge>
                               {!product.isActive && (
-                                <Badge className="badge-error-light text-xs">Inactive</Badge>
+                                <Badge className="badge-error-light">Inactive</Badge>
                               )}
                             </div>
                           </div>
@@ -620,10 +620,10 @@ export default function ProductsPage() {
                       
                       <CardContent className="space-y-4">
                         {product.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">{product.description}</p>
+                          <p className="text-body-small text-muted-foreground line-clamp-2">{product.description}</p>
                         )}
                         
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-2 gap-4 text-table-cell">
                           {product.category && (
                             <div className="flex items-center gap-2">
                               <Pill className="h-4 w-4 text-muted-foreground" />
@@ -639,7 +639,7 @@ export default function ProductsPage() {
                           )}
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-2 gap-4 text-table-cell">
                           <div>
                             <div className="text-muted-foreground">Unit Price</div>
                             <div data-testid={`text-price-${product.id}`} className="font-medium">
@@ -655,7 +655,7 @@ export default function ProductsPage() {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-2 gap-4 text-table-cell">
                           <div>
                             <div className="text-muted-foreground">Batch Tracking</div>
                             <div className="flex items-center gap-1">
@@ -684,7 +684,7 @@ export default function ProductsPage() {
                           </div>
                         </div>
                         
-                        <div className="text-xs text-muted-foreground pt-2 border-t">
+                        <div className="text-form-hint text-muted-foreground pt-2 border-t">
                           Created: {format(new Date(product.createdAt!), "MMM dd, yyyy")}
                         </div>
                       </CardContent>

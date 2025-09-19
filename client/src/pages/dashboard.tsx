@@ -203,7 +203,7 @@ export default function Dashboard() {
               {/* Quick Actions */}
               <Card data-testid="card-quick-actions">
                 <CardHeader className="border-b border-border">
-                  <h3 className="text-lg font-semibold text-foreground">Quick Actions</h3>
+                  <h3 className="text-heading-5 text-foreground">Quick Actions</h3>
                 </CardHeader>
                 <CardContent className="p-6 space-y-3">
                   <Button
@@ -263,7 +263,7 @@ export default function Dashboard() {
               {/* Warehouse Status */}
               <Card data-testid="card-warehouse-status">
                 <CardHeader className="border-b border-border">
-                  <h3 className="text-lg font-semibold text-foreground">Warehouse Status</h3>
+                  <h3 className="text-heading-5 text-foreground">Warehouse Status</h3>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
@@ -271,7 +271,7 @@ export default function Dashboard() {
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                       <span className="text-foreground">Main Warehouse</span>
                     </div>
-                    <span className="text-muted-foreground text-sm">85% capacity</span>
+                    <span className="text-muted-foreground text-body-small">85% capacity</span>
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -279,7 +279,7 @@ export default function Dashboard() {
                       <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                       <span className="text-foreground">Cold Storage</span>
                     </div>
-                    <span className="text-muted-foreground text-sm">62% capacity</span>
+                    <span className="text-muted-foreground text-body-small">62% capacity</span>
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -287,7 +287,7 @@ export default function Dashboard() {
                       <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                       <span className="text-foreground">Branch - Luanda</span>
                     </div>
-                    <span className="text-muted-foreground text-sm">95% capacity</span>
+                    <span className="text-muted-foreground text-body-small">95% capacity</span>
                   </div>
                 </CardContent>
               </Card>
@@ -302,7 +302,7 @@ export default function Dashboard() {
             <Card variant="elevated" data-testid="card-recent-transactions">
               <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-foreground">Recent Transactions</h3>
+                  <h3 className="text-heading-5 text-foreground">Recent Transactions</h3>
                   <div className="flex items-center space-x-2">
                     <Select value={transactionFilter} onValueChange={setTransactionFilter}>
                       <SelectTrigger className="w-48" data-testid="select-transaction-filter">
@@ -317,7 +317,7 @@ export default function Dashboard() {
                     </Select>
                     <Button 
                       variant="link" 
-                      className="text-primary hover:text-primary/80 text-sm p-0"
+                      className="text-primary hover:text-primary/80 text-body-small p-0"
                       data-testid="button-view-all-transactions"
                     >
                       View All
@@ -330,12 +330,12 @@ export default function Dashboard() {
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr className="text-left">
-                        <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Customer/Supplier</th>
-                        <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Amount</th>
-                        <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-muted-foreground text-xs uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-muted-foreground text-table-header uppercase">Date</th>
+                        <th className="px-6 py-3 text-muted-foreground text-table-header uppercase">Type</th>
+                        <th className="px-6 py-3 text-muted-foreground text-table-header uppercase">Customer/Supplier</th>
+                        <th className="px-6 py-3 text-muted-foreground text-table-header uppercase">Amount</th>
+                        <th className="px-6 py-3 text-muted-foreground text-table-header uppercase">Status</th>
+                        <th className="px-6 py-3 text-muted-foreground text-table-header uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -374,7 +374,7 @@ export default function Dashboard() {
                                 <p className="font-medium text-foreground" data-testid={`text-party-${transaction.id}`}>
                                   {transaction.customerOrSupplier}
                                 </p>
-                                <p className="text-muted-foreground text-sm" data-testid={`text-reference-${transaction.id}`}>
+                                <p className="text-muted-foreground text-table-cell" data-testid={`text-reference-${transaction.id}`}>
                                   {transaction.reference}
                                 </p>
                               </div>
@@ -385,7 +385,7 @@ export default function Dashboard() {
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <span className={`px-2 py-1 text-xs rounded-full capitalize ${getStatusColor(transaction.status)}`}
+                              <span className={`px-2 py-1 text-badge rounded-full capitalize ${getStatusColor(transaction.status)}`}
                                     data-testid={`badge-status-${transaction.id}`}>
                                 {transaction.status}
                               </span>
@@ -393,14 +393,14 @@ export default function Dashboard() {
                             <td className="px-6 py-4 space-x-2">
                               <Button 
                                 variant="link" 
-                                className="text-primary hover:text-primary/80 text-sm p-0"
+                                className="text-primary hover:text-primary/80 text-table-cell p-0"
                                 data-testid={`button-view-${transaction.id}`}
                               >
                                 View
                               </Button>
                               <Button 
                                 variant="link" 
-                                className="text-muted-foreground hover:text-foreground text-sm p-0"
+                                className="text-muted-foreground hover:text-foreground text-table-cell p-0"
                                 data-testid={`button-print-${transaction.id}`}
                               >
                                 Print
@@ -414,7 +414,7 @@ export default function Dashboard() {
                             <div className="flex flex-col items-center justify-center">
                               <FileText className="w-12 h-12 text-muted-foreground/40 mb-2" />
                               <p className="text-muted-foreground">No transactions found</p>
-                              <p className="text-sm text-muted-foreground/70">
+                              <p className="text-body-small text-muted-foreground/70">
                                 {transactionFilter !== 'all' ? 'Try changing the filter' : 'Transactions will appear here as they are created'}
                               </p>
                             </div>

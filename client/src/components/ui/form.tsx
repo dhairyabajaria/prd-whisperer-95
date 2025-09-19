@@ -134,7 +134,7 @@ const FormDescription = React.forwardRef<
     <p
       ref={ref}
       id={formDescriptionId}
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-form-hint text-muted-foreground", className)}
       {...props}
     />
   )
@@ -156,7 +156,7 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn("text-sm font-medium text-destructive", className)}
+      className={cn("text-form-error font-medium text-destructive", className)}
       {...props}
     >
       {body}
@@ -203,7 +203,7 @@ const FormHint = React.forwardRef<
       ref={ref}
       id={`${formDescriptionId}-hint`}
       className={cn(
-        "flex items-start gap-2 p-3 rounded-md border text-sm",
+        "flex items-start gap-2 p-3 rounded-md border text-form-hint",
         colorClasses[type],
         className
       )}
@@ -245,7 +245,7 @@ const FormRequirements = React.forwardRef<
         <div
           key={req.key}
           className={cn(
-            "flex items-center gap-2 text-sm",
+            "flex items-center gap-2 text-form-hint",
             req.satisfied
               ? "text-green-600 dark:text-green-400"
               : "text-muted-foreground"

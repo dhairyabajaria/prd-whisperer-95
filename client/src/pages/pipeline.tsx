@@ -159,11 +159,11 @@ function LeadCard({ lead, onEdit, onViewActivities, onConvert, isDragging = fals
         {/* Header with lead name and score */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm truncate" data-testid={`text-lead-name-${lead.id}`}>
+            <h4 className="text-card-title truncate" data-testid={`text-lead-name-${lead.id}`}>
               {lead.firstName} {lead.lastName}
             </h4>
             {lead.company && (
-              <p className="text-xs text-muted-foreground truncate" data-testid={`text-company-${lead.id}`}>
+              <p className="text-form-hint text-muted-foreground truncate" data-testid={`text-company-${lead.id}`}>
                 <Building2 className="w-3 h-3 inline mr-1" />
                 {lead.company}
               </p>
@@ -171,7 +171,7 @@ function LeadCard({ lead, onEdit, onViewActivities, onConvert, isDragging = fals
           </div>
           <div className="flex items-center space-x-1">
             <Badge 
-              className={`text-xs px-2 py-1 ${getScoreColor(lead.leadScore || 0)}`}
+              className={`text-badge px-2 py-1 ${getScoreColor(lead.leadScore || 0)}`}
               data-testid={`badge-score-${lead.id}`}
             >
               <Star className="w-3 h-3 mr-1" />
@@ -198,13 +198,13 @@ function LeadCard({ lead, onEdit, onViewActivities, onConvert, isDragging = fals
 
         {/* Value and time in stage */}
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs">
+          <div className="text-form-hint">
             <span className="text-muted-foreground">Value: </span>
             <span className="font-medium" data-testid={`text-value-${lead.id}`}>
               {formatCurrency(lead.estimatedValue || 0)}
             </span>
           </div>
-          <div className={`text-xs ${stageDaysColor}`} data-testid={`text-days-in-stage-${lead.id}`}>
+          <div className={`text-form-hint ${stageDaysColor}`} data-testid={`text-days-in-stage-${lead.id}`}>
             <Clock className="w-3 h-3 inline mr-1" />
             {daysInStage}d
           </div>
@@ -214,11 +214,11 @@ function LeadCard({ lead, onEdit, onViewActivities, onConvert, isDragging = fals
         {lead.assignedToUser && (
           <div className="flex items-center mb-3">
             <Avatar className="w-5 h-5 mr-2">
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="text-form-hint">
                 {lead.assignedToUser.firstName?.[0] || lead.assignedToUser.email?.[0] || '?'}
               </AvatarFallback>
             </Avatar>
-            <span className="text-xs text-muted-foreground truncate" data-testid={`text-assigned-to-${lead.id}`}>
+            <span className="text-form-hint text-muted-foreground truncate" data-testid={`text-assigned-to-${lead.id}`}>
               {lead.assignedToUser.firstName && lead.assignedToUser.lastName 
                 ? `${lead.assignedToUser.firstName} ${lead.assignedToUser.lastName}`
                 : lead.assignedToUser.email?.split('@')[0] || 'Unknown'
@@ -229,7 +229,7 @@ function LeadCard({ lead, onEdit, onViewActivities, onConvert, isDragging = fals
 
         {/* Last activity */}
         {lead.lastActivityAt && (
-          <div className="text-xs text-muted-foreground mb-3">
+          <div className="text-form-hint text-muted-foreground mb-3">
             <Activity className="w-3 h-3 inline mr-1" />
             Last activity: {formatDistanceToNow(new Date(lead.lastActivityAt), { addSuffix: true })}
           </div>
@@ -267,7 +267,7 @@ function LeadCard({ lead, onEdit, onViewActivities, onConvert, isDragging = fals
             <Button 
               size="sm" 
               variant="outline" 
-              className="h-6 px-2 text-xs"
+              className="h-6 px-2 text-button-small"
               onClick={(e) => {
                 e.stopPropagation();
                 onConvert(lead);
@@ -321,10 +321,10 @@ function PipelineColumn({ stage, leads, onEdit, onViewActivities, onConvert }: P
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${stage.color}`}></div>
-          <h3 className="font-semibold text-sm" data-testid={`text-stage-title-${stage.id}`}>
+          <h3 className="text-card-title" data-testid={`text-stage-title-${stage.id}`}>
             {stage.label}
           </h3>
-          <Badge variant="secondary" className="text-xs" data-testid={`badge-count-${stage.id}`}>
+          <Badge variant="secondary" className="text-badge" data-testid={`badge-count-${stage.id}`}>
             {stageLeads.length}
           </Badge>
         </div>
@@ -332,7 +332,7 @@ function PipelineColumn({ stage, leads, onEdit, onViewActivities, onConvert }: P
 
       {/* Column value */}
       <div className="mb-4">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-form-hint text-muted-foreground">
           Total Value: <span className="font-medium" data-testid={`text-stage-value-${stage.id}`}>
             {formatCurrency(totalValue)}
           </span>
@@ -352,7 +352,7 @@ function PipelineColumn({ stage, leads, onEdit, onViewActivities, onConvert }: P
             />
           ))}
           {stageLeads.length === 0 && (
-            <div className="text-center text-muted-foreground text-sm py-8">
+            <div className="text-center text-muted-foreground text-body-small py-8">
               No leads in this stage
             </div>
           )}
@@ -858,8 +858,8 @@ export default function Pipeline() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Total Leads</p>
-                        <h3 className="text-2xl font-bold" data-testid="text-total-leads">
+                        <p className="text-muted-foreground text-metric-label">Total Leads</p>
+                        <h3 className="text-metric-value font-bold" data-testid="text-total-leads">
                           {pipelineAnalytics.totalLeads}
                         </h3>
                       </div>
@@ -874,8 +874,8 @@ export default function Pipeline() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Pipeline Value</p>
-                        <h3 className="text-2xl font-bold" data-testid="text-pipeline-value">
+                        <p className="text-muted-foreground text-metric-label">Pipeline Value</p>
+                        <h3 className="text-metric-value font-bold" data-testid="text-pipeline-value">
                           {formatCurrency(pipelineAnalytics.totalValue)}
                         </h3>
                       </div>
@@ -890,7 +890,7 @@ export default function Pipeline() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm">Conversion Rate</p>
+                        <p className="text-muted-foreground text-metric-label">Conversion Rate</p>
                         <h3 className="text-2xl font-bold" data-testid="text-conversion-rate">
                           {pipelineAnalytics.conversionRate.toFixed(1)}%
                         </h3>

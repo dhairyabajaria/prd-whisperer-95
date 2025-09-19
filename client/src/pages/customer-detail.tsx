@@ -359,8 +359,8 @@ export default function CustomerDetail() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Users className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Customer Not Found</h3>
-                  <p className="text-muted-foreground text-sm mb-4">The customer you're looking for doesn't exist or has been removed.</p>
+                  <h3 className="text-heading-5 mb-2">Customer Not Found</h3>
+                  <p className="text-muted-foreground text-body-small mb-4">The customer you're looking for doesn't exist or has been removed.</p>
                   <Link href="/customers">
                     <Button variant="outline" className="mt-4">
                       <ArrowLeft className="h-4 w-4 mr-2" />
@@ -416,7 +416,7 @@ export default function CustomerDetail() {
         <main className="flex-1 overflow-auto">
           <div className="p-6 space-y-6">
             {/* Breadcrumbs */}
-            <div className="flex items-center text-sm text-muted-foreground">
+            <div className="flex items-center text-body-small text-muted-foreground">
               <Link href="/customers" data-testid="link-customers-breadcrumb">
                 <Button variant="ghost" size="sm" className="h-auto p-0 font-normal">
                   <ArrowLeft className="h-4 w-4 mr-1" />
@@ -438,10 +438,10 @@ export default function CustomerDetail() {
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h1 className="text-2xl font-bold text-foreground mb-2" data-testid="text-customer-name">
+                      <h1 className="text-heading-4 font-bold text-foreground mb-2" data-testid="text-customer-name">
                         {customer?.name}
                       </h1>
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                      <div className="flex items-center space-x-4 text-body-small text-muted-foreground">
                         {customer?.email && (
                           <div className="flex items-center" data-testid="text-customer-email">
                             <Mail className="h-4 w-4 mr-1" />
@@ -465,7 +465,7 @@ export default function CustomerDetail() {
                         {/* Sentiment Indicator */}
                         <div className="flex items-center space-x-2">
                           <SentimentIcon className={`h-4 w-4 ${sentiment.color}`} />
-                          <span className="text-sm" data-testid={`text-sentiment-${sentiment.label.toLowerCase()}`}>
+                          <span className="text-body-small" data-testid={`text-sentiment-${sentiment.label.toLowerCase()}`}>
                             {sentiment.label}
                             {sentiment.score && (
                               <span className="ml-1 text-muted-foreground">
@@ -478,7 +478,7 @@ export default function CustomerDetail() {
                         {/* Credit Status */}
                         <div className="flex items-center space-x-2">
                           <CreditCard className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm" data-testid="text-credit-status">
+                          <span className="text-body-small" data-testid="text-credit-status">
                             {creditInfo ? formatCurrency(creditInfo.availableCredit) : 'N/A'} available
                           </span>
                         </div>
@@ -670,20 +670,20 @@ export default function CustomerDetail() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Tax ID</label>
-                        <p className="text-sm" data-testid="text-customer-tax-id">{customer?.taxId || 'Not provided'}</p>
+                        <label className="text-form-label text-muted-foreground">Tax ID</label>
+                        <p className="text-body-small" data-testid="text-customer-tax-id">{customer?.taxId || 'Not provided'}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Payment Terms</label>
-                        <p className="text-sm" data-testid="text-customer-payment-terms">{customer?.paymentTerms || 30} days</p>
+                        <label className="text-form-label text-muted-foreground">Payment Terms</label>
+                        <p className="text-body-small" data-testid="text-customer-payment-terms">{customer?.paymentTerms || 30} days</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Created Date</label>
-                        <p className="text-sm" data-testid="text-customer-created-date">{formatDate(customer?.createdAt || '')}</p>
+                        <label className="text-form-label text-muted-foreground">Created Date</label>
+                        <p className="text-body-small" data-testid="text-customer-created-date">{formatDate(customer?.createdAt || '')}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                        <p className="text-sm" data-testid="text-customer-updated-date">{formatDate(customer?.updatedAt || '')}</p>
+                        <label className="text-form-label text-muted-foreground">Last Updated</label>
+                        <p className="text-body-small" data-testid="text-customer-updated-date">{formatDate(customer?.updatedAt || '')}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -698,18 +698,18 @@ export default function CustomerDetail() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Credit Limit</label>
-                        <p className="text-lg font-semibold" data-testid="text-credit-limit">
+                        <label className="text-form-label text-muted-foreground">Credit Limit</label>
+                        <p className="text-metric-value" data-testid="text-credit-limit">
                           {formatCurrency(customer?.creditLimit || '0')}
                         </p>
                       </div>
                       {creditInfo && (
                         <>
                           <div>
-                            <label className="text-sm font-medium text-muted-foreground mb-2 block">Credit Utilization</label>
+                            <label className="text-form-label text-muted-foreground mb-2 block">Credit Utilization</label>
                             <div className="space-y-2">
                               <Progress value={creditUtil.percentage} className="h-2" data-testid="progress-credit-utilization" />
-                              <div className="flex justify-between text-sm">
+                              <div className="flex justify-between text-body-small">
                                 <span data-testid="text-credit-used">{formatCurrency(creditInfo.outstandingAmount)} used</span>
                                 <span data-testid="text-credit-available">{formatCurrency(creditInfo.availableCredit)} available</span>
                               </div>
@@ -738,24 +738,24 @@ export default function CustomerDetail() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Total Revenue</label>
-                        <p className="text-lg font-semibold text-green-600" data-testid="text-total-revenue">
+                        <label className="text-form-label text-muted-foreground">Total Revenue</label>
+                        <p className="text-metric-value text-green-600" data-testid="text-total-revenue">
                           {formatCurrency(revenue.total)}
                         </p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Average Order Value</label>
-                        <p className="text-sm" data-testid="text-average-order-value">
+                        <label className="text-form-label text-muted-foreground">Average Order Value</label>
+                        <p className="text-metric-value" data-testid="text-average-order-value">
                           {formatCurrency(revenue.average)}
                         </p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Total Orders</label>
-                        <p className="text-sm" data-testid="text-total-orders">{salesOrders?.length || 0}</p>
+                        <label className="text-form-label text-muted-foreground">Total Orders</label>
+                        <p className="text-metric-value" data-testid="text-total-orders">{salesOrders?.length || 0}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Last Order</label>
-                        <p className="text-sm" data-testid="text-last-order-date">
+                        <label className="text-form-label text-muted-foreground">Last Order</label>
+                        <p className="text-body-small" data-testid="text-last-order-date">
                           {revenue.lastOrder ? formatDate(revenue.lastOrder.createdAt) : 'No orders'}
                         </p>
                       </div>
@@ -780,28 +780,28 @@ export default function CustomerDetail() {
                     ) : sentimentSummary?.summary ? (
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-green-600" data-testid="text-positive-communications">
+                          <p className="text-metric-value font-bold text-green-600" data-testid="text-positive-communications">
                             {sentimentSummary.summary.positiveCommunications}
                           </p>
-                          <p className="text-sm text-muted-foreground">Positive</p>
+                          <p className="text-metric-label text-muted-foreground">Positive</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-blue-600" data-testid="text-neutral-communications">
+                          <p className="text-metric-value font-bold text-blue-600" data-testid="text-neutral-communications">
                             {sentimentSummary.summary.neutralCommunications}
                           </p>
-                          <p className="text-sm text-muted-foreground">Neutral</p>
+                          <p className="text-metric-label text-muted-foreground">Neutral</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-red-600" data-testid="text-negative-communications">
+                          <p className="text-metric-value font-bold text-red-600" data-testid="text-negative-communications">
                             {sentimentSummary.summary.negativeCommunications}
                           </p>
-                          <p className="text-sm text-muted-foreground">Negative</p>
+                          <p className="text-metric-label text-muted-foreground">Negative</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold" data-testid="text-total-communications-sentiment">
+                          <p className="text-metric-value font-bold" data-testid="text-total-communications-sentiment">
                             {sentimentSummary.summary.totalCommunications}
                           </p>
-                          <p className="text-sm text-muted-foreground">Total</p>
+                          <p className="text-metric-label text-muted-foreground">Total</p>
                         </div>
                       </div>
                     ) : (

@@ -237,8 +237,8 @@ export default function SuppliersPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Building2 className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load suppliers</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+                  <h3 className="text-heading-5 content-gap">Failed to load suppliers</h3>
+                  <p className="text-body-small text-muted-foreground">Please check your connection and try again</p>
                 </div>
               </CardContent>
             </Card>
@@ -445,8 +445,8 @@ export default function SuppliersPage() {
                           render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                               <div className="space-y-0.5">
-                                <FormLabel className="text-base">Active Supplier</FormLabel>
-                                <div className="text-sm text-muted-foreground">
+                                <FormLabel>Active Supplier</FormLabel>
+                                <div className="text-body-small text-muted-foreground">
                                   Supplier is available for operations
                                 </div>
                               </div>
@@ -510,8 +510,8 @@ export default function SuppliersPage() {
                 <CardContent className="pt-6">
                   <div className="text-center py-12">
                     <Building2 className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No suppliers found</h3>
-                    <p className="text-muted-foreground text-sm mb-4">
+                    <h3 className="text-heading-5 content-gap">No suppliers found</h3>
+                    <p className="text-body-small text-muted-foreground mb-4">
                       {searchTerm || countryFilter !== "all" 
                         ? "Try adjusting your search or filters"
                         : "Get started by creating your first supplier"
@@ -540,10 +540,10 @@ export default function SuppliersPage() {
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="text-lg line-clamp-2 text-[var(--supplier-fg)] font-semibold">{supplier.name}</CardTitle>
+                          <CardTitle className="text-heading-5 line-clamp-2 text-[var(--supplier-fg)]">{supplier.name}</CardTitle>
                           <div className="flex items-center gap-2 mt-1">
                             {supplier.country && (
-                              <Badge data-testid={`badge-country-${supplier.id}`} className="badge-supplier-light text-xs">
+                              <Badge data-testid={`badge-country-${supplier.id}`} className="badge-supplier-light">
                                 <Globe className="h-3 w-3 mr-1" />
                                 {supplier.country}
                               </Badge>

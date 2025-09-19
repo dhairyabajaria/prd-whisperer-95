@@ -227,8 +227,8 @@ export default function WarehousesPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Warehouse className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Failed to load warehouses</h3>
-                  <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+                  <h3 className="text-heading-5 content-gap">Failed to load warehouses</h3>
+                  <p className="text-body-small text-muted-foreground">Please check your connection and try again</p>
                 </div>
               </CardContent>
             </Card>
@@ -379,8 +379,8 @@ export default function WarehousesPage() {
                         render={({ field }) => (
                           <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Active Warehouse</FormLabel>
-                              <div className="text-sm text-muted-foreground">
+                              <FormLabel>Active Warehouse</FormLabel>
+                              <div className="text-body-small text-muted-foreground">
                                 Warehouse is available for operations
                               </div>
                             </div>
@@ -449,8 +449,8 @@ export default function WarehousesPage() {
                 <CardContent className="pt-6">
                   <div className="text-center py-12">
                     <Warehouse className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No warehouses found</h3>
-                    <p className="text-muted-foreground text-sm mb-4">
+                    <h3 className="text-heading-5 content-gap">No warehouses found</h3>
+                    <p className="text-body-small text-muted-foreground mb-4">
                       {searchTerm || typeFilter !== "all" 
                         ? "Try adjusting your search or filters"
                         : "Get started by creating your first warehouse"
@@ -479,9 +479,9 @@ export default function WarehousesPage() {
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="text-lg line-clamp-2">{warehouse.name}</CardTitle>
+                          <CardTitle className="text-heading-5 line-clamp-2">{warehouse.name}</CardTitle>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge data-testid={`badge-type-${warehouse.id}`} variant="secondary" className="text-xs">
+                            <Badge data-testid={`badge-type-${warehouse.id}`} variant="secondary">
                               <Building className="h-3 w-3 mr-1" />
                               {getWarehouseTypeLabel(warehouse.type)}
                             </Badge>
