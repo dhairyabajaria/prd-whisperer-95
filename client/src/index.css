@@ -1,3 +1,8 @@
+/* Modern Font Imports - Must be at the top */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,9 +40,50 @@
   --sidebar-accent-foreground: hsl(203.8863, 88.2845%, 53.1373%);
   --sidebar-border: hsl(205.0000, 25.0000%, 90.5882%);
   --sidebar-ring: hsl(202.8169, 89.1213%, 53.1373%);
-  --font-sans: "Segoe UI", system-ui, sans-serif;
-  --font-serif: "Times New Roman", serif;
-  --font-mono: "Courier New", monospace;
+  /* Enhanced Typography Scale */
+  --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "PT Serif", "Georgia", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Courier New", monospace;
+  --font-display: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  /* Typography Scale Variables */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+  --text-5xl: 3rem;        /* 48px */
+  --text-6xl: 3.75rem;     /* 60px */
+  --text-7xl: 4.5rem;      /* 72px */
+  
+  /* Line Height Scale */
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+  
+  /* Letter Spacing Scale */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+  
+  /* Enhanced Spacing System */
+  --spacing-xs: 0.125rem;   /* 2px */
+  --spacing-sm: 0.25rem;    /* 4px */
+  --spacing-base: 0.5rem;   /* 8px */
+  --spacing-md: 0.75rem;    /* 12px */
+  --spacing-lg: 1rem;       /* 16px */
+  --spacing-xl: 1.5rem;     /* 24px */
+  --spacing-2xl: 2rem;      /* 32px */
+  --spacing-3xl: 3rem;      /* 48px */
+  
   --radius: 8px;
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
@@ -47,8 +93,6 @@
   --shadow-lg: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00), 0px 4px 6px -1px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
   --shadow-xl: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00), 0px 8px 10px -1px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
 }
 
 .dark {
@@ -93,6 +137,7 @@
 
   html, body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     height: 100vh; /* fallback */
     height: 100dvh;
     margin: 0;
@@ -104,6 +149,118 @@
     height: 100dvh;
     background-color: hsl(var(--background));
     overflow: hidden;
+  }
+
+}
+
+@layer utilities {
+  /* Numeric Typography Utilities */
+  .num-tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  
+  .num-oldstyle {
+    font-variant-numeric: oldstyle-nums;
+  }
+  
+  .num-proportional {
+    font-variant-numeric: proportional-nums;
+  }
+  
+  /* Enhanced Typography Utilities */
+  .text-display-hero {
+    font-size: var(--text-7xl);
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+  }
+  
+  .text-display-large {
+    font-size: var(--text-6xl);
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  .text-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  
+  .text-heading-1 {
+    font-size: var(--text-4xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  
+  .text-heading-2 {
+    font-size: var(--text-3xl);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-snug);
+  }
+  
+  .text-heading-3 {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-snug);
+  }
+  
+  .text-heading-4 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-body-large {
+    font-size: var(--text-lg);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-relaxed);
+  }
+  
+  .text-body {
+    font-size: var(--text-base);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-body-small {
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-caption {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    line-height: var(--leading-normal);
+    text-transform: uppercase;
+  }
+  
+  .text-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
+  }
+  
+  .text-code {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-normal);
   }
 }
 
