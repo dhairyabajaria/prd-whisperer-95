@@ -73,8 +73,8 @@ function App() {
         console.error("🚨 Critical App Error:", error, errorInfo);
         
         // Send to analytics in production
-        if (!import.meta.env.DEV && window.gtag) {
-          window.gtag('event', 'exception', {
+        if (!import.meta.env.DEV && (window as any).gtag) {
+          (window as any).gtag('event', 'exception', {
             description: `Critical App Error: ${error.message}`,
             fatal: true
           });

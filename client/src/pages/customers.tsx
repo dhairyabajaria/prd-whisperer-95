@@ -30,11 +30,12 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { toast } = useToast();
-  const errorHandler = useQueryErrorHandler(refetchCustomers);
 
   const { data: customersData, isLoading, error, refetch: refetchCustomers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
+
+  const errorHandler = useQueryErrorHandler(refetchCustomers);
 
   // Ensure customers is always an array
   const customers = Array.isArray(customersData) ? customersData : [];
