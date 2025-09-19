@@ -84,6 +84,19 @@
   --spacing-2xl: 2rem;      /* 32px */
   --spacing-3xl: 3rem;      /* 48px */
   
+  /* Visual Separation Variables */
+  --section-gap: 2.5rem;           /* 40px - Gap between major content sections */
+  --content-gap: 1.5rem;           /* 24px - Gap between content groups */
+  --item-gap: 1rem;                /* 16px - Gap between related items */
+  --compact-gap: 0.75rem;          /* 12px - Compact spacing for dense layouts */
+  
+  /* Border and Divider Variables */
+  --border-section: hsl(214.3, 31.8%, 91.4%);     /* Light border for section separation */
+  --border-content: hsl(220, 13%, 91%);           /* Subtle border for content groups */
+  --border-item: hsl(214.3, 31.8%, 93%);          /* Very light border for item separation */
+  --divider-main: hsl(214.3, 31.8%, 87%);         /* Main content dividers */
+  --divider-subtle: hsl(214.3, 31.8%, 95%);       /* Subtle dividers within content */
+  
   /* Entity Color Coding System */
   /* Customer Colors */
   --customer-bg: hsl(199, 89%, 48%);
@@ -206,6 +219,13 @@
   --sidebar-accent-foreground: hsl(203.7736, 87.6033%, 52.5490%);
   --sidebar-border: hsl(205.7143, 15.7895%, 26.0784%);
   --sidebar-ring: hsl(202.8169, 89.1213%, 53.1373%);
+  
+  /* Dark Theme Visual Separation */
+  --border-section: hsl(210, 5.2632%, 18%);
+  --border-content: hsl(220, 13%, 15%);
+  --border-item: hsl(214.3, 31.8%, 12%);
+  --divider-main: hsl(214.3, 31.8%, 20%);
+  --divider-subtle: hsl(214.3, 31.8%, 8%);
   
   /* Dark Theme Entity Colors */
   /* Customer Colors */
