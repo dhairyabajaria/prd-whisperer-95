@@ -842,10 +842,12 @@ export default function CustomerDetail() {
                                   </p>
                                 </div>
                                 <Badge
-                                  variant={
-                                    order.status === 'delivered' ? 'default' :
-                                    order.status === 'shipped' ? 'secondary' :
-                                    order.status === 'cancelled' ? 'destructive' : 'outline'
+                                  className={
+                                    order.status === 'delivered' ? 'badge-completed' :
+                                    order.status === 'shipped' ? 'badge-active' :
+                                    order.status === 'confirmed' ? 'badge-approved' :
+                                    order.status === 'draft' ? 'badge-draft' :
+                                    order.status === 'cancelled' ? 'badge-cancelled' : 'badge-pending'
                                   }
                                   data-testid={`badge-order-status-${index}`}
                                 >
@@ -897,11 +899,12 @@ export default function CustomerDetail() {
                                   </p>
                                 </div>
                                 <Badge
-                                  variant={
-                                    quotation.status === 'accepted' ? 'default' :
-                                    quotation.status === 'sent' ? 'secondary' :
-                                    quotation.status === 'expired' ? 'destructive' :
-                                    quotation.status === 'cancelled' ? 'destructive' : 'outline'
+                                  className={
+                                    quotation.status === 'accepted' ? 'badge-approved' :
+                                    quotation.status === 'sent' ? 'badge-active' :
+                                    quotation.status === 'draft' ? 'badge-draft' :
+                                    quotation.status === 'expired' ? 'badge-expired' :
+                                    quotation.status === 'cancelled' ? 'badge-cancelled' : 'badge-pending'
                                   }
                                   data-testid={`badge-quotation-status-${index}`}
                                 >

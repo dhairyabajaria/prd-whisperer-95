@@ -32,10 +32,10 @@ export default function ExpiryAlertsTable() {
   };
 
   const getStatusColor = (daysLeft: number | null) => {
-    if (daysLeft === null) return "bg-gray-100 text-gray-800";
-    if (daysLeft <= 30) return "bg-red-100 text-red-800";
-    if (daysLeft <= 60) return "bg-orange-100 text-orange-800";
-    return "bg-yellow-100 text-yellow-800";
+    if (daysLeft === null) return "badge-expired-light";
+    if (daysLeft <= 30) return "badge-error-light";
+    if (daysLeft <= 60) return "badge-warning-light";
+    return "badge-pending-light";
   };
 
   const getStatusText = (daysLeft: number | null) => {

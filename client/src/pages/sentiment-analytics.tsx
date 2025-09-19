@@ -313,6 +313,17 @@ export default function SentimentAnalytics() {
     { date: '2024-01-29', positive: 75, neutral: 15, negative: 10, average: 0.65 },
   ];
 
+  // Calculate derived metrics - MOVED UP to be available for other calculations
+  const totalCommunications = globalSentiment?.global?.totalCommunications || 0;
+  const averageSentiment = globalSentiment?.global?.averageScore || 0;
+
+  // Chart configurations - MOVED UP to be available for drill-down state
+  const pieChartData = globalSentiment ? [
+    { name: 'Positive', value: globalSentiment.global.sentimentDistribution.positive || 0, color: '#10b981' },
+    { name: 'Neutral', value: globalSentiment.global.sentimentDistribution.neutral || 0, color: '#f59e0b' },
+    { name: 'Negative', value: globalSentiment.global.sentimentDistribution.negative || 0, color: '#ef4444' },
+  ] : [];
+
   // Enhanced chart data with drill-down capabilities
   const [drillDownState, setDrillDownState] = React.useState<{
     levels: DrillDownLevel[]
@@ -414,12 +425,7 @@ export default function SentimentAnalytics() {
     }
   ];
 
-  // Chart configurations
-  const pieChartData = globalSentiment ? [
-    { name: 'Positive', value: globalSentiment.global.sentimentDistribution.positive || 0, color: '#10b981' },
-    { name: 'Neutral', value: globalSentiment.global.sentimentDistribution.neutral || 0, color: '#f59e0b' },
-    { name: 'Negative', value: globalSentiment.global.sentimentDistribution.negative || 0, color: '#ef4444' },
-  ] : [];
+  // Chart configurations - MOVED TO EARLIER SECTION
 
   const chartConfig = {
     positive: {
@@ -454,9 +460,7 @@ export default function SentimentAnalytics() {
     return matchesSearch && matchesType;
   }) || [];
 
-  // Calculate derived metrics
-  const totalCommunications = globalSentiment?.global?.totalCommunications || 0;
-  const averageSentiment = globalSentiment?.global?.averageScore || 0;
+  // Calculate derived metrics - MOVED TO EARLIER SECTION
   
   // Calculate trend based on sentiment score (mock trend since backend doesn't provide it)
   const sentimentTrend = useMemo(() => {
@@ -1006,7 +1010,7 @@ export default function SentimentAnalytics() {
                               >
                                 {customer.customerName}
                               </Link>
-                              <Badge className="bg-green-100 text-green-800" data-testid={`badge-sentiment-${customer.customerId}`}>
+                              <Badge className="badge-success-light" data-testid={`badge-sentiment-${customer.customerId}`}>
                                 {formatSentimentScore(customer.averageSentiment)}
                               </Badge>
                             </div>
@@ -1046,7 +1050,7 @@ export default function SentimentAnalytics() {
                               >
                                 {customer.customerName}
                               </Link>
-                              <Badge className="bg-red-100 text-red-800" data-testid={`badge-sentiment-${customer.customerId}`}>
+                              <Badge className="badge-error-light" data-testid={`badge-sentiment-${customer.customerId}`}>
                                 {formatSentimentScore(customer.averageSentiment)}
                               </Badge>
                             </div>

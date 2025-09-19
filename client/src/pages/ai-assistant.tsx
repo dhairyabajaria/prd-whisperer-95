@@ -171,17 +171,17 @@ export default function AIAssistant() {
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case 'high': return 'border-red-200 bg-red-50';
-      case 'medium': return 'border-orange-200 bg-orange-50';
-      default: return 'border-blue-200 bg-blue-50';
+      case 'high': return 'border-2 border-[var(--priority-critical-bg)] bg-[var(--status-error-bg-light)]';
+      case 'medium': return 'border-2 border-[var(--priority-medium-bg)] bg-[var(--status-warning-bg-light)]';
+      default: return 'border border-[var(--ai-bg)] bg-[var(--ai-bg-light)]';
     }
   };
 
   const getUrgencyBadgeColor = (urgency: string) => {
     switch (urgency) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-blue-100 text-blue-800';
+      case 'high': return 'badge-priority-critical';
+      case 'medium': return 'badge-priority-medium';
+      default: return 'badge-ai';
     }
   };
 

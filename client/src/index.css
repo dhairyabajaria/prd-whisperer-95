@@ -263,15 +263,148 @@
   --status-processing-bg-light: hsl(262, 83%, 95%);
   --status-processing-fg-light: hsl(262, 83%, 25%);
   
+  /* Additional Entity Colors for Comprehensive Coverage */
+  /* Warehouse Colors - Earth tones for storage/logistics */
+  --warehouse-bg: hsl(30, 60%, 55%);
+  --warehouse-fg: hsl(0, 0%, 100%);
+  --warehouse-bg-light: hsl(30, 60%, 95%);
+  --warehouse-fg-light: hsl(30, 60%, 20%);
+  
+  /* User/HR Colors - Professional indigo for people management */
+  --user-bg: hsl(235, 72%, 55%);
+  --user-fg: hsl(0, 0%, 100%);
+  --user-bg-light: hsl(235, 72%, 95%);
+  --user-fg-light: hsl(235, 72%, 25%);
+  
+  /* Finance Colors - Professional purple for financial operations */
+  --finance-bg: hsl(280, 65%, 55%);
+  --finance-fg: hsl(0, 0%, 100%);
+  --finance-bg-light: hsl(280, 65%, 95%);
+  --finance-fg-light: hsl(280, 65%, 25%);
+  
+  /* POS Colors - Warm rose for retail/sales */
+  --pos-bg: hsl(340, 75%, 55%);
+  --pos-fg: hsl(0, 0%, 100%);
+  --pos-bg-light: hsl(340, 75%, 95%);
+  --pos-fg-light: hsl(340, 75%, 25%);
+  
+  /* Marketing Colors - Vibrant pink for campaigns/outreach */
+  --marketing-bg: hsl(320, 70%, 55%);
+  --marketing-fg: hsl(0, 0%, 100%);
+  --marketing-bg-light: hsl(320, 70%, 95%);
+  --marketing-fg-light: hsl(320, 70%, 25%);
+  
+  /* AI/Analytics Colors - Cyan for technology/intelligence */
+  --ai-bg: hsl(185, 85%, 45%);
+  --ai-fg: hsl(0, 0%, 100%);
+  --ai-bg-light: hsl(185, 85%, 95%);
+  --ai-fg-light: hsl(185, 85%, 20%);
+  
+  /* Regulatory Colors - Neutral gray for compliance/official */
+  --regulatory-bg: hsl(210, 15%, 45%);
+  --regulatory-fg: hsl(0, 0%, 100%);
+  --regulatory-bg-light: hsl(210, 15%, 95%);
+  --regulatory-fg-light: hsl(210, 15%, 25%);
+  
+  /* Communication Colors - Blue-gray for messaging/CRM */
+  --communication-bg: hsl(220, 25%, 50%);
+  --communication-fg: hsl(0, 0%, 100%);
+  --communication-bg-light: hsl(220, 25%, 95%);
+  --communication-fg-light: hsl(220, 25%, 25%);
+  
+  /* Lead/Pipeline Colors - Teal variant for sales pipeline */
+  --lead-bg: hsl(165, 70%, 45%);
+  --lead-fg: hsl(0, 0%, 100%);
+  --lead-bg-light: hsl(165, 70%, 95%);
+  --lead-fg-light: hsl(165, 70%, 20%);
+  
+  /* Purchase Colors - Green variant for procurement */
+  --purchase-bg: hsl(140, 65%, 50%);
+  --purchase-fg: hsl(0, 0%, 100%);
+  --purchase-bg-light: hsl(140, 65%, 95%);
+  --purchase-fg-light: hsl(140, 65%, 20%);
+
+  /* Enhanced Status Color System - Specific semantic colors */
+  /* Draft Status - Light blue for work in progress */
+  --status-draft-bg: hsl(210, 50%, 60%);
+  --status-draft-fg: hsl(0, 0%, 100%);
+  --status-draft-bg-light: hsl(210, 50%, 95%);
+  --status-draft-fg-light: hsl(210, 50%, 25%);
+  
+  /* Pending Status - Amber for awaiting action */
+  --status-pending-bg: hsl(38, 85%, 65%);
+  --status-pending-fg: hsl(38, 85%, 10%);
+  --status-pending-bg-light: hsl(38, 85%, 95%);
+  --status-pending-fg-light: hsl(38, 85%, 20%);
+  
+  /* Active Status - Green for currently active */
+  --status-active-bg: hsl(142, 70%, 55%);
+  --status-active-fg: hsl(0, 0%, 100%);
+  --status-active-bg-light: hsl(142, 70%, 95%);
+  --status-active-fg-light: hsl(142, 70%, 20%);
+  
+  /* Completed Status - Dark green for finished */
+  --status-completed-bg: hsl(125, 65%, 45%);
+  --status-completed-fg: hsl(0, 0%, 100%);
+  --status-completed-bg-light: hsl(125, 65%, 95%);
+  --status-completed-fg-light: hsl(125, 65%, 20%);
+  
+  /* Cancelled Status - Red for terminated */
+  --status-cancelled-bg: hsl(355, 75%, 55%);
+  --status-cancelled-fg: hsl(0, 0%, 100%);
+  --status-cancelled-bg-light: hsl(355, 75%, 95%);
+  --status-cancelled-fg-light: hsl(355, 75%, 25%);
+  
+  /* Failed Status - Dark red for errors */
+  --status-failed-bg: hsl(0, 80%, 50%);
+  --status-failed-fg: hsl(0, 0%, 100%);
+  --status-failed-bg-light: hsl(0, 80%, 95%);
+  --status-failed-fg-light: hsl(0, 80%, 25%);
+  
+  /* Approved Status - Blue-green for approval */
+  --status-approved-bg: hsl(170, 60%, 50%);
+  --status-approved-fg: hsl(0, 0%, 100%);
+  --status-approved-bg-light: hsl(170, 60%, 95%);
+  --status-approved-fg-light: hsl(170, 60%, 20%);
+  
+  /* Rejected Status - Orange-red for rejection */
+  --status-rejected-bg: hsl(15, 75%, 55%);
+  --status-rejected-fg: hsl(0, 0%, 100%);
+  --status-rejected-bg-light: hsl(15, 75%, 95%);
+  --status-rejected-fg-light: hsl(15, 75%, 25%);
+  
+  /* Expired Status - Gray for time-based expiry */
+  --status-expired-bg: hsl(0, 0%, 50%);
+  --status-expired-fg: hsl(0, 0%, 100%);
+  --status-expired-bg-light: hsl(0, 0%, 95%);
+  --status-expired-fg-light: hsl(0, 0%, 25%);
+  
+  /* Overdue Status - Dark orange for past due */
+  --status-overdue-bg: hsl(25, 85%, 55%);
+  --status-overdue-fg: hsl(0, 0%, 100%);
+  --status-overdue-bg-light: hsl(25, 85%, 95%);
+  --status-overdue-fg-light: hsl(25, 85%, 20%);
+
   /* Priority Level Colors */
   --priority-critical-bg: hsl(0, 84%, 60%);
   --priority-critical-fg: hsl(0, 0%, 100%);
+  --priority-critical-bg-light: hsl(0, 84%, 95%);
+  --priority-critical-fg-light: hsl(0, 84%, 25%);
+  
   --priority-high-bg: hsl(27, 87%, 67%);
   --priority-high-fg: hsl(0, 0%, 100%);
+  --priority-high-bg-light: hsl(27, 87%, 95%);
+  --priority-high-fg-light: hsl(27, 87%, 20%);
+  
   --priority-medium-bg: hsl(43, 74%, 66%);
   --priority-medium-fg: hsl(43, 74%, 10%);
+  --priority-medium-bg-light: hsl(43, 74%, 95%);
+  --priority-medium-fg-light: hsl(43, 74%, 20%);
+  
   --priority-low-bg: hsl(125, 71%, 66%);
   --priority-low-fg: hsl(0, 0%, 100%);
+  --priority-low-bg-light: hsl(125, 71%, 95%);
+  --priority-low-fg-light: hsl(125, 71%, 20%);
   
   --radius: 8px;
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169, 89.1213%, 53.1373%, 0.00);
@@ -388,6 +521,128 @@
   --status-processing-bg-light: hsl(262, 30%, 15%);
   --status-processing-fg-light: hsl(262, 83%, 85%);
   
+  /* Dark Theme Additional Entity Colors */
+  /* Warehouse Colors */
+  --warehouse-bg: hsl(30, 60%, 65%);
+  --warehouse-fg: hsl(0, 0%, 0%);
+  --warehouse-bg-light: hsl(30, 30%, 15%);
+  --warehouse-fg-light: hsl(30, 60%, 80%);
+  
+  /* User/HR Colors */
+  --user-bg: hsl(235, 72%, 65%);
+  --user-fg: hsl(0, 0%, 0%);
+  --user-bg-light: hsl(235, 30%, 15%);
+  --user-fg-light: hsl(235, 72%, 80%);
+  
+  /* Finance Colors */
+  --finance-bg: hsl(280, 65%, 65%);
+  --finance-fg: hsl(0, 0%, 0%);
+  --finance-bg-light: hsl(280, 30%, 15%);
+  --finance-fg-light: hsl(280, 65%, 80%);
+  
+  /* POS Colors */
+  --pos-bg: hsl(340, 75%, 65%);
+  --pos-fg: hsl(0, 0%, 0%);
+  --pos-bg-light: hsl(340, 30%, 15%);
+  --pos-fg-light: hsl(340, 75%, 80%);
+  
+  /* Marketing Colors */
+  --marketing-bg: hsl(320, 70%, 65%);
+  --marketing-fg: hsl(0, 0%, 0%);
+  --marketing-bg-light: hsl(320, 30%, 15%);
+  --marketing-fg-light: hsl(320, 70%, 80%);
+  
+  /* AI/Analytics Colors */
+  --ai-bg: hsl(185, 85%, 55%);
+  --ai-fg: hsl(0, 0%, 0%);
+  --ai-bg-light: hsl(185, 30%, 15%);
+  --ai-fg-light: hsl(185, 85%, 80%);
+  
+  /* Regulatory Colors */
+  --regulatory-bg: hsl(210, 15%, 55%);
+  --regulatory-fg: hsl(0, 0%, 0%);
+  --regulatory-bg-light: hsl(210, 15%, 15%);
+  --regulatory-fg-light: hsl(210, 15%, 80%);
+  
+  /* Communication Colors */
+  --communication-bg: hsl(220, 25%, 60%);
+  --communication-fg: hsl(0, 0%, 0%);
+  --communication-bg-light: hsl(220, 25%, 15%);
+  --communication-fg-light: hsl(220, 25%, 80%);
+  
+  /* Lead/Pipeline Colors */
+  --lead-bg: hsl(165, 70%, 55%);
+  --lead-fg: hsl(0, 0%, 0%);
+  --lead-bg-light: hsl(165, 30%, 15%);
+  --lead-fg-light: hsl(165, 70%, 80%);
+  
+  /* Purchase Colors */
+  --purchase-bg: hsl(140, 65%, 60%);
+  --purchase-fg: hsl(0, 0%, 0%);
+  --purchase-bg-light: hsl(140, 30%, 15%);
+  --purchase-fg-light: hsl(140, 65%, 80%);
+
+  /* Dark Theme Enhanced Status Colors */
+  /* Draft Status */
+  --status-draft-bg: hsl(210, 50%, 70%);
+  --status-draft-fg: hsl(0, 0%, 0%);
+  --status-draft-bg-light: hsl(210, 30%, 15%);
+  --status-draft-fg-light: hsl(210, 50%, 80%);
+  
+  /* Pending Status */
+  --status-pending-bg: hsl(38, 85%, 75%);
+  --status-pending-fg: hsl(38, 85%, 5%);
+  --status-pending-bg-light: hsl(38, 30%, 15%);
+  --status-pending-fg-light: hsl(38, 85%, 80%);
+  
+  /* Active Status */
+  --status-active-bg: hsl(142, 70%, 65%);
+  --status-active-fg: hsl(0, 0%, 0%);
+  --status-active-bg-light: hsl(142, 30%, 15%);
+  --status-active-fg-light: hsl(142, 70%, 80%);
+  
+  /* Completed Status */
+  --status-completed-bg: hsl(125, 65%, 55%);
+  --status-completed-fg: hsl(0, 0%, 0%);
+  --status-completed-bg-light: hsl(125, 30%, 15%);
+  --status-completed-fg-light: hsl(125, 65%, 80%);
+  
+  /* Cancelled Status */
+  --status-cancelled-bg: hsl(355, 75%, 65%);
+  --status-cancelled-fg: hsl(0, 0%, 0%);
+  --status-cancelled-bg-light: hsl(355, 30%, 15%);
+  --status-cancelled-fg-light: hsl(355, 75%, 80%);
+  
+  /* Failed Status */
+  --status-failed-bg: hsl(0, 80%, 60%);
+  --status-failed-fg: hsl(0, 0%, 0%);
+  --status-failed-bg-light: hsl(0, 30%, 15%);
+  --status-failed-fg-light: hsl(0, 80%, 80%);
+  
+  /* Approved Status */
+  --status-approved-bg: hsl(170, 60%, 60%);
+  --status-approved-fg: hsl(0, 0%, 0%);
+  --status-approved-bg-light: hsl(170, 30%, 15%);
+  --status-approved-fg-light: hsl(170, 60%, 80%);
+  
+  /* Rejected Status */
+  --status-rejected-bg: hsl(15, 75%, 65%);
+  --status-rejected-fg: hsl(0, 0%, 0%);
+  --status-rejected-bg-light: hsl(15, 30%, 15%);
+  --status-rejected-fg-light: hsl(15, 75%, 80%);
+  
+  /* Expired Status */
+  --status-expired-bg: hsl(0, 0%, 60%);
+  --status-expired-fg: hsl(0, 0%, 0%);
+  --status-expired-bg-light: hsl(0, 0%, 15%);
+  --status-expired-fg-light: hsl(0, 0%, 80%);
+  
+  /* Overdue Status */
+  --status-overdue-bg: hsl(25, 85%, 65%);
+  --status-overdue-fg: hsl(0, 0%, 0%);
+  --status-overdue-bg-light: hsl(25, 30%, 15%);
+  --status-overdue-fg-light: hsl(25, 85%, 80%);
+
   /* Dark Theme Priority Colors */
   --priority-critical-bg: hsl(0, 84%, 70%);
   --priority-critical-fg: hsl(0, 0%, 0%);
@@ -569,8 +824,274 @@
     background-color: var(--priority-low-bg);
     color: var(--priority-low-fg);
   }
+
+  /* Additional Entity Badge Utilities */
+  .badge-warehouse {
+    background-color: var(--warehouse-bg);
+    color: var(--warehouse-fg);
+  }
   
+  .badge-warehouse-light {
+    background-color: var(--warehouse-bg-light);
+    color: var(--warehouse-fg-light);
+  }
   
+  .badge-user {
+    background-color: var(--user-bg);
+    color: var(--user-fg);
+  }
+  
+  .badge-user-light {
+    background-color: var(--user-bg-light);
+    color: var(--user-fg-light);
+  }
+  
+  .badge-finance {
+    background-color: var(--finance-bg);
+    color: var(--finance-fg);
+  }
+  
+  .badge-finance-light {
+    background-color: var(--finance-bg-light);
+    color: var(--finance-fg-light);
+  }
+  
+  .badge-pos {
+    background-color: var(--pos-bg);
+    color: var(--pos-fg);
+  }
+  
+  .badge-pos-light {
+    background-color: var(--pos-bg-light);
+    color: var(--pos-fg-light);
+  }
+  
+  .badge-marketing {
+    background-color: var(--marketing-bg);
+    color: var(--marketing-fg);
+  }
+  
+  .badge-marketing-light {
+    background-color: var(--marketing-bg-light);
+    color: var(--marketing-fg-light);
+  }
+  
+  .badge-ai {
+    background-color: var(--ai-bg);
+    color: var(--ai-fg);
+  }
+  
+  .badge-ai-light {
+    background-color: var(--ai-bg-light);
+    color: var(--ai-fg-light);
+  }
+  
+  .badge-regulatory {
+    background-color: var(--regulatory-bg);
+    color: var(--regulatory-fg);
+  }
+  
+  .badge-regulatory-light {
+    background-color: var(--regulatory-bg-light);
+    color: var(--regulatory-fg-light);
+  }
+  
+  .badge-communication {
+    background-color: var(--communication-bg);
+    color: var(--communication-fg);
+  }
+  
+  .badge-communication-light {
+    background-color: var(--communication-bg-light);
+    color: var(--communication-fg-light);
+  }
+  
+  .badge-lead {
+    background-color: var(--lead-bg);
+    color: var(--lead-fg);
+  }
+  
+  .badge-lead-light {
+    background-color: var(--lead-bg-light);
+    color: var(--lead-fg-light);
+  }
+  
+  .badge-purchase {
+    background-color: var(--purchase-bg);
+    color: var(--purchase-fg);
+  }
+  
+  .badge-purchase-light {
+    background-color: var(--purchase-bg-light);
+    color: var(--purchase-fg-light);
+  }
+
+  /* Enhanced Status Badge Utilities */
+  .badge-draft {
+    background-color: var(--status-draft-bg);
+    color: var(--status-draft-fg);
+  }
+  
+  .badge-draft-light {
+    background-color: var(--status-draft-bg-light);
+    color: var(--status-draft-fg-light);
+  }
+  
+  .badge-pending {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-fg);
+  }
+  
+  .badge-pending-light {
+    background-color: var(--status-pending-bg-light);
+    color: var(--status-pending-fg-light);
+  }
+  
+  .badge-active {
+    background-color: var(--status-active-bg);
+    color: var(--status-active-fg);
+  }
+  
+  .badge-active-light {
+    background-color: var(--status-active-bg-light);
+    color: var(--status-active-fg-light);
+  }
+  
+  .badge-completed {
+    background-color: var(--status-completed-bg);
+    color: var(--status-completed-fg);
+  }
+  
+  .badge-completed-light {
+    background-color: var(--status-completed-bg-light);
+    color: var(--status-completed-fg-light);
+  }
+  
+  .badge-cancelled {
+    background-color: var(--status-cancelled-bg);
+    color: var(--status-cancelled-fg);
+  }
+  
+  .badge-cancelled-light {
+    background-color: var(--status-cancelled-bg-light);
+    color: var(--status-cancelled-fg-light);
+  }
+  
+  .badge-failed {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-fg);
+  }
+  
+  .badge-failed-light {
+    background-color: var(--status-failed-bg-light);
+    color: var(--status-failed-fg-light);
+  }
+  
+  .badge-approved {
+    background-color: var(--status-approved-bg);
+    color: var(--status-approved-fg);
+  }
+  
+  .badge-approved-light {
+    background-color: var(--status-approved-bg-light);
+    color: var(--status-approved-fg-light);
+  }
+  
+  .badge-rejected {
+    background-color: var(--status-rejected-bg);
+    color: var(--status-rejected-fg);
+  }
+  
+  .badge-rejected-light {
+    background-color: var(--status-rejected-bg-light);
+    color: var(--status-rejected-fg-light);
+  }
+  
+  .badge-expired {
+    background-color: var(--status-expired-bg);
+    color: var(--status-expired-fg);
+  }
+  
+  .badge-expired-light {
+    background-color: var(--status-expired-bg-light);
+    color: var(--status-expired-fg-light);
+  }
+  
+  .badge-overdue {
+    background-color: var(--status-overdue-bg);
+    color: var(--status-overdue-fg);
+  }
+  
+  .badge-overdue-light {
+    background-color: var(--status-overdue-bg-light);
+    color: var(--status-overdue-fg-light);
+  }
+
+  /* Card and Border Color Utilities */
+  .border-customer {
+    border-color: var(--customer-bg);
+  }
+  
+  .border-product {
+    border-color: var(--product-bg);
+  }
+  
+  .border-supplier {
+    border-color: var(--supplier-bg);
+  }
+  
+  .border-order {
+    border-color: var(--order-bg);
+  }
+  
+  .border-invoice {
+    border-color: var(--invoice-bg);
+  }
+  
+  .border-inventory {
+    border-color: var(--inventory-bg);
+  }
+  
+  .border-warehouse {
+    border-color: var(--warehouse-bg);
+  }
+  
+  .border-user {
+    border-color: var(--user-bg);
+  }
+  
+  .border-finance {
+    border-color: var(--finance-bg);
+  }
+  
+  .border-pos {
+    border-color: var(--pos-bg);
+  }
+  
+  .border-marketing {
+    border-color: var(--marketing-bg);
+  }
+  
+  .border-ai {
+    border-color: var(--ai-bg);
+  }
+  
+  .border-regulatory {
+    border-color: var(--regulatory-bg);
+  }
+  
+  .border-communication {
+    border-color: var(--communication-bg);
+  }
+  
+  .border-lead {
+    border-color: var(--lead-bg);
+  }
+  
+  .border-purchase {
+    border-color: var(--purchase-bg);
+  }
+
   /* Enhanced Typography Utilities - Updated with New Variables */
   .text-display-hero {
     font-size: var(--text-9xl);

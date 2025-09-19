@@ -292,32 +292,32 @@ export default function HRPage() {
 
   const getEmploymentStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'terminated': return 'bg-red-100 text-red-800';
-      case 'suspended': return 'bg-orange-100 text-orange-800';
-      case 'probation': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'badge-active';
+      case 'inactive': return 'badge-expired';
+      case 'terminated': return 'badge-cancelled';
+      case 'suspended': return 'badge-rejected';
+      case 'probation': return 'badge-pending';
+      default: return 'badge-expired';
     }
   };
 
   const getPayrollStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'processing': return 'bg-blue-100 text-blue-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'badge-completed';
+      case 'processing': return 'badge-processing';
+      case 'draft': return 'badge-draft';
+      case 'cancelled': return 'badge-cancelled';
+      default: return 'badge-expired';
     }
   };
 
   const getReviewStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'in_review': return 'bg-blue-100 text-blue-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'archived': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'badge-completed';
+      case 'in_review': return 'badge-processing';
+      case 'draft': return 'badge-draft';
+      case 'archived': return 'badge-expired';
+      default: return 'badge-expired';
     }
   };
 

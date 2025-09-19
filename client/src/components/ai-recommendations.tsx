@@ -55,9 +55,9 @@ export default function AIRecommendations() {
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case 'high': return 'border-red-200 bg-red-50';
-      case 'medium': return 'border-orange-200 bg-orange-50';
-      default: return 'border-blue-200 bg-blue-50';
+      case 'high': return 'border-2 border-red-200 bg-red-50';
+      case 'medium': return 'border-2 border-orange-200 bg-orange-50';
+      default: return 'border border-blue-200 bg-blue-50';
     }
   };
 
@@ -90,7 +90,7 @@ export default function AIRecommendations() {
             <Bot className="text-primary mr-2 ai-pulse w-5 h-5" />
             AI Recommendations
             {showFallbackMessage && (
-              <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-800">
+              <Badge variant="secondary" className="ml-2 badge-warning-light">
                 Fallback Mode
               </Badge>
             )}
@@ -111,9 +111,9 @@ export default function AIRecommendations() {
       </CardHeader>
       <CardContent className="p-6 space-y-4">
         {showFallbackMessage && (
-          <Alert className="border-yellow-200 bg-yellow-50">
+          <Alert className="border-yellow-200 badge-warning-light">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
+            <AlertDescription className="text-[var(--status-warning-fg-light)]">
               AI features are using fallback data. 
               {isAdmin ? (
                 <span> Configure OpenAI API key in <a href="/settings" className="font-medium underline">Settings</a> for enhanced recommendations.</span>
